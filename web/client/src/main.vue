@@ -90,7 +90,7 @@ export default {
                     success: function(json) {
                         resolve(json);
                     },
-                    error: function() {
+                    error: function(err) {
                         reject(err);
                     },
                     beforeSend: function(xhr) {
