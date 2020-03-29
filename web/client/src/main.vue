@@ -32,7 +32,7 @@ body {
 </template>
 
 <script>
-import $ from 'jquery';
+import $ from "jquery";
 import _ from "lodash";
 import moment from "moment";
 import FinancialChartVue from "./components/charts/FinancialChart.vue";
@@ -81,39 +81,25 @@ export default {
     methods: {
         secureFetch: function(apiURL) {
             return new Promise((resolve, reject) => {
-                if (location.hostname === "localhost") {
-                    const CORSProxy = "https://cors-anywhere.herokuapp.com"; // needed to handle CORS issue
-                    const url = CORSProxy + "/" + apiURL;
-                    $.ajax({
-                        url: url,
-                        type: "GET",
-                        dataType: "json",
-                        success: function(json) {
-                            resolve(json);
-                        },
-                        error: function() {
-                            reject(err);
-                        },
-                        beforeSend: function(xhr) {
-                            xhr.setRequestHeader(
-                                "X-Requested-With",
-                                "XMLHttpRequest"
-                            );
-                        }
-                    });
-                } else {
-                    $.ajax({
-                        url: apiURL,
-                        type: "GET",
-                        dataType: "json",
-                        success: function(json) {
-                            resolve(json);
-                        },
-                        error: function() {
-                            reject(err);
-                        }
-                    });
-                }
+                const CORSProxy = "https://cors-anywhere.herokuapp.com"; // needed to handle CORS issue
+                const url = CORSProxy + "/" + apiURL;
+                $.ajax({
+                    url: url,
+                    type: "GET",
+                    dataType: "json",
+                    success: function(json) {
+                        resolve(json);
+                    },
+                    error: function() {
+                        reject(err);
+                    },
+                    beforeSend: function(xhr) {
+                        xhr.setRequestHeader(
+                            "X-Requested-With",
+                            "XMLHttpRequest"
+                        );
+                    }
+                });
             });
         },
 
@@ -133,9 +119,14 @@ export default {
                 // check if we wanna display it
                 let duration = moment.duration(now.diff(d));
                 let minutesDiff = duration.asMinutes();
-                if( minutesDiff < this.maxCandleDisplay) {
+                if (minutesDiff < this.maxCandleDisplay) {
                     // then, get open, high, low and close values
-                    let values = [parseFloat(r[1]), parseFloat(r[2]), parseFloat(r[3]), parseFloat(r[4])];
+                    let values = [
+                        parseFloat(r[1]),
+                        parseFloat(r[2]),
+                        parseFloat(r[3]),
+                        parseFloat(r[4])
+                    ];
 
                     // push result to our array
                     serie.push({ x: d, y: values });
