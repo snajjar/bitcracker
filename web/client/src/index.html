@@ -5,10 +5,39 @@
     <script src="https://unpkg.com/vue/dist/vue.js"></script>
     <script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
     <script src="./index.js"></script>
+
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Saira+Condensed&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Lato&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=PT+Serif&display=swap" rel="stylesheet">
+
+    <style>
+        h1 {
+            font-family: "PT Serif";
+            font-size: 36px;
+            margin-left: 10px;
+        }
+
+        h2 {
+            font-family: "PT Serif";
+            font-size: 24px;
+            font-weight: 300;
+        }
+
+        .separate {
+            display: inline-block;
+            font-size: 24px;
+            font-weight: 300;
+            margin-left: 5px;
+            margin-right: 5px;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Bitcracker</h1>
+    <h1 style="display: inline-block;">Bitcracker</h1>
+    <span class="separate">-</span>
+    <h2 style="display: inline-block;">Predicting bitcoin price since 1871</h2>
     <div id="app">
         <!-- component matched by the route will render here -->
         <router-view></router-view>
