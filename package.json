@@ -1,0 +1,39 @@
+{
+    "name": "bitcracker",
+    "version": "1.0.0",
+    "description": "AI-based bitcoin price prediction",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "build": "rollup -c && cp ./web/client/src/*.html public/",
+        "start": "now dev"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@fortawesome/fontawesome-free": "^5.10.2",
+        "apexcharts": "^3.17.1",
+        "bootstrap": "^4.3.1",
+        "chart.js": "^2.9.3",
+        "jquery": "^3.4.1",
+        "lodash": "^4.17.15",
+        "moment": "^2.24.0",
+        "sweetalert2": "^9.7.0",
+        "vue": "^2.6.11",
+        "vue-apexcharts": "^1.5.2",
+        "vue-chartjs": "^3.5.0",
+        "vue-router": "^3.1.6"
+    },
+    "devDependencies": {
+        "copyfiles": "^2.2.0",
+        "now": "^16.7.3",
+        "rollup": "^1.22.0",
+        "rollup-plugin-commonjs": "^10.1.0",
+        "rollup-plugin-node-resolve": "^5.2.0",
+        "rollup-plugin-postcss": "^2.0.3",
+        "rollup-plugin-replace": "^2.2.0",
+        "rollup-plugin-terser": "^5.1.2",
+        "rollup-plugin-vue": "^5.0.1",
+        "vue-template-compiler": "^2.6.10"
+    }
+}

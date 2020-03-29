@@ -1,0 +1,9 @@
+syntax: glob
+
+node_modules/
+*.orig
+*npm-debug.log
+*.lock
+**.lock
+public/*
+package-lock.json
