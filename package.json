@@ -29,6 +29,8 @@
         "vue-router": "^3.1.6"
     },
     "devDependencies": {
+        "axios": "^0.19.2",
+        "colors": "^1.4.0",
         "copyfiles": "^2.2.0",
         "now": "^16.7.3",
         "rollup": "^1.22.0",

@@ -7,6 +7,7 @@ const _ = require('lodash');
 const csv = require('./csv');
 const config = require('./config');
 const utils = require('./utils');
+const datatools = require('./datatools');
 
 // The model will take an input of size nbPeriods * nbDataByPeriod
 const nbDataInput = config.nbPeriods * config.nbDataByPeriod;
@@ -43,7 +44,6 @@ model.compile({
 const train = async function(data) {
     let inputs = [];
     let outputs = [];
-    let nbSamples = 0;
 
     // build input and output tensors from data
     // input tensors are dimension 6
@@ -70,17 +70,22 @@ const train = async function(data) {
             utils.priceScaleDown(outputData.high), // high value
             //outputData.open > outputData.close ? 0 : 1
         ]);
-
-        nbSamples++;
     }
+
+    // now, we got our sample, but we're like for increasing the model performance to work on the variations of theses data
+    //let inputVariations = datatools.computeDataVariations(inputs);
+    //let outputVariations = datatools.computeDataVariations(outputs);
+    let nbSamples = outputs.length;
 
     console.log(`[*] training AI on ${nbSamples} samples`);
 
     // build our tensors
+    // let inputTensor = tf.tensor2d(inputVariations, [nbSamples, config.nbPeriods * config.nbDataByPeriod], 'float32');
+    // let outputTensor = tf.tensor2d(outputVariations, [nbSamples, nbDataOutput], 'float32');
     let inputTensor = tf.tensor2d(inputs, [nbSamples, config.nbPeriods * config.nbDataByPeriod], 'float32');
-    inputTensor.print();
-
     let outputTensor = tf.tensor2d(outputs, [nbSamples, nbDataOutput], 'float32');
+
+    inputTensor.print();
     outputTensor.print();
 
     // train the model for each tensor
