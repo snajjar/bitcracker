@@ -6,15 +6,19 @@
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "build": "rollup -c && cp ./web/client/src/*.html public/",
-        "start": "now dev"
+        "start": "now dev",
+        "train": "node ml/train.js"
     },
     "author": "",
     "license": "ISC",
     "dependencies": {
         "@fortawesome/fontawesome-free": "^5.10.2",
+        "@tensorflow/tfjs-node": "^1.7.1",
+        "@tensorflow/tfjs-node-gpu": "^1.7.1",
         "apexcharts": "^3.17.1",
         "bootstrap": "^4.3.1",
         "chart.js": "^2.9.3",
+        "csv-parser": "^2.3.2",
         "jquery": "^3.4.1",
         "lodash": "^4.17.15",
         "moment": "^2.24.0",
