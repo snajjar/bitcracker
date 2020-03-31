@@ -19,6 +19,7 @@
         "bootstrap": "^4.3.1",
         "chart.js": "^2.9.3",
         "csv-parser": "^2.3.2",
+        "csv-writer": "^1.6.0",
         "jquery": "^3.4.1",
         "lodash": "^4.17.15",
         "moment": "^2.24.0",
@@ -26,7 +27,8 @@
         "vue": "^2.6.11",
         "vue-apexcharts": "^1.5.2",
         "vue-chartjs": "^3.5.0",
-        "vue-router": "^3.1.6"
+        "vue-router": "^3.1.6",
+        "yargs": "^15.3.1"
     },
     "devDependencies": {
         "axios": "^0.19.2",

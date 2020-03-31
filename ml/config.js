@@ -3,7 +3,7 @@ module.exports = {
     scalePrice: 10000,
 
     // number of periods of data we provide to the model to determine the output
-    nbPeriods: 52, // base for ichimoku indicator
+    nbPeriods: 26, // base for ichimoku indicator
 
     // each of theses informations are processed through sigmoid function
     // We'll create a sequential model and train it on a set of nbPeriods period
@@ -19,8 +19,8 @@ module.exports = {
 
     trainingOptions: {
         shuffle: true,
-        epochs: 100,
-        batchsize: 100,
+        epochs: 30,
+        batchsize: 10,
         validtionSplit: 0.2
     }
 }

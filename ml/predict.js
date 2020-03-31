@@ -23,6 +23,7 @@ const getBtcData = async function() {
 
     // we need the nbPeriods last items
     let relevantData = kData.slice(kData.length - config.nbPeriods);
+    relevantData = _.sortBy(relevantData, ['0']);
     let arr = [];
     _.each(relevantData, (period) => {
         arr.push(utils.priceScaleDown(parseInt(period[1]))); // open

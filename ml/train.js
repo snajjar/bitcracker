@@ -35,13 +35,15 @@ const model = tf.sequential({
     ]
 });
 
+//const adam = tf.train.adam(0.05);
+
 model.compile({
     optimizer: 'adam',
     loss: 'meanSquaredError',
     metrics: ['accuracy']
 });
 
-const train = async function(data) {
+const trainModel = async function(data) {
     let inputs = [];
     let outputs = [];
 
@@ -57,8 +59,7 @@ const train = async function(data) {
             sampleInputs.push(utils.priceScaleDown(curData.high));
             sampleInputs.push(utils.priceScaleDown(curData.low));
             sampleInputs.push(utils.priceScaleDown(curData.close));
-            sampleInputs.push(utils.priceScaleDown(curData.vwap));
-            //sampleInputs.push(curData.volume / config.scalePrice);
+            sampleInputs.push(utils.priceScaleDown(curData.volume));
         }
 
         inputs.push(sampleInputs);
@@ -82,6 +83,7 @@ const train = async function(data) {
     // build our tensors
     // let inputTensor = tf.tensor2d(inputVariations, [nbSamples, config.nbPeriods * config.nbDataByPeriod], 'float32');
     // let outputTensor = tf.tensor2d(outputVariations, [nbSamples, nbDataOutput], 'float32');
+
     let inputTensor = tf.tensor2d(inputs, [nbSamples, config.nbPeriods * config.nbDataByPeriod], 'float32');
     let outputTensor = tf.tensor2d(outputs, [nbSamples, nbDataOutput], 'float32');
 
@@ -95,14 +97,15 @@ const train = async function(data) {
     tf.dispose(outputTensor);
 }
 
-
-const main = async function() {
+const train = async function(interval) {
     // load data from CSV
-    const btcData = await csv.fetchData('../data/btceur/Kraken_BTCEUR_1h.csv');
+    const btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
 
-    await train(btcData);
+    await trainModel(btcData);
 
-    await model.save('file://./models/supervised/Kraken_BTCEUR_1h/');
+    await model.save(`file://./models/supervised/Cex_BTCEUR_${utils.intervalToStr(interval)}/`);
 }
 
-main();
+module.exports = {
+    train
+}

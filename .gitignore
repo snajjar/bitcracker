@@ -8,3 +8,4 @@ node_modules/
 public/*
 package-lock.json
 ml/models/
+ml/data/
