@@ -41,11 +41,21 @@ const main = async function() {
         case 'train':
             const train = require('./train').train;
             if (!baseArgs[1]) {
-                console.error('You need to specify the training data interval');
+                console.error('You need to specify the data interval');
                 process.exit(-1);
             } else {
                 let interval = utils.strToInterval(baseArgs[1]);
                 train(interval);
+            }
+            break;
+        case 'predict':
+            const predict = require('./predict').predict;
+            if (!baseArgs[1]) {
+                console.error('You need to specify the data interval');
+                process.exit(-1);
+            } else {
+                let interval = utils.strToInterval(baseArgs[1]);
+                predict(interval);
             }
             break;
         default:
