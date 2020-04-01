@@ -16,8 +16,8 @@ const nbGenerations = 20;
 const populationSize = 20;
 
 const graduationRate = 0.1; // rate of traders selection for reproduction at the end of a generation
-const mutationProbability = 0.2; // 20% probability of mutation
-const neuronMutationProbability = 0.02; // 2% probability of neuron mutation (if the trader mutates)
+const mutationProbability = 0.5; // 50% probability of mutation
+const neuronMutationProbability = 0.01; // 2% probability of neuron mutation (if the trader mutates)
 
 const nbDataInput = modelData.nbDataInput;
 
@@ -46,9 +46,9 @@ class Trader {
         });
     }
 
+    /*
     static async fromParents(parentA, parentB) {
         let t = new Trader();
-
 
         // for each layer, extract weight from parents
         // for each weight, rand() which one we choose
@@ -98,6 +98,92 @@ class Trader {
         }
 
         return t;
+    }
+    */
+
+    static async fromParents(parentA, parentB) {
+        let t = new Trader();
+
+        let weightsA = [];
+        await parentA.reduceWeight(w => { weightsA.push(w); return; });
+
+        let weightsB = [];
+        await parentA.reduceWeight(w => { weightsB.push(w); return; });
+
+        let index = 0;
+        await t.reduceWeight(w => {
+            let val = Math.random() < 0.5 ? weightsA[index] : weightsB[index]
+            index++;
+            return val;
+        });
+
+        return t;
+    }
+
+    async reduceWeight(f) {
+        // for each layer, extract weight from parents
+        // for each weight, rand() which one we choose
+        // then set the result into layer
+        for (var i = 0; i < this.model.layers.length; i++) {
+            let layer = this.model.layers[i];
+            let layerWeights = layer.getWeights(); // Tensor[]
+            let newLayerWeights = [];
+
+            for (let j = 0; j < layerWeights.length; j++) {
+                let tensor = layerWeights[j];
+                let arr = await tensor.array();
+
+                // now build our tensor
+                let newArr = [];
+                for (let k = 0; k < arr.length; k++) {
+                    if (arr[k].length) {
+                        let row = [];
+                        for (let l = 0; l < arr[k].length; l++) {
+                            let val = f(arr[k][l]);
+                            if (val !== undefined) {
+                                row.push(val);
+                            } else {
+                                row.push(arr[k][l]);
+                            }
+                        }
+                        newArr.push(row);
+                    } else {
+                        let val = f(arr[k]);
+                        if (val !== undefined) {
+                            newArr.push(val);
+                        } else {
+                            newArr.push(arr[k]);
+                        }
+                    }
+                }
+
+                let dim1 = arr.length;
+                let dim2 = arr[0].length;
+
+                if (dim2) {
+                    var newTensor = tf.tensor2d(arr, [dim1, dim2], 'float32');
+                } else {
+                    var newTensor = tf.tensor1d(arr);
+                }
+
+                newLayerWeights.push(newTensor);
+            }
+
+            layer.setWeights(newLayerWeights);
+        }
+    }
+
+    async mutate() {
+        if (Math.random() < mutationProbability) {
+            return await this.reduceWeight(w => {
+                if (Math.random() < neuronMutationProbability) {
+                    console.log('mutating a neuron');
+                    return Math.random();
+                } else {
+                    return w;
+                }
+            });
+        }
     }
 
     constructor() {
@@ -298,6 +384,7 @@ var main = async function() {
     let a = new Trader();
     let b = new Trader();
     let c = await Trader.fromParents(a, b);
+    //c.mutate();
 }
 
 main();
