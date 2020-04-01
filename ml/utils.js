@@ -28,7 +28,12 @@ const strToInterval = function(str) {
     }
 }
 
+const debug = function(o) {
+    console.log(require('util').inspect(o));
+}
+
 module.exports = {
+    debug,
     sigmoid,
     logit,
     intervals,
