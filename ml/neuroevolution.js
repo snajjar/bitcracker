@@ -14,8 +14,8 @@ const buyTax = 0;
 const sellTax = 0;
 
 // tweak this
-const nbGenerations = 20;
-const populationSize = 200;
+const nbGenerations = 500;
+const populationSize = 10;
 
 const graduationRate = 0.1; // rate of traders selection for reproduction at the end of a generation
 const mutationProbability = 0.3; // 30% probability of mutation
@@ -124,6 +124,8 @@ class Trader {
         // for each layer, extract weight from parents
         // for each weight, rand() which one we choose
         // then set the result into layer
+        let tensors = [];
+
         for (var i = 0; i < this.model.layers.length; i++) {
             let layer = this.model.layers[i];
             let layerWeights = layer.getWeights(); // Tensor[]
@@ -167,10 +169,14 @@ class Trader {
                 }
 
                 newLayerWeights.push(newTensor);
+                tensors.push(newTensor);
             }
 
             layer.setWeights(newLayerWeights);
         }
+
+        // we're done, clean tensors
+        _.each(tensors, t => t.dispose());
     }
 
     async mutate() {
@@ -185,8 +191,13 @@ class Trader {
         }
     }
 
-    constructor() {
-        this.model = Trader.newModel();
+    constructor(m) {
+        if (m) {
+            this.model = m;
+        } else {
+            this.model = Trader.newModel();
+        }
+
         this.btcWallet = 0;
         this.eurWallet = 1000;
         this.number = Trader.count++;
@@ -286,7 +297,7 @@ class Population {
 
     // let our traders react to the new bitcoin situation
     async next(inputTensor, currentBitcoinPrice) {
-        for (let i = 0; i < this.size; i++) {
+        for (let i = 0; i < this.traders.length; i++) {
             await this.traders[i].action(inputTensor, currentBitcoinPrice);
         }
     }
@@ -294,12 +305,27 @@ class Population {
     getBestTraders() {
         let sortedTraders = _.sortBy(this.traders, t => t.score());
         sortedTraders = _.reverse(sortedTraders);
-        let positiveSortedTraders = _.filter(sortedTraders, t => t.score() > 0);
+        let positiveSortedTraders = _.filter(sortedTraders, t => t.score() > 0); // filter out thoses who didnt trade
         if (positiveSortedTraders.length) {
-            return positiveSortedTraders.slice(0, this.size * graduationRate);
+            // filter out thoses who have the same score to avoid a dominant strategy to massively take over
+            let uniqPositiveSortedTraders = _.uniqBy(positiveSortedTraders, t => t.score());
+            if (uniqPositiveSortedTraders) {
+                return uniqPositiveSortedTraders.slice(0, this.size * graduationRate);
+            } else {
+                return positiveSortedTraders.slice(0, this.size * graduationRate);
+            }
         } else {
             return sortedTraders.slice(0, this.size * graduationRate);
         }
+    }
+
+    disposeWorstTraders() {
+        let bestTraders = this.getBestTraders();
+        _.each(this.traders, t => {
+            if (!bestTraders.includes(t)) {
+                t.model.dispose();
+            }
+        });
     }
 
     // randomly choose a parent amongst all best traders
@@ -336,13 +362,22 @@ class Population {
         let bestTraders = this.getBestTraders();
         console.log('  Following traders are selected for reproduction:');
         _.each(bestTraders, (t) => {
-            console.log(`    Trader #${t.number} with result of ${t.score().toFixed(0)}€`);
+            console.log(`    Trader #${t.number} with result of ${t.score().toFixed(0)}€ (${t.nbTrades} trades)`);
         });
 
         // now, build our generation of new traders
         console.log('  Building next generation...');
         let newTraders = [];
-        for (var i = 0; i < populationSize; i++) {
+
+        // conserve the best traders
+        let newBestTraders = [];
+        _.each(bestTraders, t => {
+            newBestTraders.push(new Trader(t.model));
+        });
+        newTraders = newTraders.concat(newBestTraders)
+
+        // fill the rest with children of them
+        for (var i = 0; i < populationSize - bestTraders.length; i++) {
             // build a new trader from 2 parents
             let a = this.chooseAParent();
             let b = this.chooseAParent();
@@ -351,7 +386,8 @@ class Population {
             newTraders.push(newTrader);
         }
 
-        this.traders = newTraders; // replace ou
+        this.disposeWorstTraders(); // dispose our old generation uneffective traders
+        this.traders = newTraders; // replace them
     }
 }
 
@@ -388,6 +424,10 @@ var main = async function() {
             tf.dispose(inputTensor);
             inputs.shift(); // remove 1st element that is not relevant anymore
         }
+
+        // save current model
+        let best = population.getBestTraders()[0];
+        await best.model.save(`file://./models/neuroevolution/Cex_BTCEUR_1d/`);
 
         // switch to next generation
         await population.nextGeneration();
