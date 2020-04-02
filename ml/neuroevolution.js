@@ -8,16 +8,18 @@ const utils = require('./utils');
 const modelData = require('./model');
 const csv = require('./csv');
 
-const buyTax = 0.0026;
-const sellTax = 0.0016;
+//const buyTax = 0.0026;
+//const sellTax = 0.0016;
+const buyTax = 0;
+const sellTax = 0;
 
 // tweak this
 const nbGenerations = 20;
-const populationSize = 20;
+const populationSize = 200;
 
 const graduationRate = 0.1; // rate of traders selection for reproduction at the end of a generation
-const mutationProbability = 0.5; // 50% probability of mutation
-const neuronMutationProbability = 0.01; // 2% probability of neuron mutation (if the trader mutates)
+const mutationProbability = 0.3; // 30% probability of mutation
+const neuronMutationProbability = 0.01; // 1% probability of neuron mutation (if the trader mutates)
 
 const nbDataInput = modelData.nbDataInput;
 
@@ -35,9 +37,7 @@ class Trader {
     static newModel() {
         return tf.sequential({
             layers: [
-                tf.layers.dense({ inputShape: [nbDataInput], units: nbDataInput * 4, activation: 'relu' }),
-                //tf.layers.dropout(0.8),
-                tf.layers.dense({ units: nbDataInput * 2, activation: 'relu' }),
+                tf.layers.dense({ inputShape: [nbDataInput], units: nbDataInput, activation: 'relu' }),
                 //tf.layers.dropout(0.8),
                 tf.layers.dense({ units: nbDataInput, activation: 'relu' }),
                 //tf.layers.dropout(0.8),
@@ -108,7 +108,7 @@ class Trader {
         await parentA.reduceWeight(w => { weightsA.push(w); return; });
 
         let weightsB = [];
-        await parentA.reduceWeight(w => { weightsB.push(w); return; });
+        await parentB.reduceWeight(w => { weightsB.push(w); return; });
 
         let index = 0;
         await t.reduceWeight(w => {
@@ -177,7 +177,6 @@ class Trader {
         if (Math.random() < mutationProbability) {
             return await this.reduceWeight(w => {
                 if (Math.random() < neuronMutationProbability) {
-                    console.log('mutating a neuron');
                     return Math.random();
                 } else {
                     return w;
@@ -191,6 +190,7 @@ class Trader {
         this.btcWallet = 0;
         this.eurWallet = 1000;
         this.number = Trader.count++;
+        this.nbTrades = 0;
 
         this.lastBitcoinprice = 0; // keep last bitcoin price for score computations
     }
@@ -223,7 +223,12 @@ class Trader {
     }
 
     score() {
-        return this.eurWallet + this.btcWallet * this.lastBitcoinprice;
+        // do not award thoses who didn't take any risk ;)
+        if (this.nbTrades == 0) {
+            return 0;
+        } else {
+            return this.eurWallet + this.btcWallet * this.lastBitcoinprice;
+        }
     }
 
     buy(currentBitcoinPrice) {
@@ -238,6 +243,7 @@ class Trader {
 
     sell(currentBitcoinPrice) {
         if (this.btcWallet > 0) {
+            this.nbTrades++;
             this.btcWallet += (this.eurWallet * (1 - sellTax)) * currentBitcoinPrice;
             this.eurWallet = 0;
         }
@@ -288,7 +294,12 @@ class Population {
     getBestTraders() {
         let sortedTraders = _.sortBy(this.traders, t => t.score());
         sortedTraders = _.reverse(sortedTraders);
-        return sortedTraders.slice(0, this.size * graduationRate);
+        let positiveSortedTraders = _.filter(sortedTraders, t => t.score() > 0);
+        if (positiveSortedTraders.length) {
+            return positiveSortedTraders.slice(0, this.size * graduationRate);
+        } else {
+            return sortedTraders.slice(0, this.size * graduationRate);
+        }
     }
 
     // randomly choose a parent amongst all best traders
@@ -298,7 +309,11 @@ class Population {
 
         // compute the total score, so we can deduce for each one of them a probability to be chosen
         let totalScore = 0;
-        _.each(bestTraders, t => { totalScore += t.score });
+        _.each(bestTraders, t => { totalScore += t.score() });
+
+        if (totalScore == 0) {
+            return bestTraders[0];
+        }
 
         // now choose one
         let chosen = null;
@@ -306,6 +321,7 @@ class Population {
         let proba = 0;
         _.each(bestTraders, t => {
             proba += t.score() / totalScore;
+            //console.log(`r: ${r}, proba: ${proba}`);
             if (proba > r) {
                 chosen = t;
                 return false;
@@ -324,12 +340,14 @@ class Population {
         });
 
         // now, build our generation of new traders
+        console.log('  Building next generation...');
         let newTraders = [];
         for (var i = 0; i < populationSize; i++) {
             // build a new trader from 2 parents
             let a = this.chooseAParent();
             let b = this.chooseAParent();
             let newTrader = await Trader.fromParents(a, b);
+            newTrader.mutate();
             newTraders.push(newTrader);
         }
 
@@ -350,12 +368,11 @@ const getInputTensor = function(periodArray) {
 }
 
 var main = async function() {
-    /*
     // load data from CSV
-    btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined.csv`);
+    btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined_Adjusted_NE.csv`);
+    //btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined_Adjusted_NE_Train.csv`);
 
     const population = new Population(populationSize);
-
 
     for (var i = 0; i < nbGenerations; i++) {
         console.log(`[*] Generation ${i}`);
@@ -379,12 +396,6 @@ var main = async function() {
     _.each(population.getBestTraders(), t => {
         console.log(`Trader ${t.number} finished with score ${t.score()}`);
     });
-    */
-
-    let a = new Trader();
-    let b = new Trader();
-    let c = await Trader.fromParents(a, b);
-    //c.mutate();
 }
 
 main();
