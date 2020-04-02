@@ -9,18 +9,19 @@ const argv = yargs
     .command('extract', 'Extract and refine data from a specific granularity. If no arguments specified, extract for all granularities')
     .command('train', 'Train a model from a data souce')
     .command('predict', 'Predict next bitcoin values')
+    .command('evolve', 'Evolve trader AIs to work on a market')
     .option('interval', {
         alias: 'i',
-        description: 'Set the time interval (in minutes). Allowed: 1, 3, 5, 15, 30, 60, 1440',
+        description: 'Set the time interval (in minutes). Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"',
         type: 'number',
     })
     .help()
+    .demandCommand()
     .alias('help', 'h')
     .argv;
 
 const main = async function() {
     if (argv.help) {
-        yarg.help();
         process.exit(0);
     }
 
@@ -58,8 +59,19 @@ const main = async function() {
                 predict(interval);
             }
             break;
+        case 'evolve':
+            const evolve = require('./neuroevolution').evolve;
+            if (!baseArgs[1]) {
+                console.error('You need to specify the data interval');
+                process.exit(-1);
+            } else {
+                let interval = utils.strToInterval(baseArgs[1]);
+                evolve(interval);
+            }
+            break;
         default:
             console.error(`${argv['_'][0]}: command not found`);
+
             break;
     }
 }

@@ -33,7 +33,24 @@ const getMax = function(data) {
 }
 
 
+const splitData = function(data) {
+    // split our data into train data and test data
+    let l = data.length;
+    let limit = Math.round(data.length * 0.75);
+    const trainData = data.slice(0, limit); // use 80% of our data to train
+    const testData = data.slice(limit);
+
+    console.log('[*] splitting data:');
+    console.log(`[*]   train sample: size ${trainData.length}`);
+    console.log(`[*]   test sample: size ${testData.length}`);
+
+    return [trainData, testData];
+}
+
+
+
 module.exports = {
     computeDataVariations,
-    getMax
+    getMax,
+    splitData,
 }

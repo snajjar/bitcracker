@@ -7,17 +7,20 @@ const tf = require('@tensorflow/tfjs-node');
 const utils = require('./utils');
 const modelData = require('./model');
 const csv = require('./csv');
+const datatools = require('./datatools');
 
-//const buyTax = 0.0026;
-//const sellTax = 0.0016;
-const buyTax = 0;
-const sellTax = 0;
+const buyTax = 0.0026;
+const sellTax = 0.0016;
+//const buyTax = 0;
+//const sellTax = 0;
 
 // tweak this
 const nbGenerations = 500;
 const populationSize = 10;
 
-const graduationRate = 0.1; // rate of traders selection for reproduction at the end of a generation
+const startingFunding = 1000;
+
+const graduationRate = 0.1; // how many traders are selected for reproduction
 const mutationProbability = 0.3; // 30% probability of mutation
 const neuronMutationProbability = 0.01; // 1% probability of neuron mutation (if the trader mutates)
 
@@ -199,11 +202,16 @@ class Trader {
         }
 
         this.btcWallet = 0;
-        this.eurWallet = 1000;
+        this.eurWallet = startingFunding;
         this.number = Trader.count++;
         this.nbTrades = 0;
 
         this.lastBitcoinprice = 0; // keep last bitcoin price for score computations
+    }
+
+    resetTrading() {
+        this.btcWallet = 0;
+        this.eurWallet = 1000;
     }
 
     async action(inputTensor, currentBitcoinPrice) {
@@ -212,7 +220,6 @@ class Trader {
         let outputTensor = this.model.predict(inputTensor);
         //outputTensor.print();
         let arr = await outputTensor.data();
-        tf.dispose(outputTensor);
 
         // get the action from the output
         var maxVal = _.max(arr);
@@ -231,6 +238,8 @@ class Trader {
             default:
                 throw "Unrecognized action of index: " + index;
         }
+
+        tf.dispose(outputTensor);
     }
 
     score() {
@@ -255,8 +264,8 @@ class Trader {
     sell(currentBitcoinPrice) {
         if (this.btcWallet > 0) {
             this.nbTrades++;
-            this.btcWallet += (this.eurWallet * (1 - sellTax)) * currentBitcoinPrice;
-            this.eurWallet = 0;
+            this.eurWallet += (this.btcWallet * (1 - sellTax)) * currentBitcoinPrice;
+            this.btcWallet = 0;
         }
 
         //this.checkNotNaN();
@@ -302,6 +311,11 @@ class Population {
         }
     }
 
+    // let our traders react to the new bitcoin situation
+    async nextTest(inputTensor, currentBitcoinPrice) {
+
+    }
+
     getBestTraders() {
         let sortedTraders = _.sortBy(this.traders, t => t.score());
         sortedTraders = _.reverse(sortedTraders);
@@ -319,8 +333,7 @@ class Population {
         }
     }
 
-    disposeWorstTraders() {
-        let bestTraders = this.getBestTraders();
+    disposeWorstTraders(bestTraders) {
         _.each(this.traders, t => {
             if (!bestTraders.includes(t)) {
                 t.model.dispose();
@@ -330,22 +343,20 @@ class Population {
 
     // randomly choose a parent amongst all best traders
     // returns a Trader object
-    chooseAParent() {
-        let bestTraders = this.getBestTraders();
-
+    chooseAParent(parents) {
         // compute the total score, so we can deduce for each one of them a probability to be chosen
         let totalScore = 0;
-        _.each(bestTraders, t => { totalScore += t.score() });
+        _.each(parents, t => { totalScore += t.score() });
 
         if (totalScore == 0) {
-            return bestTraders[0];
+            return parents[0];
         }
 
         // now choose one
         let chosen = null;
         let r = Math.random();
         let proba = 0;
-        _.each(bestTraders, t => {
+        _.each(parents, t => {
             proba += t.score() / totalScore;
             //console.log(`r: ${r}, proba: ${proba}`);
             if (proba > r) {
@@ -357,16 +368,9 @@ class Population {
         return chosen;
     }
 
-    async nextGeneration() {
-        // first, select our best traders
-        let bestTraders = this.getBestTraders();
-        console.log('  Following traders are selected for reproduction:');
-        _.each(bestTraders, (t) => {
-            console.log(`    Trader #${t.number} with result of ${t.score().toFixed(0)}€ (${t.nbTrades} trades)`);
-        });
-
+    async nextGeneration(bestTraders) {
         // now, build our generation of new traders
-        console.log('  Building next generation...');
+        console.log('  - building next generation...');
         let newTraders = [];
 
         // conserve the best traders
@@ -379,14 +383,14 @@ class Population {
         // fill the rest with children of them
         for (var i = 0; i < populationSize - bestTraders.length; i++) {
             // build a new trader from 2 parents
-            let a = this.chooseAParent();
-            let b = this.chooseAParent();
+            let a = this.chooseAParent(bestTraders);
+            let b = this.chooseAParent(bestTraders);
             let newTrader = await Trader.fromParents(a, b);
             newTrader.mutate();
             newTraders.push(newTrader);
         }
 
-        this.disposeWorstTraders(); // dispose our old generation uneffective traders
+        this.disposeWorstTraders(bestTraders); // dispose our old generation uneffective traders
         this.traders = newTraders; // replace them
     }
 }
@@ -403,19 +407,24 @@ const getInputTensor = function(periodArray) {
     return tf.tensor2d(arr, [1, modelData.nbDataInput], 'float32');
 }
 
-var main = async function() {
+var evolve = async function(interval) {
     // load data from CSV
-    btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined_Adjusted_NE.csv`);
     //btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined_Adjusted_NE_Train.csv`);
+    btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
+    let [trainData, testData] = datatools.splitData(btcData);
 
     const population = new Population(populationSize);
 
     for (var i = 0; i < nbGenerations; i++) {
         console.log(`[*] Generation ${i}`);
 
-        let inputs = btcData.slice(0, modelData.nbPeriods - 1);
-        for (var j = modelData.nbPeriods - 1; j < btcData.length; j++) {
-            let candle = btcData[j]; // current bitcoin data
+        console.log(`- Nb tenstors: ${tf.memory().numTensors}`);
+
+        console.log('  - evaluating traders on train data...');
+        console.time('  - done evaluating traders on train data');
+        let inputs = trainData.slice(0, modelData.nbPeriods - 1);
+        for (var j = modelData.nbPeriods - 1; j < trainData.length; j++) {
+            let candle = trainData[j]; // current bitcoin data
             inputs.push(candle);
             let inputTensor = getInputTensor(inputs);
             let currentBitcoinPrice = candle.close; // close price of the last candle
@@ -424,13 +433,48 @@ var main = async function() {
             tf.dispose(inputTensor);
             inputs.shift(); // remove 1st element that is not relevant anymore
         }
+        console.timeEnd('  - done evaluating traders on train data');
+
+        console.log('  - best traders:');
+        let bestTraders = population.getBestTraders();
+        _.each(bestTraders, (t) => {
+            console.log(`    - Trader #${t.number} with result of ${(t.score() - startingFunding).toFixed(0)}€ (${t.nbTrades} trades)`);
+        });
+
+        // after a few generations, start evaluating traders on test data
+        if (i > 3) {
+            console.log('  - evaluating best traders on test data...');
+            console.time('  - done evaluating traders on test data');
+            _.each(bestTraders, t => t.resetTrading());
+            inputs = testData.slice(0, modelData.nbPeriods - 1);
+            for (var j = modelData.nbPeriods - 1; j < testData.length; j++) {
+                let candle = testData[j]; // current bitcoin data
+                inputs.push(candle);
+                let inputTensor = getInputTensor(inputs);
+                let currentBitcoinPrice = candle.close; // close price of the last candle
+
+                for (let i = 0; i < bestTraders.length; i++) {
+                    await bestTraders[i].action(inputTensor, currentBitcoinPrice);
+                }
+
+                tf.dispose(inputTensor);
+                inputs.shift(); // remove 1st element that is not relevant anymore
+            }
+            console.timeEnd('  - done evaluating traders on test data');
+
+
+            console.log('  - tests result:');
+            _.each(bestTraders, (t) => {
+                console.log(`    - Trader #${t.number} with result of ${(t.score() - startingFunding).toFixed(0)}€ (${t.nbTrades} trades)`);
+            });
+        }
 
         // save current model
         let best = population.getBestTraders()[0];
-        await best.model.save(`file://./models/neuroevolution/Cex_BTCEUR_1d/`);
+        await best.model.save(`file://./models/neuroevolution/Cex_BTCEUR_${utils.intervalToStr(interval)}/`);
 
         // switch to next generation
-        await population.nextGeneration();
+        await population.nextGeneration(bestTraders);
     }
 
     _.each(population.getBestTraders(), t => {
@@ -438,4 +482,6 @@ var main = async function() {
     });
 }
 
-main();
+module.exports = {
+    evolve
+}
