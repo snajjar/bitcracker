@@ -417,14 +417,13 @@ var evolve = async function(interval) {
     // load data from CSV
     //btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined_Adjusted_NE_Train.csv`);
     btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
-    let [trainData, testData] = datatools.splitData(btcData);
+    let [trainData, testData] = datatools.splitData(btcData, 0.6);
 
     const population = new Population(populationSize);
 
     for (var i = 0; i < nbGenerations; i++) {
         console.log(`[*] Generation ${i}`);
-
-        console.log(`- Nb tenstors: ${tf.memory().numTensors}`);
+        //console.log(`- Nb tenstors: ${tf.memory().numTensors}`);
 
         console.log('  - evaluating traders on train data...');
         console.time('  - done evaluating traders on train data');
