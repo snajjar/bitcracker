@@ -16,7 +16,7 @@ const sellTax = 0.0016;
 
 // tweak this
 const nbGenerations = 500;
-const populationSize = 10;
+const populationSize = 100;
 
 const startingFunding = 1000;
 
@@ -105,6 +105,8 @@ class Trader {
     */
 
     static async fromParents(parentA, parentB) {
+
+
         let t = new Trader();
 
         let weightsA = [];
@@ -225,6 +227,8 @@ class Trader {
         var maxVal = _.max(arr);
         var index = arr.indexOf(maxVal);
 
+        tf.dispose(outputTensor);
+
         switch (index) {
             case 0:
                 this.buy(currentBitcoinPrice);
@@ -238,8 +242,6 @@ class Trader {
             default:
                 throw "Unrecognized action of index: " + index;
         }
-
-        tf.dispose(outputTensor);
     }
 
     score() {
@@ -291,6 +293,10 @@ class Trader {
         console.log('  btcWallet: ' + this.btcWallet);
         console.log('  bitcoin price: ' + this.lastBitcoinPrice);
     }
+
+    dispose() {
+        this.model.dispose();
+    }
 }
 
 var btcData = null;
@@ -336,7 +342,7 @@ class Population {
     disposeWorstTraders(bestTraders) {
         _.each(this.traders, t => {
             if (!bestTraders.includes(t)) {
-                t.model.dispose();
+                t.dispose();
             }
         });
     }
