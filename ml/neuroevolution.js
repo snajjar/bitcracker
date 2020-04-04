@@ -19,12 +19,12 @@ const nbGenerations = 5000;
 const populationSize = 100;
 
 const startingFunding = 1000;
-const penalityPrice = 0.01; // in euro
+const penalityPrice = 0.001; // in euro, tax for selling impossible orders (2 SELLS in a row, for instance)
 
 const numberOfGenerationsWithSameSample = 50;
 
 const graduationRate = 0.1; // how many traders are selected for reproduction
-const mutationProbability = 0.5; // 30% probability of mutation
+const mutationProbability = 0.8; // probability of mutation to occur on a new trader
 const neuronMutationProbability = 0.01; // 1% probability of neuron mutation (if the trader mutates)
 
 const nbDataInput = modelData.nbDataInput;
@@ -134,9 +134,9 @@ class Trader {
                 let dim2 = arr[0].length;
 
                 if (dim2) {
-                    var newTensor = tf.tensor2d(arr, [dim1, dim2], 'float32');
+                    var newTensor = tf.tensor2d(newArr, [dim1, dim2], 'float32');
                 } else {
-                    var newTensor = tf.tensor1d(arr);
+                    var newTensor = tf.tensor1d(newArr);
                 }
 
                 newLayerWeights.push(newTensor);
@@ -177,7 +177,7 @@ class Trader {
 
         // statistics utils
         this.nbTrades = 0;
-        this.nbPenalities = 0;
+        this.nbPenalties = 0;
         this.lastBuyPrice = 0;
         this.trades = [];
         this.nbBuy = 0;
@@ -192,7 +192,7 @@ class Trader {
 
     resetStatistics() {
         this.nbTrades = 0;
-        this.nbPenalities = 0;
+        this.nbPenalties = 0;
         this.lastBuyPrice = 0;
         this.trades = [];
         this.nbBuy = 0;
@@ -206,7 +206,7 @@ class Trader {
         let totalGain = 1;
         _.each(this.trades, v => totalGain *= v);
 
-        return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbPenalities} penalities, ${((totalGain)*100).toFixed(1) + "%"} result`;
+        return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbPenalties} penalities, ${((totalGain)*100).toFixed(1) + "%"} result`;
     }
 
     tradesStr() {
@@ -265,7 +265,8 @@ class Trader {
         if (this.nbTrades == 0) {
             return 0;
         } else {
-            return this.eurWallet + this.btcWallet * this.lastBitcoinprice - this.nbPenalties * penalityPrice;
+            let score = this.eurWallet + this.btcWallet * this.lastBitcoinprice - this.nbPenalties * penalityPrice;
+            return score;
         }
     }
 
@@ -277,7 +278,7 @@ class Trader {
             this.lastBuyPrice = currentBitcoinPrice;
             return "BUY";
         } else {
-            this.nbPenalities++;
+            this.nbPenalties++; // cant buy, have no money
             return "";
         }
 
@@ -296,7 +297,7 @@ class Trader {
             this.trades.push(currentBitcoinPrice / this.lastBuyPrice);
             return "SELL";
         } else {
-            this.nbPenalities++;
+            this.nbPenalties++;
             return "";
         }
 
@@ -357,9 +358,13 @@ class Population {
         await Promise.all(promises);
     }
 
-    getBestTraders() {
+    getSortedTraders() {
         let sortedTraders = _.sortBy(this.traders, t => t.score());
-        sortedTraders = _.reverse(sortedTraders);
+        return _.reverse(sortedTraders);
+    }
+
+    getBestTraders() {
+        let sortedTraders = this.getSortedTraders();
         let positiveSortedTraders = _.filter(sortedTraders, t => t.score() > 0); // filter out thoses who didnt trade
         if (positiveSortedTraders.length) {
             // filter out thoses who have the same score to avoid a dominant strategy to massively take over
@@ -426,7 +431,7 @@ class Population {
         let lastTraderScore = 0;
         for (var i = 0; i < bestTraders.length; i++) {
             let t = bestTraders[i];
-            let newBestTrader = await Trader.clone(t); // TODO: proper clone this
+            let newBestTrader = await Trader.clone(t);
             if (t.score() === lastTraderScore) {
                 // if traders have the same score, we shall mutate one
                 newBestTrader.mutate(1);
@@ -440,7 +445,7 @@ class Population {
         let mutatedBestTraders = [];
         for (var i = 0; i < bestTraders.length; i++) {
             let t = bestTraders[i];
-            let mutatedTrader = await Trader.clone(t); // TODO: proper clone this
+            let mutatedTrader = await Trader.clone(t);
             mutatedTrader.mutate(1);
             mutatedBestTraders.push(mutatedTrader);
         }
@@ -465,7 +470,7 @@ var evolve = async function(interval) {
     // load data from CSV
     //btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined_Adjusted_NE_Train.csv`);
     btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
-    let { trainSamples, testSample } = datatools.kSplitData(btcData, 0.2);
+    let { trainSamples, testSample } = datatools.kSplitData(btcData, 0.25);
     let currentTrainSample = _.sample(trainSamples); // rand one of them
 
     const population = new Population(populationSize);
@@ -535,8 +540,8 @@ var evolve = async function(interval) {
             console.log('  - tests result:');
             _.each(bestTradersClones, (t) => {
                 console.log(`    - Trader #${t.number}:`);
-                console.log(`      - ${(t.score() - startingFunding).toFixed(0)}€ (${t.statisticsStr()})`);
-                console.log(`      - ${t.tradesStr()}`);
+                console.log(`      ${(t.score() - startingFunding).toFixed(0)}€ (${t.statisticsStr()})`);
+                console.log(`      ${t.tradesStr()}`);
             });
             //}
 
@@ -546,7 +551,13 @@ var evolve = async function(interval) {
                 await t.model.save(`file://./models/neuroevolution/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}q/`);
             }
         } else {
-            console.log('  -   no traders worth mentionning');
+            console.log('    - no traders worth mentionning, here are some loosers:')
+            let firstLoosers = population.getSortedTraders().slice(0, 3);
+            _.each(firstLoosers, (t) => {
+                console.log(`    - Trader #${t.number}:`);
+                console.log(`      ${(t.score() - startingFunding).toFixed(0)}€ (${t.statisticsStr()})`);
+                console.log(`      ${t.tradesStr()}`);
+            });
         }
 
         // switch to next generation

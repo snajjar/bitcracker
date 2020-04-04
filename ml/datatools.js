@@ -57,6 +57,9 @@ const kSplitData = function(data, ratio = 0.2) {
     let samples = [];
     let limit = Math.round(data.length * ratio);
     let nbSplit = Math.round(1 / ratio);
+
+    console.log(`[*] splitting data into samples of size ${limit}`);
+
     for (var i = 0; i < nbSplit; i += 1) {
         samples.push(rest.slice(0, limit));
         rest = rest.slice(limit);
