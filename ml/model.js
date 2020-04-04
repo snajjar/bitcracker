@@ -3,7 +3,7 @@ const tf = require('@tensorflow/tfjs-node');
 const utils = require('./utils');
 
 // number of periods of data we provide to the model to determine the output
-const nbPeriods = 26; // base for ichimoku indicator
+const nbPeriods = 13; // 52: base for ichimoku indicator
 
 // each of theses informations are processed through sigmoid function
 // We'll create a sequential model and train it on a set of nbPeriods period

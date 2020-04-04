@@ -10,6 +10,7 @@ const argv = yargs
     .command('train', 'Train a model from a data souce')
     .command('predict', 'Predict next bitcoin values')
     .command('evolve', 'Evolve trader AIs to work on a market')
+    .command('plot', 'Test a trader AIs on a market, and output a plottable .csv file')
     .option('interval', {
         alias: 'i',
         description: 'Set the time interval (in minutes). Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"',
@@ -69,9 +70,18 @@ const main = async function() {
                 evolve(interval);
             }
             break;
+        case 'plot':
+            const plot = require('./plot').plot;
+            if (!baseArgs[1]) {
+                console.error('You need to specify the data interval');
+                process.exit(-1);
+            } else {
+                let interval = utils.strToInterval(baseArgs[1]);
+                plot(interval);
+            }
+            break;
         default:
             console.error(`${argv['_'][0]}: command not found`);
-
             break;
     }
 }

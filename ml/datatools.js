@@ -47,10 +47,32 @@ const splitData = function(data, ratio = 0.75) {
     return [trainData, testData];
 }
 
+const kSplitData = function(data, ratio = 0.2) {
+    if (ratio >= 0.5) {
+        throw "ratio too high for kSplitData";
+    }
 
+    let rest = data;
+    let sample = null;
+    let samples = [];
+    let limit = Math.round(data.length * ratio);
+    let nbSplit = Math.round(1 / ratio);
+    for (var i = 0; i < nbSplit; i += 1) {
+        samples.push(rest.slice(0, limit));
+        rest = rest.slice(limit);
+    }
+
+    let testSample = samples.pop();
+
+    return {
+        trainSamples: samples,
+        testSample: testSample
+    }
+}
 
 module.exports = {
     computeDataVariations,
     getMax,
     splitData,
+    kSplitData,
 }

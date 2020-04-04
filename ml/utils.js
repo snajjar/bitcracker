@@ -12,7 +12,7 @@ const intervals = [1, 5, 15, 30, 60, 240, 1440, 10080, 21600];
 
 const intervalToStr = function(interval) {
     if (!intervals.includes(interval)) {
-        throw "unrecognized time setting: " + str;
+        throw "unrecognized time setting: " + interval;
     } else {
         let index = intervals.indexOf(interval);
         return intervalsStr[index];

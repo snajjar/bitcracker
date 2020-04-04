@@ -73,7 +73,36 @@ const setData = async function(csvFilePath, data) {
     return csvWriter.writeRecords(records); // promise
 }
 
+const setTradeData = async function(csvFilePath, data) {
+    let csvWriter = createCsvWriter({
+        path: csvFilePath,
+        header: [
+            { id: 'date', title: 'Date' },
+            { id: 'open', title: 'Open' },
+            { id: 'high', title: 'High' },
+            { id: 'low', title: 'Low' },
+            { id: 'close', title: 'Close' },
+            { id: 'action', title: 'Action' },
+        ]
+    });
+
+    var records = [];
+    _.each(data, (period) => {
+        records.push({
+            date: moment.unix(period.timestamp).format('YYYY-MM-DD hh:mm'),
+            open: period.open.toFixed(0),
+            high: period.high.toFixed(0),
+            low: period.low.toFixed(0),
+            close: period.close.toFixed(0),
+            action: period.action,
+        });
+    });
+
+    return csvWriter.writeRecords(records); // promise
+}
+
 module.exports = {
     getData,
-    setData
+    setData,
+    setTradeData
 }
