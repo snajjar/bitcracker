@@ -24,7 +24,7 @@ const startingFunding = 1000;
 //const penalityPrice = 0.001; // in euro, tax for selling impossible orders (2 SELLS in a row, for instance)
 
 const numberOfGenerationsWithSameSample = 100;
-const numberOfGenerationsWithoutTest = 10;
+const numberOfGenerationsWithoutTest = 5;
 
 const graduationRate = 0.1; // how many traders are selected for reproduction
 const mutationProbability = 1; // probability of mutation to occur on a new trader
@@ -223,10 +223,8 @@ class Trader {
     statisticsStr() {
         let positiveTrades = _.filter(this.trades, v => v > 1);
         let negativeTrades = _.filter(this.trades, v => v < 1);
-        let totalGain = 1;
-        _.each(this.trades, v => totalGain *= v);
 
-        return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbPenalties} penalities, ${((totalGain)*100).toFixed(1) + "%"} result`;
+        return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbPenalties} penalities, ${((this.totalROI())*100).toFixed(2) + "%"} result`;
     }
 
     tradesStr() {
@@ -290,6 +288,10 @@ class Trader {
         return gain > 0 ? gainStr.green : gainStr.red;
     }
 
+    totalROI() {
+        return _.reduce(this.trades, (a, b) => a * b);
+    }
+
     avgROI() {
         return _.meanBy(this.trades) || 0; // return 0 if no trades done
     }
@@ -300,14 +302,35 @@ class Trader {
         return avgROI > 1 ? avgStr.green : avgStr.red;
     }
 
+    winLossRatio() {
+        let wins = 0;
+        let losses = 0;
+        _.each(this.trades, r => {
+            if (r > 1 + buyTax + sellTax) {
+                wins++;
+            } else {
+                losses++;
+            }
+        });
+        let nbTrades = this.trades.length;
+
+        return nbTrades > 0 ? wins / nbTrades : 0; // ensure it's not null
+    }
+
+    winLossRatioStr() {
+        let wl = this.winLossRatio();
+        let wlStr = this.winLossRatio().toFixed(0.2);
+        return wl > 0.5 ? wlStr.green : wlStr.red;
+    }
+
     score() {
         // score is the global ROI of the trader
         // add the buy/sell tax into account
-        return Math.max(this.avgROI() - 1, 0);
+        return this.gain();
     }
 
     isReproductible() {
-        return this.score() > 0;
+        return this.gain() > 0;
     }
 
     addTrade(oldBitcoinPrice, newBitcoinPrice) {
@@ -519,8 +542,7 @@ var evolve = async function(interval) {
     //btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined_Adjusted_NE_Train.csv`);
     btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
     let [trainData, testSample] = datatools.splitData(btcData, 0.8);
-    let trainSamples = datatools.kSplitData(trainData, 0.05); // make a lot of small train samples
-    let currentTrainSample = _.sample(trainSamples); // rand one of them
+    // let currentTrainSample = _.sample(trainSamples); // rand one of them
 
     const population = new Population(populationSize);
 
@@ -530,30 +552,36 @@ var evolve = async function(interval) {
             let t = toDisplay[i];
             let hash = await t.hash();
             console.log(`    Trader #${t.number} (${hash}):`);
-            console.log(`      avg ROI: ${t.avgROIStr()} gain: ${t.gainStr()}`);
+            console.log(`       gain: ${t.gainStr()} win/loss: ${t.winLossRatioStr()} avg ROI: ${t.avgROIStr()}`);
             console.log(`      ${t.statisticsStr()}`);
             console.log(`      ${t.tradesStr()}`);
         }
     }
 
-    for (var i = 0; i < nbGenerations; i++) {
-        if (i % numberOfGenerationsWithSameSample == 0) {
-            console.log("[*] Changing train sample !");
-
-            // change the current sample
-            let otherSamples = _.filter(trainSamples, s => s !== currentTrainSample);
-            currentTrainSample = _.sample(otherSamples);
+    let saveTraders = async function(arr) {
+        for (var j = 0; j < arr.length; j++) {
+            let t = await Trader.clone(arr[j]);
+            await t.model.save(`file://./models/neuroevolution/generation/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}q/`);
         }
+    }
+
+    for (var i = 0; i < nbGenerations; i++) {
+        // if (i % numberOfGenerationsWithSameSample == 0) {
+        //     console.log("[*] Changing train sample !");
+
+        //     // change the current sample
+        //     let otherSamples = _.filter(trainSamples, s => s !== currentTrainSample);
+        //     currentTrainSample = _.sample(otherSamples);
+        // }
 
         console.log(`[*] Generation ${i}`);
         //console.log(`- Nb tenstors: ${tf.memory().numTensors}`);
 
         console.log('  - evaluating traders on train data...');
         console.time('  - done evaluating traders on train data');
-
-        let inputs = currentTrainSample.slice(0, modelData.nbPeriods - 1);
-        for (var j = modelData.nbPeriods - 1; j < currentTrainSample.length; j++) {
-            let candle = currentTrainSample[j]; // current bitcoin data
+        let inputs = trainData.slice(0, modelData.nbPeriods - 1);
+        for (var j = modelData.nbPeriods - 1; j < trainData.length; j++) {
+            let candle = trainData[j]; // current bitcoin data
             inputs.push(candle);
             let currentBitcoinPrice = candle.close; // close price of the last candle
             await population.next(inputs, currentBitcoinPrice);
@@ -599,10 +627,7 @@ var evolve = async function(interval) {
                 await displayTraders(bestTradersClones);
 
                 // save current best traders
-                for (var j = 0; j < Math.min(3, bestTraders.length); j++) {
-                    let t = await Trader.clone(bestTraders[j]);
-                    await t.model.save(`file://./models/neuroevolution/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}q/`);
-                }
+                await saveTraders(bestTraders);
             }
         } else {
             //console.log(`    - no traders worth mentionning`);

@@ -10,3 +10,4 @@ package-lock.json
 ml/models/
 ml/data/
 logs.txt
+logs.text
