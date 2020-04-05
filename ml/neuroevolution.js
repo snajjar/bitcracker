@@ -473,7 +473,7 @@ class Population {
         for (var i = 0; i < bestTraders.length; i++) {
             let t = bestTraders[i];
             let mutatedTrader = await Trader.clone(t);
-            mutatedTrader.mutate(1);
+            mutatedTrader.mutate(1, 0.1); // mutate 10% of neurons
             mutatedBestTraders.push(mutatedTrader);
         }
         newTraders = newTraders.concat(mutatedBestTraders);
