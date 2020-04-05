@@ -525,7 +525,7 @@ var evolve = async function(interval) {
     const population = new Population(populationSize);
 
     let displayTraders = async function(arr) {
-        let toDisplay = arr.slice(0, Math.max(arr.length, 5));
+        let toDisplay = arr.slice(0, Math.min(arr.length, 5));
         for (var i = 0; i < toDisplay.length; i++) {
             let t = toDisplay[i];
             let hash = await t.hash();
