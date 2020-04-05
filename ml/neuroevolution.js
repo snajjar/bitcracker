@@ -8,6 +8,7 @@ const utils = require('./utils');
 const modelData = require('./model');
 const csv = require('./csv');
 const datatools = require('./datatools');
+let colors = require('colors');
 
 const buyTax = 0.0026;
 const sellTax = 0.0016;
@@ -15,11 +16,11 @@ const sellTax = 0.0016;
 //const sellTax = 0;
 
 // tweak this
-const nbGenerations = 5000;
+const nbGenerations = 500000;
 const populationSize = 100;
 
 const startingFunding = 1000;
-const penalityPrice = 0.001; // in euro, tax for selling impossible orders (2 SELLS in a row, for instance)
+//const penalityPrice = 0.001; // in euro, tax for selling impossible orders (2 SELLS in a row, for instance)
 
 const numberOfGenerationsWithSameSample = 50;
 
@@ -260,14 +261,39 @@ class Trader {
         }
     }
 
+    gain() {
+        return (this.eurWallet + this.btcWallet * this.lastBitcoinprice) - startingFunding;
+    }
+
+    gainStr() {
+        let gain = this.gain();
+        let gainStr = `${gain.toFixed(0)}€`;
+        return gain > 0 ? gainStr.green : gainStr.red;
+    }
+
+    avgROI() {
+        return _.meanBy(this.trades) || 0; // return 0 if no trades done
+    }
+
+    avgROIStr() {
+        let avgROI = this.avgROI();
+        let avgStr = (this.avgROI() * 100).toFixed(2) + "%";
+        return avgROI > 1 ? avgStr.green : avgStr.red;
+    }
+
     score() {
-        // do not award thoses who didn't take any risk ;)
-        if (this.nbTrades == 0) {
-            return 0;
-        } else {
-            let score = this.eurWallet + this.btcWallet * this.lastBitcoinprice - this.nbPenalties * penalityPrice;
-            return score;
-        }
+        // score is the global ROI of the trader
+        // add the buy/sell tax into account
+        return Math.max(this.avgROI() - 1, 0);
+    }
+
+    isReproductible() {
+        return this.score() > 0;
+    }
+
+    addTrade(oldBitcoinPrice, newBitcoinPrice) {
+        this.nbTrades++;
+        this.trades.push(newBitcoinPrice / oldBitcoinPrice);
     }
 
     buy(currentBitcoinPrice) {
@@ -289,7 +315,7 @@ class Trader {
     sell(currentBitcoinPrice) {
         this.nbSell++;
         if (this.btcWallet > 0) {
-            this.nbTrades++;
+            this.addTrade(this.lastBuyPrice, currentBitcoinPrice);
             this.eurWallet += (this.btcWallet * (1 - sellTax)) * currentBitcoinPrice;
             this.btcWallet = 0;
 
@@ -365,7 +391,7 @@ class Population {
 
     getBestTraders() {
         let sortedTraders = this.getSortedTraders();
-        let positiveSortedTraders = _.filter(sortedTraders, t => t.score() > 0); // filter out thoses who didnt trade
+        let positiveSortedTraders = _.filter(sortedTraders, t => t.isReproductible()); // filter out thoses with negative avg trades
         if (positiveSortedTraders.length) {
             // filter out thoses who have the same score to avoid a dominant strategy to massively take over
             //let uniqPositiveSortedTraders = _.uniqBy(positiveSortedTraders, t => t.score());
@@ -470,23 +496,33 @@ var evolve = async function(interval) {
     // load data from CSV
     //btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined_Adjusted_NE_Train.csv`);
     btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
-    let { trainSamples, testSample } = datatools.kSplitData(btcData, 0.25);
+    let [trainData, testSample] = datatools.splitData(btcData, 0.8);
+    let trainSamples = datatools.kSplitData(trainData, 0.05); // make a lot of small train samples
     let currentTrainSample = _.sample(trainSamples); // rand one of them
 
     const population = new Population(populationSize);
 
+    let displayTrader = function(t) {
+        console.log(`    Trader #${t.number}:`);
+        console.log(`      avg ROI: ${t.avgROIStr()} gain: ${t.gainStr()}`);
+        console.log(`      ${t.statisticsStr()}`);
+        console.log(`      ${t.tradesStr()}`);
+    }
+
     for (var i = 0; i < nbGenerations; i++) {
+        if (i % numberOfGenerationsWithSameSample == 0) {
+            console.log("[*] Changing train sample !");
+
+            // change the current sample
+            let otherSamples = _.filter(trainSamples, s => s !== currentTrainSample);
+            currentTrainSample = _.sample(otherSamples);
+        }
+
         console.log(`[*] Generation ${i}`);
         //console.log(`- Nb tenstors: ${tf.memory().numTensors}`);
 
         console.log('  - evaluating traders on train data...');
         console.time('  - done evaluating traders on train data');
-
-        if (i % numberOfGenerationsWithSameSample == 0) {
-            // we change the sample every few generations
-            console.log('[*] changing the train samples !');
-            currentTrainSample = _.sample(trainSamples);
-        }
 
         let inputs = currentTrainSample.slice(0, modelData.nbPeriods - 1);
         for (var j = modelData.nbPeriods - 1; j < currentTrainSample.length; j++) {
@@ -501,63 +537,51 @@ var evolve = async function(interval) {
         console.log('  - best traders:');
         let bestTraders = population.getBestTraders();
         if (bestTraders.length) {
-            _.each(bestTraders, (t) => {
-                console.log(`    - Trader #${t.number}:`);
-                console.log(`      - ${(t.score() - startingFunding).toFixed(0)}€ (${t.statisticsStr()})`);
-                console.log(`      - ${t.tradesStr()}`);
-            });
+            _.each(bestTraders, (t) => displayTrader(t));
 
-            // after a few generations, start evaluating traders on test data
-            //if (i > 3) {
-            console.log('  - evaluating best traders on test data...');
-            console.time('  - done evaluating traders on test data');
-            // clone traders and evaluate them on test data
-            let bestTradersClones = [];
-            for (var j = 0; j < bestTraders.length; j++) {
-                let t = bestTraders[j];
-                let clone = await Trader.clone(t);
-                bestTradersClones.push(clone);
-            }
-
-            let testData = testSample;
-            inputs = testData.slice(0, modelData.nbPeriods - 1);
-            for (var j = modelData.nbPeriods - 1; j < testData.length; j++) {
-                let candle = testData[j]; // current bitcoin data
-                inputs.push(candle);
-                let currentBitcoinPrice = candle.close; // close price of the last candle
-
-                let promises = [];
-                for (let k = 0; k < bestTradersClones.length; k++) {
-                    promises.push(bestTradersClones[k].action(inputs, currentBitcoinPrice));
+            // every few generations
+            if (i % numberOfGenerationsWithSameSample == 0) {
+                console.log('  - evaluating best traders on test data...');
+                console.time('  - done evaluating traders on test data');
+                // clone traders and evaluate them on test data
+                let bestTradersClones = [];
+                for (var j = 0; j < bestTraders.length; j++) {
+                    let t = bestTraders[j];
+                    let clone = await Trader.clone(t);
+                    bestTradersClones.push(clone);
                 }
-                await Promise.all(promises);
 
-                inputs.shift(); // remove 1st element that is not relevant anymore
-            }
-            console.timeEnd('  - done evaluating traders on test data');
+                inputs = testSample.slice(0, modelData.nbPeriods - 1);
+                for (var j = modelData.nbPeriods - 1; j < testSample.length; j++) {
+                    let candle = testSample[j]; // current bitcoin data
+                    inputs.push(candle);
+                    let currentBitcoinPrice = candle.close; // close price of the last candle
+
+                    let promises = [];
+                    for (let k = 0; k < bestTradersClones.length; k++) {
+                        promises.push(bestTradersClones[k].action(inputs, currentBitcoinPrice));
+                    }
+                    await Promise.all(promises);
+
+                    inputs.shift(); // remove 1st element that is not relevant anymore
+                }
+                console.timeEnd('  - done evaluating traders on test data');
 
 
-            console.log('  - tests result:');
-            _.each(bestTradersClones, (t) => {
-                console.log(`    - Trader #${t.number}:`);
-                console.log(`      ${(t.score() - startingFunding).toFixed(0)}€ (${t.statisticsStr()})`);
-                console.log(`      ${t.tradesStr()}`);
-            });
-            //}
+                console.log('  - tests result:');
+                _.each(bestTradersClones, (t) => displayTrader(t));
 
-            // save current best traders
-            for (var j = 0; j < Math.min(3, bestTraders.length); j++) {
-                let t = await Trader.clone(bestTraders[j]);
-                await t.model.save(`file://./models/neuroevolution/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}q/`);
+                // save current best traders
+                for (var j = 0; j < Math.min(3, bestTraders.length); j++) {
+                    let t = await Trader.clone(bestTraders[j]);
+                    await t.model.save(`file://./models/neuroevolution/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}q/`);
+                }
             }
         } else {
-            console.log('    - no traders worth mentionning, here are some loosers:')
-            let firstLoosers = population.getSortedTraders().slice(0, 3);
-            _.each(firstLoosers, (t) => {
-                console.log(`    - Trader #${t.number}:`);
-                console.log(`      ${(t.score() - startingFunding).toFixed(0)}€ (${t.statisticsStr()})`);
-                console.log(`      ${t.tradesStr()}`);
-            });
+            console.log(`    - no traders worth mentionning`);
+            // console.log(`    - no traders worth mentionning, here are some loosers from generation (size ${population.traders.length})`);
+            // let firstLoosers = population.getSortedTraders().slice(0, 3);
+            // _.each(firstLoosers, (t) => (t) => displayTrader(t));
         }
 
         // switch to next generation

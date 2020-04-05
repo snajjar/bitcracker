@@ -65,12 +65,7 @@ const kSplitData = function(data, ratio = 0.2) {
         rest = rest.slice(limit);
     }
 
-    let testSample = samples.pop();
-
-    return {
-        trainSamples: samples,
-        testSample: testSample
-    }
+    return samples;
 }
 
 module.exports = {
