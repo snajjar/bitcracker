@@ -8,7 +8,8 @@ const utils = require('./utils');
 const modelData = require('./model');
 const csv = require('./csv');
 const datatools = require('./datatools');
-let colors = require('colors');
+const colors = require('colors');
+const objectHash = require('object-hash');
 
 const buyTax = 0.0026;
 const sellTax = 0.0016;
@@ -23,10 +24,11 @@ const startingFunding = 1000;
 //const penalityPrice = 0.001; // in euro, tax for selling impossible orders (2 SELLS in a row, for instance)
 
 const numberOfGenerationsWithSameSample = 50;
+const numberOfGenerationsWithoutTest = 10;
 
 const graduationRate = 0.1; // how many traders are selected for reproduction
-const mutationProbability = 0.8; // probability of mutation to occur on a new trader
-const neuronMutationProbability = 0.01; // 1% probability of neuron mutation (if the trader mutates)
+const mutationProbability = 1; // probability of mutation to occur on a new trader
+const neuronMutationProbability = 0.02; // 1% probability of neuron mutation (if the trader mutates)
 
 const nbDataInput = modelData.nbDataInput;
 
@@ -40,6 +42,13 @@ const nbDataInput = modelData.nbDataInput;
 
 class Trader {
     static count = 0;
+
+    // generate a new random trader
+    static async random() {
+        let t = new Trader();
+        await t.mutate(1, 1); // randomize it
+        return t;
+    }
 
     static newModel() {
         let nbModelInput = nbDataInput + 2;
@@ -56,7 +65,7 @@ class Trader {
     }
 
     static async fromParents(parentA, parentB) {
-        let t = new Trader();
+        let t = await Trader.random();
 
         let weightsA = [];
         await parentA.reduceWeight(w => { weightsA.push(w); return; });
@@ -75,7 +84,7 @@ class Trader {
     }
 
     static async clone(parent) {
-        let t = new Trader();
+        let t = await Trader.random();
 
         let weights = [];
         await parent.reduceWeight(w => { weights.push(w); return; });
@@ -90,6 +99,15 @@ class Trader {
         t.number = parent.number;
 
         return t;
+    }
+
+    async hash() {
+        if (!this.modelHash) {
+            let weights = [];
+            await this.reduceWeight(w => { weights.push(w); return; });
+            this.modelHash = objectHash(weights);
+        }
+        return this.modelHash;
     }
 
     async reduceWeight(f) {
@@ -153,13 +171,14 @@ class Trader {
 
     async mutate(mp = mutationProbability, nmp = neuronMutationProbability) {
         if (Math.random() < mp) {
-            return await this.reduceWeight(w => {
+            let p = await this.reduceWeight(w => {
                 if (Math.random() < nmp) {
                     return Math.random();
                 } else {
                     return w;
                 }
             });
+            delete this.modelHash; // delete the hash, it's not good anymore
         }
     }
 
@@ -416,10 +435,10 @@ class Population {
 
     // randomly choose a parent amongst all best traders
     // returns a Trader object
-    chooseAParent() {
+    async chooseAParent() {
         let parents = this.getBestTraders();
         if (parents.length == 0) {
-            return new Trader();
+            return await Trader.random();
         }
 
         // compute the total score, so we can deduce for each one of them a probability to be chosen
@@ -427,7 +446,7 @@ class Population {
         _.each(parents, t => { totalScore += t.score() });
 
         if (totalScore <= 0) {
-            return new Trader();
+            return await Trader.random();
         }
 
         // now choose one
@@ -461,7 +480,7 @@ class Population {
             let newBestTrader = await Trader.clone(t);
             if (t.score() === lastTraderScore) {
                 // if traders have the same score, we shall mutate one
-                newBestTrader.mutate(1);
+                await newBestTrader.mutate(1);
             }
             newBestTraders.push(newBestTrader);
             lastTraderScore = t.score();
@@ -473,7 +492,7 @@ class Population {
         for (var i = 0; i < bestTraders.length; i++) {
             let t = bestTraders[i];
             let mutatedTrader = await Trader.clone(t);
-            mutatedTrader.mutate(1, 0.1); // mutate 10% of neurons
+            await mutatedTrader.mutate(1, 0.1); // mutate 10% of neurons
             mutatedBestTraders.push(mutatedTrader);
         }
         newTraders = newTraders.concat(mutatedBestTraders);
@@ -481,10 +500,10 @@ class Population {
         // fill the rest with children of them
         for (var i = 0; i < populationSize - (bestTraders.length * 2); i++) {
             // build a new trader from 2 parents
-            let a = this.chooseAParent();
-            let b = this.chooseAParent();
+            let a = await this.chooseAParent();
+            let b = await this.chooseAParent();
             let newTrader = await Trader.fromParents(a, b);
-            newTrader.mutate();
+            await newTrader.mutate();
             newTraders.push(newTrader);
         }
 
@@ -503,11 +522,16 @@ var evolve = async function(interval) {
 
     const population = new Population(populationSize);
 
-    let displayTrader = function(t) {
-        console.log(`    Trader #${t.number}:`);
-        console.log(`      avg ROI: ${t.avgROIStr()} gain: ${t.gainStr()}`);
-        console.log(`      ${t.statisticsStr()}`);
-        console.log(`      ${t.tradesStr()}`);
+    let displayTraders = async function(arr) {
+        let toDisplay = arr.slice(0, Math.max(arr.length, 5));
+        for (var i = 0; i < toDisplay.length; i++) {
+            let t = toDisplay[i];
+            let hash = await t.hash();
+            console.log(`    Trader #${t.number} (${hash}):`);
+            console.log(`      avg ROI: ${t.avgROIStr()} gain: ${t.gainStr()}`);
+            console.log(`      ${t.statisticsStr()}`);
+            console.log(`      ${t.tradesStr()}`);
+        }
     }
 
     for (var i = 0; i < nbGenerations; i++) {
@@ -538,10 +562,10 @@ var evolve = async function(interval) {
         console.log('  - best traders:');
         let bestTraders = population.getBestTraders();
         if (bestTraders.length) {
-            _.each(bestTraders, (t) => displayTrader(t));
+            await displayTraders(bestTraders);
 
             // every few generations
-            if (i % numberOfGenerationsWithSameSample == 0) {
+            if (i % numberOfGenerationsWithoutTest == 0) {
                 console.log('  - evaluating best traders on test data...');
                 console.time('  - done evaluating traders on test data');
                 // clone traders and evaluate them on test data
@@ -570,7 +594,7 @@ var evolve = async function(interval) {
 
 
                 console.log('  - tests result:');
-                _.each(bestTradersClones, (t) => displayTrader(t));
+                await displayTraders(bestTradersClones);
 
                 // save current best traders
                 for (var j = 0; j < Math.min(3, bestTraders.length); j++) {
@@ -579,10 +603,10 @@ var evolve = async function(interval) {
                 }
             }
         } else {
-            console.log(`    - no traders worth mentionning`);
-            // console.log(`    - no traders worth mentionning, here are some loosers from generation (size ${population.traders.length})`);
-            // let firstLoosers = population.getSortedTraders().slice(0, 3);
-            // _.each(firstLoosers, (t) => (t) => displayTrader(t));
+            //console.log(`    - no traders worth mentionning`);
+            console.log(`    - no traders worth mentionning, here are some loosers from generation (size ${population.getSortedTraders().length})`);
+            let firstLoosers = population.getSortedTraders().slice(0, 3);
+            await displayTraders(firstLoosers);
         }
 
         // switch to next generation
