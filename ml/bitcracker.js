@@ -3,6 +3,17 @@
 const utils = require('./utils');
 const yargs = require('yargs');
 const _ = require('lodash');
+const fs = require('fs-extra');
+var path = require('path');
+
+const ensureRequiredDirs = function() {
+    fs.ensureDirSync(path.join(path.resolve(__dirname), "data"));
+    fs.ensureDirSync(path.join(path.resolve(__dirname), "models"));
+    fs.ensureDirSync(path.join(path.resolve(__dirname), "models", "supervised"));
+    fs.ensureDirSync(path.join(path.resolve(__dirname), "models", "neuroevolution"));
+    fs.ensureDirSync(path.join(path.resolve(__dirname), "models", "neuroevolution", "generation"));
+}
+ensureRequiredDirs();
 
 const argv = yargs
     .command('fetch', 'Fetch data from a source')

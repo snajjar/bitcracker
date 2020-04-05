@@ -561,7 +561,7 @@ var evolve = async function(interval) {
     let saveTraders = async function(arr) {
         for (var j = 0; j < arr.length; j++) {
             let t = await Trader.clone(arr[j]);
-            await t.model.save(`file://./models/neuroevolution/generation/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}q/`);
+            await t.model.save(`file://./models/neuroevolution/generation/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}/`);
         }
     }
 
