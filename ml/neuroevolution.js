@@ -416,8 +416,9 @@ class Population {
 
     // randomly choose a parent amongst all best traders
     // returns a Trader object
-    chooseAParent(parents) {
-        if (parents.length = 0) {
+    chooseAParent() {
+        let parents = this.getBestTraders();
+        if (parents.length == 0) {
             return new Trader();
         }
 
@@ -480,8 +481,8 @@ class Population {
         // fill the rest with children of them
         for (var i = 0; i < populationSize - (bestTraders.length * 2); i++) {
             // build a new trader from 2 parents
-            let a = this.chooseAParent(bestTraders);
-            let b = this.chooseAParent(bestTraders);
+            let a = this.chooseAParent();
+            let b = this.chooseAParent();
             let newTrader = await Trader.fromParents(a, b);
             newTrader.mutate();
             newTraders.push(newTrader);
