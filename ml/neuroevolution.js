@@ -23,7 +23,7 @@ const populationSize = 100;
 const startingFunding = 1000;
 //const penalityPrice = 0.001; // in euro, tax for selling impossible orders (2 SELLS in a row, for instance)
 
-const numberOfGenerationsWithSameSample = 50;
+const numberOfGenerationsWithSameSample = 100;
 const numberOfGenerationsWithoutTest = 10;
 
 const graduationRate = 0.1; // how many traders are selected for reproduction
@@ -487,6 +487,7 @@ class Population {
         }
         newTraders = newTraders.concat(newBestTraders);
 
+        /*
         // add a mutation of our best traders
         let mutatedBestTraders = [];
         for (var i = 0; i < bestTraders.length; i++) {
@@ -496,9 +497,10 @@ class Population {
             mutatedBestTraders.push(mutatedTrader);
         }
         newTraders = newTraders.concat(mutatedBestTraders);
+        */
 
         // fill the rest with children of them
-        for (var i = 0; i < populationSize - (bestTraders.length * 2); i++) {
+        for (var i = 0; i < populationSize - bestTraders.length; i++) {
             // build a new trader from 2 parents
             let a = await this.chooseAParent();
             let b = await this.chooseAParent();
