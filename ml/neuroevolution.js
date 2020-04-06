@@ -196,7 +196,6 @@ class Trader {
         this.lastBitcoinprice = 0; // keep last bitcoin price for score computations
 
         // statistics utils
-        this.nbTrades = 0;
         this.nbPenalties = 0;
         this.lastBuyPrice = 0;
         this.trades = [];
@@ -211,7 +210,6 @@ class Trader {
     }
 
     resetStatistics() {
-        this.nbTrades = 0;
         this.nbPenalties = 0;
         this.lastBuyPrice = 0;
         this.trades = [];
@@ -334,7 +332,6 @@ class Trader {
     }
 
     addTrade(oldBitcoinPrice, newBitcoinPrice) {
-        this.nbTrades++;
         this.trades.push(newBitcoinPrice / oldBitcoinPrice);
     }
 
@@ -357,12 +354,11 @@ class Trader {
     sell(currentBitcoinPrice) {
         this.nbSell++;
         if (this.btcWallet > 0) {
-            this.addTrade(this.lastBuyPrice, currentBitcoinPrice);
             this.eurWallet += (this.btcWallet * (1 - sellTax)) * currentBitcoinPrice;
             this.btcWallet = 0;
 
             // add last trade statistics
-            this.trades.push(currentBitcoinPrice / this.lastBuyPrice);
+            this.addTrade(this.lastBuyPrice, currentBitcoinPrice);
             return "SELL";
         } else {
             this.nbPenalties++;
@@ -537,6 +533,25 @@ class Population {
     }
 }
 
+var displayTraders = async function(arr) {
+    let toDisplay = arr.slice(0, Math.min(arr.length, 5));
+    for (var i = 0; i < toDisplay.length; i++) {
+        let t = toDisplay[i];
+        let hash = await t.hash();
+        console.log(`    Trader #${t.number} (${hash}):`);
+        console.log(`       gain: ${t.gainStr()} win/loss: ${t.winLossRatioStr()} avg ROI: ${t.avgROIStr()}`);
+        console.log(`      ${t.statisticsStr()}`);
+        console.log(`      ${t.tradesStr()}`);
+    }
+}
+
+var saveTraders = async function(arr) {
+    for (var j = 0; j < arr.length; j++) {
+        let t = await Trader.clone(arr[j]);
+        await t.model.save(`file://./models/neuroevolution/generation/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}/`);
+    }
+}
+
 var evolve = async function(interval) {
     // load data from CSV
     //btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined_Adjusted_NE_Train.csv`);
@@ -545,25 +560,6 @@ var evolve = async function(interval) {
     // let currentTrainSample = _.sample(trainSamples); // rand one of them
 
     const population = new Population(populationSize);
-
-    let displayTraders = async function(arr) {
-        let toDisplay = arr.slice(0, Math.min(arr.length, 5));
-        for (var i = 0; i < toDisplay.length; i++) {
-            let t = toDisplay[i];
-            let hash = await t.hash();
-            console.log(`    Trader #${t.number} (${hash}):`);
-            console.log(`       gain: ${t.gainStr()} win/loss: ${t.winLossRatioStr()} avg ROI: ${t.avgROIStr()}`);
-            console.log(`      ${t.statisticsStr()}`);
-            console.log(`      ${t.tradesStr()}`);
-        }
-    }
-
-    let saveTraders = async function(arr) {
-        for (var j = 0; j < arr.length; j++) {
-            let t = await Trader.clone(arr[j]);
-            await t.model.save(`file://./models/neuroevolution/generation/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}/`);
-        }
-    }
 
     for (var i = 0; i < nbGenerations; i++) {
         // if (i % numberOfGenerationsWithSameSample == 0) {
@@ -574,7 +570,7 @@ var evolve = async function(interval) {
         //     currentTrainSample = _.sample(otherSamples);
         // }
 
-        console.log(`[*] Generation ${i}`);
+        console.log(`[*] Generation ${i}                              (${tf.memory().numTensors} tensors)`);
         //console.log(`- Nb tenstors: ${tf.memory().numTensors}`);
 
         console.log('  - evaluating traders on train data...');
@@ -647,5 +643,6 @@ var evolve = async function(interval) {
 
 module.exports = {
     evolve,
-    Trader
+    Trader,
+    displayTraders,
 }

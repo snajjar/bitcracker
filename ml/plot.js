@@ -10,6 +10,7 @@ const modelData = require('./model');
 const csv = require('./csv');
 const datatools = require('./datatools');
 const Trader = require('./neuroevolution').Trader;
+const displayTraders = require('./neuroevolution').displayTraders;
 
 const getInputTensor = function(periodArray) {
     let arr = [];
@@ -26,10 +27,10 @@ const getInputTensor = function(periodArray) {
 var plot = async function(interval) {
     // load data from CSV
     let btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
-    let [trainData, testData] = datatools.splitData(btcData, 0.6);
+    //let [trainData, testData] = datatools.splitData(btcData, 0.6);
 
     // load Trader from model
-    const model = await tf.loadLayersModel(`file://./models/neuroevolution/Cex_BTCEUR_4h/model.json`);
+    const model = await tf.loadLayersModel(`file://./models/neuroevolution/generation76/Cex_BTCEUR_4h_Top3/model.json`);
     let trader = new Trader(model);
 
     let trades = [];
@@ -37,17 +38,14 @@ var plot = async function(interval) {
     let lastActionPrice = 0;
 
     // make the trader trade on all data
-    let marketData = testData;
+    let marketData = btcData;
     console.log(`[*] Trading on ${utils.intervalToStr(interval)} test sample`);
     let inputs = marketData.slice(0, modelData.nbPeriods - 1);
     for (var j = modelData.nbPeriods - 1; j < marketData.length; j++) {
         let candle = marketData[j]; // current bitcoin data
         inputs.push(candle);
-        let inputTensor = getInputTensor(inputs);
         let currentBitcoinPrice = candle.close; // close price of the last candle
-        let action = await trader.action(inputTensor, currentBitcoinPrice);
-        tf.dispose(inputTensor);
-
+        let action = await trader.action(inputs, currentBitcoinPrice);
         candle.action = action; // save the action into the candle
         inputs.shift(); // remove 1st element that is not relevant anymore
 
@@ -65,18 +63,7 @@ var plot = async function(interval) {
         }
     }
 
-    let positiveTrades = _.filter(trades, v => v > 1);
-    let negativeTrades = _.filter(trades, v => v < 1);
-    let totalGain = 1;
-    _.each(trades, v => totalGain *= v);
-
-    console.log('[*] Trader results: ');
-    console.log(`  - ${trades.length} overall trades`);
-    console.log(`  - ${positiveTrades.length} positive trades, gains: `);
-    console.log(`     ${positiveTrades.map(v => ((v-1)*100).toFixed(2) + "%").join(" ")}`);
-    console.log(`  - ${negativeTrades.length} negative trades, losses:`);
-    console.log(`     ${negativeTrades.map(v => ((v-1)*100).toFixed(2) + "%").join(" ")}`);
-    console.log(`  - ${((totalGain)*100).toFixed(2) + "%"} total trade results`);
+    displayTraders([trader]);
 
     let outputFileName = `./data/Trade_Data_${utils.intervalToStr(interval)}.csv`;
     console.log(`[*] saving trade data into file: ${outputFileName}`);
