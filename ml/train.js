@@ -8,6 +8,7 @@ const csv = require('./csv');
 const modelData = require('./model');
 const model = modelData.model;
 const utils = require('./utils');
+const indicator = require('./indicator');
 
 const trainModel = async function(data) {
     let inputs = [];
@@ -32,7 +33,12 @@ const trainModel = async function(data) {
         // compute the output field with from the next period
         let sampleOutput = [];
         let outputData = data[i + modelData.nbPeriods];
-        let activatedOutputData = modelData.activateOutput(outputData);
+        let activatedOutputData = [
+            outputData.min === true,
+            outputData.max === true,
+            outputData.min !== true && outputData.max !== true
+        ]
+        //let activatedOutputData = modelData.activateOutput(outputData);
         _.each(activatedOutputData, (v) => {
             sampleOutput.push(v);
         });
@@ -63,6 +69,7 @@ const trainModel = async function(data) {
 const train = async function(interval) {
     // load data from CSV
     const btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
+    indicator.addLocalMinMaxIndicator(btcData, 12);
 
     await trainModel(btcData);
 

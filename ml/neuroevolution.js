@@ -10,17 +10,12 @@ const csv = require('./csv');
 const datatools = require('./datatools');
 const colors = require('colors');
 const objectHash = require('object-hash');
-
-const buyTax = 0.0026;
-const sellTax = 0.0016;
-//const buyTax = 0;
-//const sellTax = 0;
+const Trader = require('./trader');
 
 // tweak this
 const nbGenerations = 500000;
-const populationSize = 100;
+const populationSize = 20;
 
-const startingFunding = 1000;
 //const penalityPrice = 0.001; // in euro, tax for selling impossible orders (2 SELLS in a row, for instance)
 
 const numberOfGenerationsWithSameSample = 100;
@@ -40,12 +35,12 @@ const nbDataInput = modelData.nbDataInput;
 // each will start with a value of 1000€
 // At the end of the provided period, the top traders (or the last ones that were alive) will be selected for reproduction
 
-class Trader {
-    static count = 0;
 
+// A neuro-evolvable trader
+class NeuroTrader extends Trader {
     // generate a new random trader
     static async random() {
-        let t = new Trader();
+        let t = new NeuroTrader();
         await t.mutate(1, 1); // randomize it
         return t;
     }
@@ -65,7 +60,7 @@ class Trader {
     }
 
     static async fromParents(parentA, parentB) {
-        let t = await Trader.random();
+        let t = await NeuroTrader.random();
 
         let weightsA = [];
         await parentA.reduceWeight(w => { weightsA.push(w); return; });
@@ -84,7 +79,7 @@ class Trader {
     }
 
     static async clone(parent) {
-        let t = await Trader.random();
+        let t = await NeuroTrader.random();
 
         let weights = [];
         await parent.reduceWeight(w => { weights.push(w); return; });
@@ -183,58 +178,12 @@ class Trader {
     }
 
     constructor(m) {
-        this.number = Trader.count++;
+        super();
         if (m) {
             this.model = m;
         } else {
-            this.model = Trader.newModel();
+            this.model = NeuroTrader.newModel();
         }
-
-        // wallet and score values
-        this.btcWallet = 0;
-        this.eurWallet = startingFunding;
-        this.lastBitcoinprice = 0; // keep last bitcoin price for score computations
-
-        // statistics utils
-        this.nbPenalties = 0;
-        this.lastBuyPrice = 0;
-        this.trades = [];
-        this.nbBuy = 0;
-        this.nbSell = 0;
-        this.nbHold = 0;
-    }
-
-    resetTrading() {
-        this.btcWallet = 0;
-        this.eurWallet = 1000;
-    }
-
-    resetStatistics() {
-        this.nbPenalties = 0;
-        this.lastBuyPrice = 0;
-        this.trades = [];
-        this.nbBuy = 0;
-        this.nbSell = 0;
-        this.nbHold = 0;
-    }
-
-    statisticsStr() {
-        let positiveTrades = _.filter(this.trades, v => v > 1);
-        let negativeTrades = _.filter(this.trades, v => v < 1);
-
-        return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbPenalties} penalities, ${((this.totalROI())*100).toFixed(2) + "%"} result`;
-    }
-
-    tradesStr() {
-        return `${this.nbBuy} buy, ${this.nbSell} sell, ${this.nbHold} hold`;
-    }
-
-    hasEuros() {
-        return this.eurWaller > 0 ? 1 : 0;
-    }
-
-    hasBitcoins() {
-        return this.btcWallet > 0 ? 1 : 0;
     }
 
     getInputTensor(periodArray) {
@@ -276,51 +225,6 @@ class Trader {
         }
     }
 
-    gain() {
-        return (this.eurWallet + this.btcWallet * this.lastBitcoinprice) - startingFunding;
-    }
-
-    gainStr() {
-        let gain = this.gain();
-        let gainStr = `${gain.toFixed(0)}€`;
-        return gain > 0 ? gainStr.green : gainStr.red;
-    }
-
-    totalROI() {
-        return _.reduce(this.trades, (a, b) => a * b);
-    }
-
-    avgROI() {
-        return _.meanBy(this.trades) || 0; // return 0 if no trades done
-    }
-
-    avgROIStr() {
-        let avgROI = this.avgROI();
-        let avgStr = (this.avgROI() * 100).toFixed(2) + "%";
-        return avgROI > 1 ? avgStr.green : avgStr.red;
-    }
-
-    winLossRatio() {
-        let wins = 0;
-        let losses = 0;
-        _.each(this.trades, r => {
-            if (r > 1 + buyTax + sellTax) {
-                wins++;
-            } else {
-                losses++;
-            }
-        });
-        let nbTrades = this.trades.length;
-
-        return nbTrades > 0 ? wins / nbTrades : 0; // ensure it's not null
-    }
-
-    winLossRatioStr() {
-        let wl = this.winLossRatio();
-        let wlStr = this.winLossRatio().toFixed(0.2);
-        return wl > 0.5 ? wlStr.green : wlStr.red;
-    }
-
     score() {
         // score is the global ROI of the trader
         // add the buy/sell tax into account
@@ -329,70 +233,6 @@ class Trader {
 
     isReproductible() {
         return this.gain() > 0;
-    }
-
-    addTrade(oldBitcoinPrice, newBitcoinPrice) {
-        this.trades.push(newBitcoinPrice / oldBitcoinPrice);
-    }
-
-    buy(currentBitcoinPrice) {
-        this.nbBuy++;
-        if (this.eurWallet > 0) {
-            this.btcWallet += (this.eurWallet * (1 - buyTax)) / currentBitcoinPrice;
-            this.eurWallet = 0;
-            this.lastBuyPrice = currentBitcoinPrice;
-            return "BUY";
-        } else {
-            this.nbPenalties++; // cant buy, have no money
-            return "";
-        }
-
-        //this.checkNotNaN();
-        //console.log(`Trader #${this.number} choose to BUY at €${currentBitcoinPrice} (score: ${this.score(currentBitcoinPrice)})`);
-    }
-
-    sell(currentBitcoinPrice) {
-        this.nbSell++;
-        if (this.btcWallet > 0) {
-            this.eurWallet += (this.btcWallet * (1 - sellTax)) * currentBitcoinPrice;
-            this.btcWallet = 0;
-
-            // add last trade statistics
-            this.addTrade(this.lastBuyPrice, currentBitcoinPrice);
-            return "SELL";
-        } else {
-            this.nbPenalties++;
-            return "";
-        }
-
-        //this.checkNotNaN();
-        //console.log(`Trader #${this.number} choose to SELL at €${currentBitcoinPrice} (score: ${this.score(currentBitcoinPrice)})`);
-    }
-
-    hold(currentBitcoinPrice) {
-        // doing nothing is what i do best
-        //this.checkNotNaN();
-        //console.log(`Trader #${this.number} choose to HOLD at €${currentBitcoinPrice} (score: ${this.score(currentBitcoinPrice)})`);
-        this.nbHold++;
-        return "HOLD";
-    }
-
-    checkNotNaN() {
-        if (isNaN(this.score())) {
-            this.debug();
-            process.exit(-1);
-        }
-    }
-
-    debug() {
-        console.log(`Trader #${this.number} debug:`);
-        console.log('  eurWallet: ' + this.eurWallet);
-        console.log('  btcWallet: ' + this.btcWallet);
-        console.log('  bitcoin price: ' + this.lastBitcoinPrice);
-    }
-
-    dispose() {
-        this.model.dispose();
     }
 }
 
@@ -405,7 +245,7 @@ class Population {
 
         if (!trader) {
             for (let i = 0; i < size; i++) {
-                this.traders.push(new Trader());
+                this.traders.push(new NeuroTrader());
             }
         } else {
             // create a population from this trader
@@ -457,7 +297,7 @@ class Population {
     async chooseAParent() {
         let parents = this.getBestTraders();
         if (parents.length == 0) {
-            return await Trader.random();
+            return await NeuroTrader.random();
         }
 
         // compute the total score, so we can deduce for each one of them a probability to be chosen
@@ -465,7 +305,7 @@ class Population {
         _.each(parents, t => { totalScore += t.score() });
 
         if (totalScore <= 0) {
-            return await Trader.random();
+            return await NeuroTrader.random();
         }
 
         // now choose one
@@ -496,7 +336,7 @@ class Population {
         let lastTraderScore = 0;
         for (var i = 0; i < bestTraders.length; i++) {
             let t = bestTraders[i];
-            let newBestTrader = await Trader.clone(t);
+            let newBestTrader = await NeuroTrader.clone(t);
             if (t.score() === lastTraderScore) {
                 // if traders have the same score, we shall mutate one
                 await newBestTrader.mutate(1);
@@ -523,7 +363,7 @@ class Population {
             // build a new trader from 2 parents
             let a = await this.chooseAParent();
             let b = await this.chooseAParent();
-            let newTrader = await Trader.fromParents(a, b);
+            let newTrader = await NeuroTrader.fromParents(a, b);
             await newTrader.mutate();
             newTraders.push(newTrader);
         }
@@ -545,9 +385,9 @@ var displayTraders = async function(arr) {
     }
 }
 
-var saveTraders = async function(arr) {
+var saveTraders = async function(arr, interval) {
     for (var j = 0; j < arr.length; j++) {
-        let t = await Trader.clone(arr[j]);
+        let t = await NeuroTrader.clone(arr[j]);
         await t.model.save(`file://./models/neuroevolution/generation/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}/`);
     }
 }
@@ -598,7 +438,7 @@ var evolve = async function(interval) {
                 let bestTradersClones = [];
                 for (var j = 0; j < bestTraders.length; j++) {
                     let t = bestTraders[j];
-                    let clone = await Trader.clone(t);
+                    let clone = await NeuroTrader.clone(t);
                     bestTradersClones.push(clone);
                 }
 
@@ -623,7 +463,7 @@ var evolve = async function(interval) {
                 await displayTraders(bestTradersClones);
 
                 // save current best traders
-                await saveTraders(bestTraders);
+                await saveTraders(bestTraders, interval);
             }
         } else {
             //console.log(`    - no traders worth mentionning`);
@@ -643,6 +483,6 @@ var evolve = async function(interval) {
 
 module.exports = {
     evolve,
-    Trader,
+    NeuroTrader,
     displayTraders,
 }

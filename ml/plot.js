@@ -9,7 +9,7 @@ const utils = require('./utils');
 const modelData = require('./model');
 const csv = require('./csv');
 const datatools = require('./datatools');
-const Trader = require('./neuroevolution').Trader;
+const NeuroTrader = require('./neuroevolution').NeuroTrader;
 const displayTraders = require('./neuroevolution').displayTraders;
 
 const getInputTensor = function(periodArray) {
@@ -31,7 +31,7 @@ var plot = async function(interval) {
 
     // load Trader from model
     const model = await tf.loadLayersModel(`file://./models/neuroevolution/generation76/Cex_BTCEUR_4h_Top3/model.json`);
-    let trader = new Trader(model);
+    let trader = new NeuroTrader(model);
 
     let trades = [];
     let lastAction = "SELL";

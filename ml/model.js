@@ -3,7 +3,7 @@ const tf = require('@tensorflow/tfjs-node');
 const utils = require('./utils');
 
 // number of periods of data we provide to the model to determine the output
-const nbPeriods = 3; // 52: base for ichimoku indicator
+const nbPeriods = 26; // 52: base for ichimoku indicator
 
 // each of theses informations are processed through sigmoid function
 // We'll create a sequential model and train it on a set of nbPeriods period
@@ -52,7 +52,7 @@ const activateInput = function(o) {
 
 const trainingOptions = {
     shuffle: true,
-    epochs: 50,
+    epochs: 10,
     batchsize: 10,
     validtionSplit: 0.2
 }
@@ -72,22 +72,41 @@ const dataOutputFields = [
         activate: (x) => { return x }
     },
     */
-    {
-        name: "high",
-        activate: (x) => { return utils.sigmoid(x) },
-        deactivate: (x) => { return utils.logit(x) }
-    },
-    {
-        name: "low",
-        activate: (x) => { return utils.sigmoid(x) },
-        deactivate: (x) => { return utils.logit(x) }
-    },
+    /*
+     {
+         name: "high",
+         activate: (x) => { return utils.sigmoid(x) },
+         deactivate: (x) => { return utils.logit(x) }
+     },
+     */
+    /*
+     {
+         name: "low",
+         activate: (x) => { return utils.sigmoid(x) },
+         deactivate: (x) => { return utils.logit(x) }
+     },
+     */
     /*
     {
         name: "close",
         activate: (x) => { return x }
     },
     */
+    {
+        name: "buy",
+        activate: x => x ? 1 : 0,
+        deactivate: x => x >= 0.5 ? true : false
+    },
+    {
+        name: "sell",
+        activate: x => x ? 1 : 0,
+        deactivate: x => x >= 0.5 ? true : false
+    },
+    {
+        name: "hold",
+        activate: x => x ? 1 : 0,
+        deactivate: x => x >= 0.5 ? true : false
+    },
 ];
 const nbDataOutput = dataOutputFields.length;
 const activateOutput = function(o) {
@@ -114,7 +133,7 @@ const model = tf.sequential({
         tf.layers.dropout(0.8),
         tf.layers.dense({ units: nbDataInput, activation: 'relu' }),
         tf.layers.dropout(0.8),
-        tf.layers.dense({ units: nbDataOutput, activation: 'relu' }),
+        tf.layers.dense({ units: nbDataOutput, activation: 'softmax' }),
     ]
 });
 
