@@ -12,12 +12,13 @@ class EMAxSMATrader extends Trader {
         this.takeProfitRatio = 0.02;
         this.stopLossRatio = 0.01;
 
-        // utils
-        this.indicatorsPeriods = Math.max(this.smaPeriods, this.emaPeriods);
-
         // trade decision making
         this.inTrade = false;
         this.enterTradeValue = 0;
+    }
+
+    analysisIntervalLength() {
+        return Math.max(this.smaPeriods, this.emaPeriods);
     }
 
     hash() {
@@ -51,11 +52,7 @@ class EMAxSMATrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods) {
-        // save this for trade count
-        let currentBitcoinPrice = dataPeriods[dataPeriods.length - 1].close;
-        this.lastBitcoinprice = currentBitcoinPrice;
-
+    async action(dataPeriods, currentBitcoinPrice) {
         // calculate sma indicator
         try {
             let sma = await this.getSMA(dataPeriods);
@@ -71,9 +68,9 @@ class EMAxSMATrader extends Trader {
                     // BUY condition
                     this.inTrade = true;
                     this.enterTradeValue = currentBitcoinPrice;
-                    this.buy(currentBitcoinPrice);
+                    this.buy();
                 } else {
-                    this.hold(currentBitcoinPrice);
+                    this.hold();
                 }
             } else {
                 if (currentBitcoinPrice < this.enterTradeValue * (1 - this.stopLossRatio)) {
@@ -85,27 +82,14 @@ class EMAxSMATrader extends Trader {
                     // SELL condition: take profit
                     this.inTrade = false;
                     this.enterTradeValue = 0;
-                    this.sell(currentBitcoinPrice);
+                    this.sell();
                 } else {
-                    this.hold(currentBitcoinPrice);
+                    this.hold();
                 }
             }
         } catch (e) {
             console.error("Err: " + e.stack);
             process.exit(-1);
-        }
-    }
-
-    // trade of the whole data
-    async trade(periods) {
-        let dataPeriods = periods.slice(0, this.indicatorsPeriods); // no trades in this area
-        for (var i = this.indicatorsPeriods; i < periods.length; i++) {
-            let nextPeriod = periods[i];
-            dataPeriods.push(nextPeriod);
-
-            await this.action(dataPeriods);
-
-            dataPeriods.shift();
         }
     }
 }

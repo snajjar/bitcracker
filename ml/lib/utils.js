@@ -38,7 +38,7 @@ var displayTraders = async function(arr) {
         let t = toDisplay[i];
         let hash = await t.hash();
         console.log(`    Trader #${t.number} (${hash}):`);
-        console.log(`       gain: ${t.gainStr()} win/loss: ${t.winLossRatioStr()} avg ROI: ${t.avgROIStr()}`);
+        console.log(`      gain: ${t.gainStr()} win/loss: ${t.winLossRatioStr()} avg ROI: ${t.avgROIStr()}`);
         console.log(`      ${t.statisticsStr()}`);
         console.log(`      ${t.tradesStr()}`);
     }

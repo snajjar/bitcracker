@@ -14,7 +14,7 @@ class Trader {
         // wallet and score values
         this.btcWallet = 0;
         this.eurWallet = startingFunding;
-        this.lastBitcoinprice = 0; // keep last bitcoin price for score computations
+        this.lastBitcoinPrice = 0; // keep last bitcoin price for score computations
 
         // statistics utils
         this.nbPenalties = 0;
@@ -23,6 +23,8 @@ class Trader {
         this.nbBuy = 0;
         this.nbSell = 0;
         this.nbHold = 0;
+
+        this.neededCandlesForAnalysis = 52;
     }
 
     resetTrading() {
@@ -58,12 +60,40 @@ class Trader {
         return this.btcWallet > 0 ? 1 : 0;
     }
 
-    async action(lastPeriods, currentBitcoinPrice) {
-        throw "TO BE REDEFINED";
+    // called on each new period, will call the action() method
+    async decideAction(dataPeriods) {
+        // save this for trade count and the action methods buy/sell/hold
+        let currentBitcoinPrice = dataPeriods[dataPeriods.length - 1].close;
+        this.lastBitcoinPrice = currentBitcoinPrice;
+        // console.log("lastBitcoinPrice", this.lastBitcoinPrice);
+
+        return await this.action(dataPeriods, currentBitcoinPrice);
+    }
+
+    async action(dataPeriods, currentBitcoinPrice) {
+        throw "action must be redefined by the Trader subclass. It shall call either buy(), sell() or hold() method";
+    }
+
+    analysisIntervalLength() {
+        throw "analysisIntervalLength must be redefined by the Trader subclass. It shall return the optimal number of periods needed for the action() method";
+    }
+
+    // trade on the whole data
+    async trade(periods) {
+        let analysisIntervalLength = this.analysisIntervalLength();
+        let dataPeriods = periods.slice(0, analysisIntervalLength); // no trades in this area
+        for (var i = analysisIntervalLength; i < periods.length; i++) {
+            let nextPeriod = periods[i];
+            dataPeriods.push(nextPeriod);
+
+            await this.decideAction(dataPeriods);
+
+            dataPeriods.shift();
+        }
     }
 
     gain() {
-        return (this.eurWallet + this.btcWallet * this.lastBitcoinprice) - startingFunding;
+        return (this.eurWallet + this.btcWallet * this.lastBitcoinPrice) - startingFunding;
     }
 
     gainStr() {
@@ -103,7 +133,7 @@ class Trader {
 
     winLossRatioStr() {
         let wl = this.winLossRatio();
-        let wlStr = this.winLossRatio().toFixed(0.2);
+        let wlStr = `${(this.winLossRatio()*100).toFixed(2)}%`;
         return wl > 0.5 ? wlStr.green : wlStr.red;
     }
 
@@ -117,44 +147,40 @@ class Trader {
         this.trades.push(newBitcoinPrice / oldBitcoinPrice);
     }
 
-    buy(currentBitcoinPrice) {
+    buy() {
+        let price = this.lastBitcoinPrice;
+
         this.nbBuy++;
         if (this.eurWallet > 0) {
-            this.btcWallet += (this.eurWallet * (1 - buyTax)) / currentBitcoinPrice;
+            this.btcWallet += (this.eurWallet * (1 - buyTax)) / price;
             this.eurWallet = 0;
-            this.lastBuyPrice = currentBitcoinPrice;
+            this.lastBuyPrice = price;
             return "BUY";
         } else {
             this.nbPenalties++; // cant buy, have no money
             return "";
         }
-
-        //this.checkNotNaN();
-        //console.log(`Trader #${this.number} choose to BUY at €${currentBitcoinPrice} (score: ${this.score(currentBitcoinPrice)})`);
     }
 
-    sell(currentBitcoinPrice) {
+    sell() {
+        let price = this.lastBitcoinPrice;
+
         this.nbSell++;
         if (this.btcWallet > 0) {
-            this.eurWallet += (this.btcWallet * (1 - sellTax)) * currentBitcoinPrice;
+            this.eurWallet += (this.btcWallet * (1 - sellTax)) * price;
             this.btcWallet = 0;
 
             // add last trade statistics
-            this.addTrade(this.lastBuyPrice, currentBitcoinPrice);
+            this.addTrade(this.lastBuyPrice, price);
             return "SELL";
         } else {
             this.nbPenalties++;
             return "";
         }
-
-        //this.checkNotNaN();
-        //console.log(`Trader #${this.number} choose to SELL at €${currentBitcoinPrice} (score: ${this.score(currentBitcoinPrice)})`);
     }
 
-    hold(currentBitcoinPrice) {
+    hold() {
         // doing nothing is what i do best
-        //this.checkNotNaN();
-        //console.log(`Trader #${this.number} choose to HOLD at €${currentBitcoinPrice} (score: ${this.score(currentBitcoinPrice)})`);
         this.nbHold++;
         return "HOLD";
     }
@@ -167,10 +193,12 @@ class Trader {
     }
 
     debug() {
+        console.log('#################################################');
         console.log(`Trader #${this.number} debug:`);
-        console.log('  eurWallet: ' + this.eurWallet);
-        console.log('  btcWallet: ' + this.btcWallet);
-        console.log('  bitcoin price: ' + this.lastBitcoinPrice);
+        let clone = _.clone(this);
+        delete clone.trades;
+        console.log(JSON.stringify(clone, null, 2));
+        console.log('#################################################');
     }
 
     dispose() {
