@@ -93,7 +93,11 @@ class Trader {
     }
 
     gain() {
-        return (this.eurWallet + this.btcWallet * this.lastBitcoinPrice) - startingFunding;
+        let gain = 0;
+        _.each(this.trades, (trade) => {
+            gain += trade * startingFunding - startingFunding;
+        });
+        return gain + (this.eurWallet + this.btcWallet * this.lastBitcoinPrice) - startingFunding;
     }
 
     gainStr() {
