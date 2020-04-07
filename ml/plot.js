@@ -1,16 +1,15 @@
 /******************************************************************************
  * plot.js - extract plottable data from model training on a given dataset
- *           useful for analyzing a neuro-evolved trader's behavior
+ *           useful for analyzing a trader's behavior
  *****************************************************************************/
 
 const _ = require('lodash');
 const tf = require('@tensorflow/tfjs-node');
-const utils = require('./utils');
+const utils = require('./lib/utils');
 const modelData = require('./model');
-const csv = require('./csv');
-const datatools = require('./datatools');
+const csv = require('./lib/csv');
 const NeuroTrader = require('./neuroevolution').NeuroTrader;
-const displayTraders = require('./neuroevolution').displayTraders;
+const utils = require('./lib/utils');
 
 const getInputTensor = function(periodArray) {
     let arr = [];
@@ -63,13 +62,11 @@ var plot = async function(interval) {
         }
     }
 
-    displayTraders([trader]);
+    utils.displayTraders([trader]);
 
     let outputFileName = `./data/Trade_Data_${utils.intervalToStr(interval)}.csv`;
     console.log(`[*] saving trade data into file: ${outputFileName}`);
     csv.setTradeData(outputFileName, btcData);
 }
 
-module.exports = {
-    plot: plot
-}
+module.exports = plot;

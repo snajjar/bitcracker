@@ -4,13 +4,13 @@
 
 const _ = require('lodash');
 const tf = require('@tensorflow/tfjs-node');
-const utils = require('./utils');
+const utils = require('./lib/utils');
 const modelData = require('./model');
-const csv = require('./csv');
-const datatools = require('./datatools');
+const csv = require('./lib/csv');
+const datatools = require('./lib/datatools');
 const colors = require('colors');
 const objectHash = require('object-hash');
-const Trader = require('./trader');
+const Trader = require('./traders/trader');
 
 // tweak this
 const nbGenerations = 500000;
@@ -373,25 +373,6 @@ class Population {
     }
 }
 
-var displayTraders = async function(arr) {
-    let toDisplay = arr.slice(0, Math.min(arr.length, 5));
-    for (var i = 0; i < toDisplay.length; i++) {
-        let t = toDisplay[i];
-        let hash = await t.hash();
-        console.log(`    Trader #${t.number} (${hash}):`);
-        console.log(`       gain: ${t.gainStr()} win/loss: ${t.winLossRatioStr()} avg ROI: ${t.avgROIStr()}`);
-        console.log(`      ${t.statisticsStr()}`);
-        console.log(`      ${t.tradesStr()}`);
-    }
-}
-
-var saveTraders = async function(arr, interval) {
-    for (var j = 0; j < arr.length; j++) {
-        let t = await NeuroTrader.clone(arr[j]);
-        await t.model.save(`file://./models/neuroevolution/generation/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}/`);
-    }
-}
-
 var evolve = async function(interval) {
     // load data from CSV
     //btcData = await csv.getData(`./data/Cex_BTCEUR_1d_Refined_Adjusted_NE_Train.csv`);
@@ -428,7 +409,7 @@ var evolve = async function(interval) {
         console.log('  - best traders:');
         let bestTraders = population.getBestTraders();
         if (bestTraders.length) {
-            await displayTraders(bestTraders);
+            await utils.displayTraders(bestTraders);
 
             // every few generations
             if (i % numberOfGenerationsWithoutTest == 0) {
@@ -460,16 +441,16 @@ var evolve = async function(interval) {
 
 
                 console.log('  - tests result:');
-                await displayTraders(bestTradersClones);
+                await utils.displayTraders(bestTradersClones);
 
                 // save current best traders
-                await saveTraders(bestTraders, interval);
+                await utils.saveTraders(bestTraders, interval);
             }
         } else {
             //console.log(`    - no traders worth mentionning`);
             console.log(`    - no traders worth mentionning, here are some loosers from generation (size ${population.getSortedTraders().length})`);
             let firstLoosers = population.getSortedTraders().slice(0, 3);
-            await displayTraders(firstLoosers);
+            await utils.displayTraders(firstLoosers);
         }
 
         // switch to next generation
@@ -481,8 +462,4 @@ var evolve = async function(interval) {
     });
 }
 
-module.exports = {
-    evolve,
-    NeuroTrader,
-    displayTraders,
-}
+module.exports = evolve;

@@ -4,11 +4,11 @@
 
 const tf = require('@tensorflow/tfjs-node');
 const _ = require('lodash');
-const csv = require('./csv');
-const modelData = require('./model');
+const csv = require('./lib/csv');
+const modelData = require('./lib/model');
 const model = modelData.model;
-const utils = require('./utils');
-const indicator = require('./indicator');
+const utils = require('./lib/utils');
+const indicator = require('./lib/indicator');
 
 const trainModel = async function(data) {
     let inputs = [];
@@ -76,6 +76,4 @@ const train = async function(interval) {
     await model.save(`file://./models/supervised/Cex_BTCEUR_${utils.intervalToStr(interval)}/`);
 }
 
-module.exports = {
-    train
-}
+module.exports = train;

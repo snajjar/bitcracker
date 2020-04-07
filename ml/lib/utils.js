@@ -32,6 +32,25 @@ const debug = function(o) {
     console.log(require('util').inspect(o));
 }
 
+var displayTraders = async function(arr) {
+    let toDisplay = arr.slice(0, Math.min(arr.length, 5));
+    for (var i = 0; i < toDisplay.length; i++) {
+        let t = toDisplay[i];
+        let hash = await t.hash();
+        console.log(`    Trader #${t.number} (${hash}):`);
+        console.log(`       gain: ${t.gainStr()} win/loss: ${t.winLossRatioStr()} avg ROI: ${t.avgROIStr()}`);
+        console.log(`      ${t.statisticsStr()}`);
+        console.log(`      ${t.tradesStr()}`);
+    }
+}
+
+var saveTraders = async function(arr, interval) {
+    for (var j = 0; j < arr.length; j++) {
+        let t = await NeuroTrader.clone(arr[j]);
+        await t.model.save(`file://./models/neuroevolution/generation/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}/`);
+    }
+}
+
 module.exports = {
     debug,
     sigmoid,
@@ -40,4 +59,6 @@ module.exports = {
     intervalsStr,
     intervalToStr,
     strToInterval,
+    displayTraders,
+    saveTraders
 }

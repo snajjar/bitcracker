@@ -1,4 +1,5 @@
 const _ = require('lodash');
+const colors = require('colors');
 
 const startingFunding = 1000;
 const buyTax = 0.0026;
@@ -7,7 +8,7 @@ const sellTax = 0.0016;
 class Trader {
     static count = 0;
 
-    constructor(m) {
+    constructor() {
         this.number = Trader.count++;
 
         // wallet and score values

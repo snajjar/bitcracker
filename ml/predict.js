@@ -6,7 +6,7 @@ const tf = require('@tensorflow/tfjs-node');
 const axios = require('axios');
 const _ = require('lodash');
 const modelData = require('./model');
-const utils = require('./utils');
+const utils = require('./lib/utils');
 const colors = require('colors');
 
 const debug = function(o) {
@@ -74,6 +74,4 @@ const predict = async function(interval) {
     });
 }
 
-module.exports = {
-    predict
-}
+module.exports = predict;

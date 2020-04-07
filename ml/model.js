@@ -1,6 +1,6 @@
 const _ = require('lodash');
 const tf = require('@tensorflow/tfjs-node');
-const utils = require('./utils');
+const utils = require('./lib/utils');
 
 // number of periods of data we provide to the model to determine the output
 const nbPeriods = 26; // 52: base for ichimoku indicator

@@ -2,8 +2,8 @@
  * extract.js - extract and adjust data for different granularities
  *****************************************************************************/
 
-const csv = require('./csv');
-const utils = require('./utils');
+const csv = require('./lib/csv');
+const utils = require('./lib/utils');
 const _ = require('lodash');
 const moment = require('moment');
 
@@ -131,6 +131,4 @@ var extract = async function(interval) {
     await csv.setData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`, data);
 }
 
-module.exports = {
-    extract
-}
+module.exports = extract;
