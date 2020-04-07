@@ -81,7 +81,7 @@ class Trader {
     // trade on the whole data
     async trade(periods) {
         let analysisIntervalLength = this.analysisIntervalLength();
-        let dataPeriods = periods.slice(0, analysisIntervalLength); // no trades in this area
+        let dataPeriods = periods.slice(0, analysisIntervalLength - 1); // no trades in this area
         for (var i = analysisIntervalLength; i < periods.length; i++) {
             let nextPeriod = periods[i];
             dataPeriods.push(nextPeriod);

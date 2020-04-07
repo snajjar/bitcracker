@@ -44,12 +44,6 @@ var displayTraders = async function(arr) {
     }
 }
 
-var saveTraders = async function(arr, interval) {
-    for (var j = 0; j < arr.length; j++) {
-        let t = await NeuroTrader.clone(arr[j]);
-        await t.model.save(`file://./models/neuroevolution/generation/Cex_BTCEUR_${utils.intervalToStr(interval)}_Top${j}/`);
-    }
-}
 
 module.exports = {
     debug,
@@ -60,5 +54,4 @@ module.exports = {
     intervalToStr,
     strToInterval,
     displayTraders,
-    saveTraders
 }

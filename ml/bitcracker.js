@@ -53,7 +53,7 @@ yargs
             describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
         })
     }, async (argv) => {
-        const evolve = require('./neuroevolution');
+        const evolve = require('./evolve');
         await evolve(utils.strToInterval(argv.interval));
     })
     .command('plot <interval>', 'Output a plottable .csv file of a Trader results', (yargs) => {
