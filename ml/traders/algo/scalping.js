@@ -19,7 +19,7 @@ class EMAxSMATrader extends Trader {
     }
 
     hash() {
-        return "scalping 2%";
+        return "Algo_scalping_2%";
     }
 
     getAVG(dataPeriods) {
