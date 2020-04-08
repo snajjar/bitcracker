@@ -2,11 +2,12 @@ const Trader = require('../trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
+const stopLossRatio = 0.01;
+const takeProfitRatio = 0.02;
+
 class EMAxSMATrader extends Trader {
     constructor() {
         super();
-
-        this.inTrade = true;
     }
 
     analysisIntervalLength() {
@@ -32,26 +33,13 @@ class EMAxSMATrader extends Trader {
         });
     }
 
-    stopLoss(ratio) {
-        if (this.inTrade) {
-            if (this.lastBitcoinPrice < this.enterTradeValue * (1 - ratio)) {
-                this.sell();
-            }
-        }
-    }
-
-    takeProfit(ratio) {
-        if (this.inTrade) {
-            if (this.lastBitcoinPrice > this.enterTradeValue * (1 + ratio)) {
-                this.sell();
-            }
-        }
-    }
-
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
-        this.stopLoss(0.01);
-        this.takeProfit(0.05);
+        let stopped = this.stopLoss(stopLossRatio);
+        if (stopped) return;
+
+        stopped = this.takeProfit(takeProfitRatio);
+        if (stopped) return;
 
         // calculate sma indicator
         try {
@@ -61,16 +49,12 @@ class EMAxSMATrader extends Trader {
             if (!this.inTrade) {
                 if (lastStoch < 20) {
                     // BUY condition
-                    this.inTrade = true;
-                    this.enterTradeValue = currentBitcoinPrice;
                     this.buy();
                 } else {
                     this.hold();
                 }
             } else {
                 if (lastStoch > 80) {
-                    this.inTrade = false;
-                    this.enterTradeValue = 0;
                     this.sell(currentBitcoinPrice);
                 } else {
                     this.hold();

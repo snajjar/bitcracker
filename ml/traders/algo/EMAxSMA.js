@@ -2,6 +2,9 @@ const Trader = require('../trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
+const stopLossRatio = 0.01;
+const takeProfitRatio = 0.02;
+
 class EMAxSMATrader extends Trader {
     constructor() {
         super();
@@ -9,16 +12,13 @@ class EMAxSMATrader extends Trader {
         // parameters
         this.smaPeriods = 200;
         this.emaPeriods = 5;
-        this.takeProfitRatio = 0.02;
-        this.stopLossRatio = 0.01;
 
-        // trade decision making
-        this.inTrade = false;
-        this.enterTradeValue = 0;
+        this.prevSMA = null;
+        this.prevEMA = null;
     }
 
     analysisIntervalLength() {
-        return Math.max(this.smaPeriods, this.emaPeriods);
+        return Math.max(this.smaPeriods, this.emaPeriods) + 1;
     }
 
     hash() {
@@ -53,6 +53,12 @@ class EMAxSMATrader extends Trader {
 
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
+        let stopped = this.stopLoss(stopLossRatio);
+        if (stopped) return;
+
+        stopped = this.takeProfit(takeProfitRatio);
+        if (stopped) return;
+
         // calculate sma indicator
         try {
             let sma = await this.getSMA(dataPeriods);
@@ -66,26 +72,13 @@ class EMAxSMATrader extends Trader {
             if (!this.inTrade) {
                 if (prevEMA < prevSMA && currEMA >= currSMA) {
                     // BUY condition
-                    this.inTrade = true;
-                    this.enterTradeValue = currentBitcoinPrice;
                     this.buy();
                 } else {
                     this.hold();
                 }
             } else {
-                if (currentBitcoinPrice < this.enterTradeValue * (1 - this.stopLossRatio)) {
-                    // SELL condition: stop loss
-                    this.inTrade = false;
-                    this.enterTradeValue = 0;
-                    this.sell(currentBitcoinPrice);
-                } else if (currentBitcoinPrice >= this.enterTradeValue * (1 + this.takeProfitRatio)) {
-                    // SELL condition: take profit
-                    this.inTrade = false;
-                    this.enterTradeValue = 0;
-                    this.sell();
-                } else {
-                    this.hold();
-                }
+                // SELL conditions are take profit and stop loss
+                this.hold();
             }
         } catch (e) {
             console.error("Err: " + e.stack);

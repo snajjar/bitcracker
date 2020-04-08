@@ -2,6 +2,9 @@ const Trader = require('../trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
+const stopLossRatio = 0.01;
+const takeProfitRatio = 0.02;
+
 class EMAxSMATrader extends Trader {
     constructor() {
         super();
@@ -28,8 +31,13 @@ class EMAxSMATrader extends Trader {
 
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
+        let stopped = this.stopLoss(stopLossRatio);
+        if (stopped) return;
+
+        stopped = this.takeProfit(takeProfitRatio);
+        if (stopped) return;
+
         let avg = this.getAVG(dataPeriods);
-        let lastCandle = dataPeriods[dataPeriods.length - 1];
 
         if (!this.inTrade) {
             if (currentBitcoinPrice < avg) {
@@ -41,14 +49,15 @@ class EMAxSMATrader extends Trader {
                 this.hold();
             }
         } else {
-            if (currentBitcoinPrice > this.enterTradeValue * this.takeProfitRatio) {
-                // SELL condition: stop loss
-                this.inTrade = false;
-                this.enterTradeValue = 0;
-                this.sell(currentBitcoinPrice);
-            } else {
-                this.hold();
-            }
+            // if (currentBitcoinPrice > this.enterTradeValue * this.takeProfitRatio) {
+            //     // SELL condition: stop loss
+            //     this.inTrade = false;
+            //     this.enterTradeValue = 0;
+            //     this.sell(currentBitcoinPrice);
+            // } else {
+            //     this.hold();
+            // }
+            this.hold();
         }
     }
 }

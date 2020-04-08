@@ -16,9 +16,12 @@ class Trader {
         this.eurWallet = startingFunding;
         this.lastBitcoinPrice = 0; // keep last bitcoin price for score computations
 
+        // trade utils
+        this.inTrade = false;
+        this.enterTradeValue = 0;
+
         // statistics utils
         this.nbPenalties = 0;
-        this.lastBuyPrice = 0;
         this.trades = [];
         this.nbBuy = 0;
         this.nbSell = 0;
@@ -34,7 +37,7 @@ class Trader {
 
     resetStatistics() {
         this.nbPenalties = 0;
-        this.lastBuyPrice = 0;
+        this.enterTradeValue = 0;
         this.trades = [];
         this.nbBuy = 0;
         this.nbSell = 0;
@@ -122,12 +125,9 @@ class Trader {
 
     winLossRatio() {
         let wins = 0;
-        let losses = 0;
         _.each(this.trades, r => {
             if (r > 1 + buyTax + sellTax) {
                 wins++;
-            } else {
-                losses++;
             }
         });
         let nbTrades = this.trades.length;
@@ -158,7 +158,9 @@ class Trader {
         if (this.eurWallet > 0) {
             this.btcWallet += (this.eurWallet * (1 - buyTax)) / price;
             this.eurWallet = 0;
-            this.lastBuyPrice = price;
+
+            this.inTrade = true;
+            this.enterTradeValue = price;
             return "BUY";
         } else {
             this.nbPenalties++; // cant buy, have no money
@@ -174,8 +176,10 @@ class Trader {
             this.eurWallet += (this.btcWallet * (1 - sellTax)) * price;
             this.btcWallet = 0;
 
+            this.inTrade = false;
+
             // add last trade statistics
-            this.addTrade(this.lastBuyPrice, price);
+            this.addTrade(this.enterTradeValue, price);
             return "SELL";
         } else {
             this.nbPenalties++;
@@ -187,6 +191,28 @@ class Trader {
         // doing nothing is what i do best
         this.nbHold++;
         return "HOLD";
+    }
+
+    stopLoss(ratio) {
+        if (this.inTrade) {
+            if (this.lastBitcoinPrice < this.enterTradeValue * (1 - ratio)) {
+                //console.log('stopped loss !');
+                this.sell();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    takeProfit(ratio) {
+        if (this.inTrade) {
+            if (this.lastBitcoinPrice > this.enterTradeValue * (1 + ratio)) {
+                //console.log('took profit !');
+                this.sell();
+                return true;
+            }
+        }
+        return false;
     }
 
     checkNotNaN() {
