@@ -45,8 +45,9 @@ class Trader {
     }
 
     statisticsStr() {
-        let positiveTrades = _.filter(this.trades, v => v > 1);
-        let negativeTrades = _.filter(this.trades, v => v < 1);
+        let limit = 1 + buyTax + sellTax;
+        let positiveTrades = _.filter(this.trades, v => v > limit);
+        let negativeTrades = _.filter(this.trades, v => v < limit);
 
         return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbPenalties} penalities, ${((this.totalROI())*100).toFixed(2) + "%"} result`;
     }
