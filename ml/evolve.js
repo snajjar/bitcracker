@@ -16,8 +16,6 @@ const populationSize = 20;
 
 const numberOfGenerationsWithoutTest = 5;
 
-var btcData = null;
-
 class Population {
     constructor(size, trader) {
         this.size = size;
@@ -157,7 +155,7 @@ var saveTraders = async function(arr, interval) {
 
 var evolve = async function(interval) {
     // load data from CSV
-    btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
+    let btcData = await csv.getDataForInterval(interval);
     let [trainData, testSample] = datatools.splitData(btcData, 0.8);
 
     const population = new Population(populationSize);

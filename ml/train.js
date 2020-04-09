@@ -68,7 +68,7 @@ const trainModel = async function(data) {
 
 const train = async function(interval) {
     // load data from CSV
-    const btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
+    let btcData = await csv.getDataForInterval(interval);
     indicator.addLocalMinMaxIndicator(btcData, 12);
 
     await trainModel(btcData);

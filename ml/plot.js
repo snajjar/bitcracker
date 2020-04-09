@@ -25,7 +25,7 @@ const getInputTensor = function(periodArray) {
 
 var plot = async function(interval) {
     // load data from CSV
-    let btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
+    let btcData = await csv.getDataForInterval(interval);
     //let [trainData, testData] = datatools.splitData(btcData, 0.6);
 
     // load Trader from model
