@@ -47,7 +47,7 @@ const benchmark = async function(interval) {
         arrResults.push({
             name: trader.hash(),
             gain: trader.gain().toFixed(0) + '€',
-            "trade win ratio": (trader.winLossRatio() * 100).toFixed(2) + '%',
+            "win ratio": (trader.winLossRatio() * 100).toFixed(2) + '%',
             "avg ROI": (trader.avgROI() * 100).toFixed(2) + "%",
             "trades": trader.trades.length,
             "pos": trader.nbPositiveTrades(),
