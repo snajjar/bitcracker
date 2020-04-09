@@ -12,7 +12,6 @@ const setConfig = function(o) {
 }
 
 const setStopLossRatio = function(v) {
-    console.log('Set stop loss to ', v);
     config.stopLossRatio = v;
 }
 
