@@ -2,7 +2,7 @@ const Trader = require('../trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-class StochasticTrader extends Trader {
+class RSITrader_70_30 extends Trader {
     constructor() {
         super();
     }
@@ -12,15 +12,13 @@ class StochasticTrader extends Trader {
     }
 
     hash() {
-        return "Algo_stochastic";
+        return "Algo_rsi_70_30";
     }
 
-    getStochastic(dataPeriods) {
-        let highPrices = _.map(dataPeriods, p => p.high);
-        let lowPrices = _.map(dataPeriods, p => p.low);
+    getRSI(dataPeriods) {
         let closePrices = _.map(dataPeriods, p => p.close);
         return new Promise((resolve, reject) => {
-            tulind.indicators.stoch.indicator([highPrices, lowPrices, closePrices], [14, 3, 3], function(err, results) {
+            tulind.indicators.rsi.indicator([closePrices], [14], function(err, results) {
                 if (err) {
                     reject(err);
                 } else {
@@ -40,18 +38,18 @@ class StochasticTrader extends Trader {
 
         // calculate sma indicator
         try {
-            let stoch = await this.getStochastic(dataPeriods);
-            let lastStoch = stoch[0][stoch[0].length - 1];
+            let rsi = await this.getRSI(dataPeriods);
+            let lastRSI = rsi[0][rsi[0].length - 1];
 
             if (!this.inTrade) {
-                if (lastStoch < 20) {
+                if (lastRSI < 30) {
                     // BUY condition
                     this.buy();
                 } else {
                     this.hold();
                 }
             } else {
-                if (lastStoch > 80) {
+                if (lastRSI > 70) {
                     this.sell(currentBitcoinPrice);
                 } else {
                     this.hold();
@@ -64,4 +62,4 @@ class StochasticTrader extends Trader {
     }
 }
 
-module.exports = StochasticTrader;
+module.exports = RSITrader_70_30;

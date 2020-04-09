@@ -19,21 +19,40 @@ const getDataFromCSV = function(filePath) {
     });
 }
 
+// make sure the price starting point is where the endpoint is
+const equalize = function(data) {
+    let endValue = data[data.length - 1].close;
+
+    let startIndex = 0;
+    for (var i = 0; i < data.length; i++) {
+        if (data[i].low < endValue && endValue < data[i].high) {
+            startIndex = i;
+            break;
+        }
+    }
+
+    return data.slice(startIndex);
+}
+
 const getDataForInterval = async function(interval) {
     let btcData = null;
-    let adjustedDataFile = `./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined_Adjusted.csv`;
+    //let adjustedDataFile = `./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined_Adjusted.csv`;
     let dataFile = `./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`;
 
+    /*
     if (fs.existsSync(adjustedDataFile)) {
         btcData = await getData(adjustedDataFile);
-    } else if (fs.existsSync(dataFile)) {
+    } else
+    */
+
+    if (fs.existsSync(dataFile)) {
         btcData = await getData(dataFile);
     } else {
         console.error(`[*] Error: could not find .csv file ${adjustedDataFile} or ${dataFile}`);
         process.exit(-1);
     }
 
-    return btcData;
+    return equalize(btcData);
 }
 
 const getData = async function(csvFilePath) {

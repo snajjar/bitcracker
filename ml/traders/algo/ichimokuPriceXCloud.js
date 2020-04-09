@@ -8,10 +8,11 @@ class IchimokuPriceXCloudTrader extends Trader {
     }
 
     analysisIntervalLength() {
-        // 52 period for ichimoku indicators
+        // 52 period for ichimoku ssb
+        // +26 for kijun
         // +2 for the 2 last ichimoku values
-        // + 1 for the last data value
-        return 55;
+        // +1 for the last data value
+        return 81;
     }
 
     hash() {
@@ -61,7 +62,7 @@ class IchimokuPriceXCloudTrader extends Trader {
             let prevBitcoinPrice = dataPeriods[dataPeriods.length - 2].close;
 
             let previouslyUnderCloud = prevBitcoinPrice < prevIchimokuValue.spanA || prevBitcoinPrice < prevIchimokuValue.spanB;
-            let nowOverCloud = currentBitcoinPrice > prevIchimokuValue.spanA && currentBitcoinPrice > prevIchimokuValue.spanB
+            let nowOverCloud = currentBitcoinPrice > lastIchimokuValue.spanA && currentBitcoinPrice > lastIchimokuValue.spanB
 
             let priceXCloud = previouslyUnderCloud && nowOverCloud;
 
