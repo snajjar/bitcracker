@@ -6,9 +6,6 @@ class ScalpingTrader extends Trader {
     constructor() {
         super();
 
-        // parameters
-        this.takeProfitRatio = 0.02;
-
         // trade decision making
         this.inTrade = false;
         this.enterTradeValue = 0;
@@ -19,7 +16,7 @@ class ScalpingTrader extends Trader {
     }
 
     hash() {
-        return "Algo_scalping_2%";
+        return "Algo_scalping";
     }
 
     getAVG(dataPeriods) {
@@ -46,14 +43,6 @@ class ScalpingTrader extends Trader {
                 this.hold();
             }
         } else {
-            // if (currentBitcoinPrice > this.enterTradeValue * this.takeProfitRatio) {
-            //     // SELL condition: stop loss
-            //     this.inTrade = false;
-            //     this.enterTradeValue = 0;
-            //     this.sell(currentBitcoinPrice);
-            // } else {
-            //     this.hold();
-            // }
             this.hold();
         }
     }
