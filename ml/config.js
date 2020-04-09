@@ -1,11 +1,16 @@
 const moment = require('moment');
 
 const config = {
+    // trade parameters
     stopLossRatio: 0.05,
     takeProfitRatio: 0.05,
+    cumulateGain: false,
 
+    // time range
     startDate: null,
     endDate: null,
+
+
 }
 
 const getConfig = function() {
@@ -50,6 +55,14 @@ const getEndDate = function() {
     return config.endDate;
 }
 
+const setCumulateGain = function(b) {
+    config.cumulateGain = b;
+}
+
+const getCumulateGain = function() {
+    return config.cumulateGain;
+}
+
 module.exports = {
     getConfig,
     setConfig,
@@ -60,5 +73,7 @@ module.exports = {
     setStartDate,
     getStartDate,
     setEndDate,
-    getEndDate
+    getEndDate,
+    setCumulateGain,
+    getCumulateGain
 }
