@@ -7,7 +7,7 @@ const csv = require('./lib/csv');
 const utils = require('./lib/utils');
 
 const evaluateTrader = async function(trader, interval) {
-    let btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`);
+    let btcData = await csv.getData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined_Adjusted.csv`);
     await trader.trade(btcData);
     utils.displayTraders([trader]);
 }
