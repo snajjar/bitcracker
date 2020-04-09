@@ -4,7 +4,8 @@ const utils = require('./lib/utils');
 const yargs = require('yargs');
 const _ = require('lodash');
 const fs = require('fs-extra');
-var path = require('path');
+const path = require('path');
+var config = require('./config');
 
 const ensureRequiredDirs = function() {
     fs.ensureDirSync(path.join(path.resolve(__dirname), "data"));
@@ -83,7 +84,23 @@ yargs
         let interval = utils.strToInterval(argv.interval);
         await evaluate(argv.tradertype, interval, { strategy: argv.strategy });
     })
-    .command('benchmark <interval>', 'Evaluate all traders on a data interval', (yargs) => {}, async (argv) => {
+    .command('benchmark <interval>', 'Evaluate all traders on a data interval', (yargs) => {
+        yargs.option('stoploss', {
+                describe: 'ratio for stoploss',
+                type: 'number',
+            })
+            .option('takeprofit', {
+                describe: 'ratio for takeprofit',
+                type: 'number',
+            })
+    }, async (argv) => {
+        if (argv.stoploss) {
+            config.setStopLossRatio(argv.stoploss);
+        }
+        if (argv.takeprofit) {
+            config.setTakeProfitRatio(argv.takeprofit);
+        }
+
         const benchmark = require('./benchmark');
         let interval = utils.strToInterval(argv.interval);
         await benchmark(interval);

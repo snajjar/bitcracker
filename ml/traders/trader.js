@@ -1,4 +1,5 @@
 const _ = require('lodash');
+const config = require('../config');
 const colors = require('colors');
 
 const startingFunding = 1000;
@@ -27,7 +28,9 @@ class Trader {
         this.nbSell = 0;
         this.nbHold = 0;
 
-        this.neededCandlesForAnalysis = 52;
+        // config settings
+        this.stopLossRatio = config.getStopLossRatio();
+        this.takeProfitRatio = config.getTakeProfitRatio();
     }
 
     resetTrading() {

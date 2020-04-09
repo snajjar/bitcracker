@@ -1,9 +1,6 @@
 const Trader = require('../trader');
 const _ = require('lodash');
 
-const stopLossRatio = 0.04;
-const takeProfitRatio = 0.04;
-
 class JustBuyAndHoldTrader extends Trader {
     constructor() {
         super();
@@ -19,10 +16,10 @@ class JustBuyAndHoldTrader extends Trader {
 
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
-        let stopped = this.stopLoss(stopLossRatio);
+        let stopped = this.stopLoss(this.stopLossRatio);
         if (stopped) return;
 
-        stopped = this.takeProfit(takeProfitRatio);
+        stopped = this.takeProfit(this.takeProfitRatio);
         if (stopped) return;
 
         // calculate sma indicator

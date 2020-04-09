@@ -2,9 +2,6 @@ const Trader = require('../trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-const stopLossRatio = 0.01;
-const takeProfitRatio = 0.02;
-
 class ScalpingTrader extends Trader {
     constructor() {
         super();
@@ -31,10 +28,10 @@ class ScalpingTrader extends Trader {
 
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
-        let stopped = this.stopLoss(stopLossRatio);
+        let stopped = this.stopLoss(this.stopLossRatio);
         if (stopped) return;
 
-        stopped = this.takeProfit(takeProfitRatio);
+        stopped = this.takeProfit(this.takeProfitRatio);
         if (stopped) return;
 
         let avg = this.getAVG(dataPeriods);
