@@ -5,7 +5,7 @@ const _ = require('lodash');
 const stopLossRatio = 0.01;
 const takeProfitRatio = 0.02;
 
-class EMAxSMATrader extends Trader {
+class ScalpingTrader extends Trader {
     constructor() {
         super();
 
@@ -62,4 +62,4 @@ class EMAxSMATrader extends Trader {
     }
 }
 
-module.exports = EMAxSMATrader;
+module.exports = ScalpingTrader;

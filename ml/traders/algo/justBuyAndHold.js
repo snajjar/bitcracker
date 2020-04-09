@@ -4,7 +4,7 @@ const _ = require('lodash');
 const stopLossRatio = 0.04;
 const takeProfitRatio = 0.04;
 
-class RandomTrader extends Trader {
+class JustBuyAndHoldTrader extends Trader {
     constructor() {
         super();
     }
@@ -14,7 +14,7 @@ class RandomTrader extends Trader {
     }
 
     hash() {
-        return "Algo_random";
+        return "Algo_justBuyAndHold";
     }
 
     // decide for an action
@@ -27,15 +27,10 @@ class RandomTrader extends Trader {
 
         // calculate sma indicator
         try {
-            let rand = Math.random() > 0.01; // buy in average once every 100 boxes
 
             if (!this.inTrade) {
-                if (rand) {
-                    // BUY condition
-                    this.buy();
-                } else {
-                    this.hold();
-                }
+                // BUY everytime
+                this.buy();
             } else {
                 this.hold();
             }
@@ -46,4 +41,4 @@ class RandomTrader extends Trader {
     }
 }
 
-module.exports = RandomTrader;
+module.exports = JustBuyAndHoldTrader;

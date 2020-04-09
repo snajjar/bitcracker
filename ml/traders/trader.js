@@ -142,6 +142,18 @@ class Trader {
         return wl > 0.5 ? wlStr.green : wlStr.red;
     }
 
+    nbPositiveTrades() {
+        let limit = 1 + buyTax + sellTax;
+        let positiveTrades = _.filter(this.trades, v => v > limit);
+        return positiveTrades.length;
+    }
+
+    nbNegativeTrades() {
+        let limit = 1 + buyTax + sellTax;
+        let negativeTrades = _.filter(this.trades, v => v < limit);
+        return negativeTrades.length;
+    }
+
     score() {
         // score is the global ROI of the trader
         // add the buy/sell tax into account

@@ -5,7 +5,7 @@ const _ = require('lodash');
 const stopLossRatio = 0.08;
 const takeProfitRatio = 0.04;
 
-class EMAxSMATrader extends Trader {
+class IchimokuTenkanXKijunTrader extends Trader {
     constructor() {
         super();
     }
@@ -82,4 +82,4 @@ class EMAxSMATrader extends Trader {
     }
 }
 
-module.exports = EMAxSMATrader;
+module.exports = IchimokuTenkanXKijunTrader;

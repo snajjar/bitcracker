@@ -83,6 +83,11 @@ yargs
         let interval = utils.strToInterval(argv.interval);
         await evaluate(argv.tradertype, interval, { strategy: argv.strategy });
     })
+    .command('benchmark <interval>', 'Evaluate all traders on a data interval', (yargs) => {}, async (argv) => {
+        const benchmark = require('./benchmark');
+        let interval = utils.strToInterval(argv.interval);
+        await benchmark(interval);
+    })
     .help()
     .demandCommand()
     .alias('help', 'h')

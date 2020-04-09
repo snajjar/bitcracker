@@ -2,8 +2,8 @@ const csvParser = require('csv-parser');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const _ = require('lodash');
 const moment = require('moment');
-const fs = require('fs');
-
+const fs = require('fs-extra');
+const utils = require('./utils');
 
 const getDataFromCSV = function(filePath) {
     return new Promise((resolve, reject) => {
@@ -17,6 +17,23 @@ const getDataFromCSV = function(filePath) {
                 resolve(rows);
             });
     });
+}
+
+const getDataForInterval = async function(interval) {
+    let btcData = null;
+    let adjustedDataFile = `./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined_Adjusted.csv`;
+    let dataFile = `./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`;
+
+    if (fs.existsSync(adjustedDataFile)) {
+        btcData = await getData(adjustedDataFile);
+    } else if (fs.existsSync(dataFile)) {
+        btcData = await getData(dataFile);
+    } else {
+        console.error(`[*] Error: could not find .csv file ${adjustedDataFile} or ${dataFile}`);
+        process.exit(-1);
+    }
+
+    return btcData;
 }
 
 const getData = async function(csvFilePath) {
@@ -104,5 +121,6 @@ const setTradeData = async function(csvFilePath, data) {
 module.exports = {
     getData,
     setData,
-    setTradeData
+    setTradeData,
+    getDataForInterval
 }
