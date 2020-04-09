@@ -31,6 +31,8 @@ class Trader {
         // config settings
         this.stopLossRatio = config.getStopLossRatio();
         this.takeProfitRatio = config.getTakeProfitRatio();
+        this.nbStopLoss = 0;
+        this.nbTakeProfit = 0;
     }
 
     resetTrading() {
@@ -52,7 +54,8 @@ class Trader {
         let positiveTrades = _.filter(this.trades, v => v > limit);
         let negativeTrades = _.filter(this.trades, v => v < limit);
 
-        return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbPenalties} penalities, ${((this.totalROI())*100).toFixed(2) + "%"} result`;
+        //return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbPenalties} penalities, ${((this.totalROI())*100).toFixed(2) + "%"} result`;
+        return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbStopLoss} stop loss, ${this.nbTakeProfit} take profit`;
     }
 
     tradesStr() {
@@ -213,6 +216,7 @@ class Trader {
         if (this.inTrade) {
             if (this.lastBitcoinPrice < this.enterTradeValue * (1 - ratio)) {
                 //console.log('stopped loss !');
+                this.nbStopLoss++;
                 this.sell();
                 return true;
             }
@@ -224,6 +228,7 @@ class Trader {
         if (this.inTrade) {
             if (this.lastBitcoinPrice > this.enterTradeValue * (1 + ratio)) {
                 //console.log('took profit !');
+                this.nbTakeProfit++;
                 this.sell();
                 return true;
             }
