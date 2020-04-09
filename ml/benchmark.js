@@ -15,6 +15,7 @@ const getAllTraders = function() {
         fs.readdir("./traders/algo", (err, files) => {
             let traders = [];
             files.forEach(file => {
+                //console.log(file);
                 let TraderConstructor = require('./' + path.join(tradersFolder, file));
                 traders.push(new TraderConstructor());
             });
