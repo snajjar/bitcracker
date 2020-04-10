@@ -35,6 +35,12 @@ const equalize = function(data) {
     return data.slice(startIndex);
 }
 
+const removeBlankLines = function(filePath) {
+    var content = fs.readFileSync(filePath, "utf8");
+    content = content.replace(/^\s*[\r\n]/gm, '');
+    fs.writeFileSync(filePath, content);
+}
+
 const cutDataBefore = function(startTimestamp, data) {
     let startIndex = 0;
     for (var i = 0; i < data.length; i++) {
@@ -114,7 +120,7 @@ const getData = async function(csvFilePath) {
         i++;
         _.each(row, v => {
             if (isNaN(v) || isNaN(parseFloat(v)) || parseFloat(v) === null) {
-                console.log('Error: null or NaN found in CSV file, line: ' + i);
+                console.log(`Error: null or NaN found in CSV file ${csvFilePath}, line: ${i}`);
                 console.log(row);
                 process.exit(-1);
             }
@@ -192,5 +198,6 @@ module.exports = {
     getData,
     setData,
     setTradeData,
-    getDataForInterval
+    getDataForInterval,
+    removeBlankLines
 }

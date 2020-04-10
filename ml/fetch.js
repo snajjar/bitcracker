@@ -26,6 +26,10 @@ const getCexData = async function(day) {
         process.exit(-1);
     }
 
+    if (response.data === null || response.data === "null") {
+        return null;
+    }
+
     let stringifiedData = response.data["data1m"];
     let data = JSON.parse(stringifiedData);
     return data;
@@ -69,9 +73,10 @@ const fetch = async function(pair, source, continueFromLast) {
     let data = continueFromLast ? await getExistingData(pair, source) : [];
     let lastDataWritten = null;
     let d = null;
+    let filePath = getRawFilePath(pair, source);
 
     csvWriter = createCsvWriter({
-        path: getRawFilePath(pair, source),
+        path: filePath,
         header: [
             { id: 'timestamp', title: 'timestamp' },
             { id: 'open', title: 'Open' },
@@ -117,6 +122,10 @@ const fetch = async function(pair, source, continueFromLast) {
         console.log(`[*] fetching data for ${d.format('DD/MM/YYYY')}`);
         try {
             let newData = await getCexData(d);
+            if (!newData) {
+                console.log('[*] no more data');
+                break;
+            }
 
             // check if it's not data we already have
             let firstDataDate = moment.unix(newData[0][0]);
@@ -137,10 +146,14 @@ const fetch = async function(pair, source, continueFromLast) {
             await sleep(500);
         } catch (e) {
             console.error('caught error: ' + e);
-            console.error('terminating');
-            process.exit(-1);
+            break;
+            //console.error('terminating');
+            //process.exit(-1);
         }
     }
+
+    console.log(`[*] removing empty lines`);
+    csv.removeBlankLines(filePath);
 }
 
 module.exports = fetch;
