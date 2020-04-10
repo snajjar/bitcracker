@@ -18,6 +18,22 @@ ensureRequiredDirs();
 
 yargs
     //.command('fetch', 'Fetch data from a source')
+    .command('fetch <pair> [source]', 'Fetch', (yargs) => {
+        yargs.positional('pair', {
+            describe: 'Pair of value you want to get data: ex BTCEUR',
+            default: 'BTCEUR'
+        }).positional('source', {
+            describe: 'optional source for data',
+            default: 'Cex',
+        }).option('continue', {
+            describe: 'start from last data you fetched on this pair, and continue from there',
+            type: 'boolean',
+        })
+    }, async (argv) => {
+        const fetch = require('./fetch');
+        argv.pair = argv.pair.toUpperCase();
+        await fetch(argv.pair, argv.source, argv.continue);
+    })
     .command('extract [interval]', 'Extract and refine data from a specific granularity. If no arguments specified, extract for all granularities', (yargs) => {
         yargs.positional('interval', {
             describe: 'optional time interval: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'

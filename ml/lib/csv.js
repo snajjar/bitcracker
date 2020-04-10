@@ -102,6 +102,7 @@ const getDataForInterval = async function(interval) {
     } else {
         btcData = equalize(btcData);
         displayDataRange(btcData);
+        return btcData;
     }
 }
 
