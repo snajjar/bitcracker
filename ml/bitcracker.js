@@ -52,10 +52,24 @@ yargs
     .command('train <interval>', 'Train a model from a data source', (yargs) => {
         yargs.positional('interval', {
             describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
+        }).option('type', {
+            alias: 't',
+            description: 'type of neural net: "dense" or "convolutional"',
+            type: 'string',
         })
     }, async (argv) => {
-        const train = require('./train');
-        await train(utils.strToInterval(argv.interval));
+        if (argv.type == "convolutional") {
+            console.log('[*] training a convolutional neural network to predict bitcoin price');
+            const train = require('./trainConvolutional');
+            await train(utils.strToInterval(argv.interval));
+        } else if (argv.type == "dense") {
+            console.log('[*] training a dense neural network to predict bitcoin price');
+            const train = require('./trainDense');
+            await train(utils.strToInterval(argv.interval));
+        } else {
+            console.error('[*] --type option required.');
+            return;
+        }
     })
     .command('predict <interval>', 'Predict next bitcoin values', (yargs) => {
         yargs.positional('interval', {
@@ -112,7 +126,7 @@ yargs
 
         const evaluate = require('./evaluate');
         let interval = utils.strToInterval(argv.interval);
-        await evaluate(argv.tradertype, interval, { strategy: argv.strategy });
+        await evaluate(argv.tradertype, interval, { strategy: argv.strategy, model: argv.model });
     })
     .command('benchmark <interval>', 'Evaluate all traders on a data interval', (yargs) => {
         yargs.option('stoploss', {

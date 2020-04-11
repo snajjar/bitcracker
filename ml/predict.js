@@ -5,16 +5,17 @@
 const tf = require('@tensorflow/tfjs-node');
 const axios = require('axios');
 const _ = require('lodash');
-const modelData = require('./model');
 const utils = require('./lib/utils');
 const colors = require('colors');
+
+const nbPeriods = 10;
 
 const debug = function(o) {
     console.log(require('util').inspect(o));
 }
 
-const getKrakenData = async function() {
-    let response = await axios.get("https://api.kraken.com/0/public/OHLC?pair=BTCEUR&interval=15");
+const getKrakenData = async function(interval) {
+    let response = await axios.get(`https://api.kraken.com/0/public/OHLC?pair=BTCEUR&interval=${interval}`);
     return response.data.result["XXBTZEUR"];
 }
 
@@ -29,20 +30,18 @@ const extractFieldsFromKrakenData = function(arr) {
     }
 }
 
-const getBtcData = async function() {
-    let kData = await getKrakenData();
+const getBtcData = async function(interval) {
+    let kData = await getKrakenData(interval);
 
     // we need the nbPeriods last items
-    let relevantData = kData.slice(kData.length - modelData.nbPeriods);
+    let relevantData = kData.slice(kData.length - nbPeriods);
     relevantData = _.sortBy(relevantData, ['0']);
     let inputs = [];
     _.each(relevantData, (period) => {
         let data = extractFieldsFromKrakenData(period);
-        let activatedData = modelData.activateInput(data);
-        _.each(activatedData, (v) => {
-            inputs.push(v);
-        });
+        inputs.push(data.close);
     });
+
     console.log('inputs: ' + JSON.stringify(inputs));
     return inputs;
 }
@@ -55,7 +54,7 @@ const getModel = async function(interval) {
 const predict = async function(interval) {
     let model = await getModel(interval);
 
-    let inputData = await getBtcData();
+    let inputData = await getBtcData(interval);
     let inputTensor = tf.tensor2d([inputData], [1, inputData.length], 'float32');
     inputTensor.print();
 
@@ -66,12 +65,9 @@ const predict = async function(interval) {
     tf.dispose(inputTensor);
     tf.dispose(outputTensor);
 
-    let output = modelData.deactivateOutput(arr);
+    let output = arr[0];
 
-    console.log(`Predicting next period:`);
-    _.each(output, (v, k) => {
-        console.log(`   ${k}: ${v.toFixed(2)}€`);
-    });
+    console.log(`Predicting next period: price=${output.toFixed(0)}€`);
 }
 
 module.exports = predict;

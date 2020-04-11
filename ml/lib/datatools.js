@@ -19,6 +19,44 @@ const computeDataVariations = function(data) {
     return variations;
 }
 
+const dataVariations = function(data) {
+    let lastClosePrice = data[0].open;
+    let maxHighVariation = 1;
+    let minLowVariation = 1;
+
+    console.log('[*] transforming price data into relative variations');
+
+    for (let i = 0; i < data.length; i++) {
+        let candle = data[i];
+
+        let openVariation = candle.open / lastClosePrice; // should be 1
+        let closeVariation = candle.close / lastClosePrice;
+        let lowVariation = candle.low / lastClosePrice;
+        let highVariation = candle.high / lastClosePrice;
+
+        if (maxHighVariation < highVariation) {
+            maxHighVariation = highVariation;
+        }
+        if (minLowVariation > lowVariation) {
+            minLowVariation = lowVariation;
+        }
+
+        result.push({
+            open: openVariation,
+            close: closeVariation,
+            high: highVariation,
+            low: lowVariation,
+            volume: candle.volume
+        });
+        lastClosePrice = candle.open;
+    }
+
+    console.log(`  - highest up variation: ${maxHighVariation}`);
+    console.log(`  - highest down variation: ${minLowVariation}`);
+
+    return result;
+}
+
 const getMax = function(data) {
     let max = -Infinity;
     for (let i = 1; i < data.length; i++) {

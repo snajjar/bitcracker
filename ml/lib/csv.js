@@ -96,7 +96,6 @@ const getDataForInterval = async function(interval) {
 
     if (startTimestamp || endTimestamp) {
         if (startTimestamp) {
-
             btcData = cutDataBefore(startTimestamp, btcData);
         }
         if (endTimestamp) {
