@@ -12,7 +12,7 @@ const nbPeriods = 10; // 52: base for ichimoku indicator
 
 const trainingOptions = {
     shuffle: true,
-    epochs: 50,
+    epochs: 100,
     batchsize: 10,
     validtionSplit: 0.2
 }
@@ -24,9 +24,9 @@ const nbDataOutput = 1;
 const model = tf.sequential({
     layers: [
         tf.layers.dense({ inputShape: [nbDataInput], units: nbDataInput, activation: 'relu' }),
-        //tf.layers.dropout(0.8),
+        tf.layers.dropout(0.5),
         tf.layers.dense({ units: nbDataInput, activation: 'relu' }),
-        //tf.layers.dropout(0.8),
+        tf.layers.dropout(0.5),
         tf.layers.dense({ units: nbDataOutput, activation: 'relu' }),
     ]
 });

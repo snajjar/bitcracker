@@ -27,6 +27,8 @@ class Trader {
         this.nbBuy = 0;
         this.nbSell = 0;
         this.nbHold = 0;
+        this.nbHoldOut = 0;
+        this.nbHoldIn = 0;
 
         // config settings
         this.stopLossRatio = config.getStopLossRatio();
@@ -59,7 +61,7 @@ class Trader {
     }
 
     tradesStr() {
-        return `${this.nbBuy} buy, ${this.nbSell} sell, ${this.nbHold} hold`;
+        return `${this.nbBuy} buy, ${this.nbSell} sell, ${this.nbHold} hold (${this.nbHoldIn} in, ${this.nbHoldOut} out)`;
     }
 
     hasEuros() {
@@ -209,6 +211,11 @@ class Trader {
     hold() {
         // doing nothing is what i do best
         this.nbHold++;
+        if (this.inTrade) {
+            this.nbHoldIn++;
+        } else {
+            this.nbHoldOut++;
+        }
         return "HOLD";
     }
 

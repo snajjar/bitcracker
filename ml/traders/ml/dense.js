@@ -66,11 +66,11 @@ class TraderDense extends Trader {
         //console.log(`current: ${currentBitcoinPrice.toFixed(2)}, prediction: ${predicted.toFixed(2)}`);
 
         // get predictions
-        let predictions = await this.getPredictions(dataPeriods, 3);
+        let predictions = await this.getPredictions(dataPeriods, 2);
         //console.log("price: " + currentBitcoinPrice + ", predictions: " + predictions);
 
-        // buy condition: 3 successive upward predictions
-        let bullish = currentBitcoinPrice < predictions[0] && predictions[0] < predictions[1] && predictions[1] < predictions[2];
+        // buy condition: 2 successive upward predictions
+        let bullish = currentBitcoinPrice < predictions[0] && predictions[0] < predictions[1];
 
         // sell condition: 2 successive downward predictions
         let bearish = currentBitcoinPrice > predictions[0] && predictions[0] > predictions[1];
