@@ -2,20 +2,21 @@ const Trader = require('../trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-class EMADivTrader extends Trader {
+class EMAAndStochasticTrader extends Trader {
     constructor() {
         super();
 
         // parameters
         this.emaPeriods = 5;
+        this.stochasticPeriods = 120;
     }
 
     analysisIntervalLength() {
-        return this.emaPeriods + 1;
+        return Math.max(this.emaPeriods, this.stochasticPeriods) + 1;
     }
 
     hash() {
-        return "Algo_EMADiv";
+        return "Algo_EMAAndStochastic";
     }
 
     getEMA(dataPeriods) {
@@ -31,6 +32,21 @@ class EMADivTrader extends Trader {
         });
     }
 
+    getStochastic(dataPeriods) {
+        let highPrices = _.map(dataPeriods, p => p.high);
+        let lowPrices = _.map(dataPeriods, p => p.low);
+        let closePrices = _.map(dataPeriods, p => p.close);
+        return new Promise((resolve, reject) => {
+            tulind.indicators.stoch.indicator([highPrices, lowPrices, closePrices], [14, 3, 3], function(err, results) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(results);
+                }
+            });
+        });
+    }
+
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
@@ -41,22 +57,31 @@ class EMADivTrader extends Trader {
 
         // calculate sma indicator
         try {
+            // compute trend with EMA
             let ema = await this.getEMA(dataPeriods);
             let currEMA = ema[ema.length - 1];
 
             var diff = (currentBitcoinPrice / currEMA * 100) - 100;
-            let upTrend = -0.333;
-            let downTrend = +0.333;
+            let upTrend = -0.5;
+            let downTrend = +0.5;
+            let trendUp = diff < upTrend;
+            let trendDown = diff > downTrend;
+
+            // compute momentum with stochastic
+            let stoch = await this.getStochastic(dataPeriods);
+            let lastStoch = stoch[0][stoch[0].length - 1];
+            let oversell = lastStoch < 70;
+            let overbought = lastStoch > 30;
 
             if (!this.inTrade) {
-                if (diff < upTrend) {
+                if (trendUp && oversell) {
                     // BUY condition
                     this.buy();
                 } else {
                     this.hold();
                 }
             } else {
-                if (diff > downTrend) {
+                if (trendDown || overbought) {
                     // SELL conditions are take profit and stop loss
                     this.sell();
                 } else {
@@ -70,4 +95,4 @@ class EMADivTrader extends Trader {
     }
 }
 
-module.exports = EMADivTrader;
+module.exports = EMAAndStochasticTrader;
