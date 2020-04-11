@@ -16,7 +16,7 @@ class TraderDense extends Trader {
     }
 
     hash() {
-        return "ML_Dense";
+        return "ML_DensePredict";
     }
 
     // predict next bitcoin price from period

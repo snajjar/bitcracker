@@ -7,7 +7,6 @@ class EMADivTrader extends Trader {
         super();
 
         // parameters
-        this.smaPeriods = 200;
         this.emaPeriods = 5;
 
         this.prevSMA = null;
@@ -15,7 +14,7 @@ class EMADivTrader extends Trader {
     }
 
     analysisIntervalLength() {
-        return Math.max(this.smaPeriods, this.emaPeriods) + 1;
+        return this.emaPeriods + 1;
     }
 
     hash() {
