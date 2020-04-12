@@ -1,12 +1,26 @@
 const _ = require('lodash');
 
+// cap variation between 0.5 and 1.5 to avoid absurd data effects
+const capVariation = function(variation, maxVariance) {
+    if (variation > 1 + maxVariance) {
+        return 1 + maxVariance;
+    } else if (variation < 1 - maxVariance) {
+        return 1 - maxVariance;
+    } else {
+        return variation;
+    }
+}
+
 // data: array of arrays
-const dataVariations = function(data) {
+const dataVariations = function(data, maxVariance = 0.1) {
     let maxHighVariation = 1;
     let minLowVariation = 1;
     let variations = [];
 
-    console.log('[*] transforming price data into relative variations');
+    let highVariations = [];
+    let lowVariations = [];
+
+    // console.log('[*] transforming price data into relative variations');
 
     for (let i = 0; i < data.length; i++) {
         let candle = data[i];
@@ -14,12 +28,12 @@ const dataVariations = function(data) {
         // console.log(candle);
 
         let openVariation = 1; // should be 1
-        let closeVariation = candle.close / candle.open;
-        let lowVariation = candle.low / candle.open;
-        let highVariation = candle.high / candle.open;
+        let closeVariation = capVariation(candle.close / candle.open, maxVariance);
+        let lowVariation = capVariation(candle.low / candle.open, maxVariance);
+        let highVariation = capVariation(candle.high / candle.open, maxVariance);
 
-        //console.log('lowVariation: ' + lowVariation);
-        console.log(`open: ${candle.open}, high: ${candle.high}, low: ${candle.low}, close: ${candle.close} lowVariation: ${lowVariation}`);
+        highVariations.push(highVariation);
+        lowVariations.push(lowVariation);
 
         if (maxHighVariation < highVariation) {
             maxHighVariation = highVariation;
@@ -36,12 +50,18 @@ const dataVariations = function(data) {
             low: lowVariation,
             volume: candle.volume
         }
+
         // console.log(candleVariations);
         variations.push(candleVariations);
     }
 
-    console.log(`  - highest up variation: ${maxHighVariation}`);
-    console.log(`  - highest down variation: ${minLowVariation}`);
+    highVariations = _.sortBy(highVariations);
+    lowVariations = _.sortBy(lowVariations);
+    // console.log(`  - avg high var: ${_.mean(highVariations)}`);
+    // console.log(`  - avg low var: ${_.mean(lowVariations)}`);
+    // console.log(`  - 99% percentile high var: ${highVariations[Math.floor(lowVariations.length * 99/100)]}`);
+    // console.log(`  - 99% percentile low var: ${lowVariations[Math.floor(lowVariations.length * 1/100)]}`);
+
 
     return variations;
 }

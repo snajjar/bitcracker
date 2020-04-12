@@ -1,4 +1,4 @@
-const k = 10000; // for sigmoid with larger numbers
+const k = 1; // for sigmoid with larger numbers
 const sigmoid = function(x) {
     return 1 / (1 + Math.exp(-x / k));
 }
