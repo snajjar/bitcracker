@@ -150,19 +150,7 @@ const setData = async function(csvFilePath, data) {
         ]
     });
 
-    var records = [];
-    _.each(data, (period) => {
-        records.push({
-            timestamp: period.timestamp,
-            open: period.open,
-            high: period.high,
-            low: period.low,
-            close: period.close,
-            volume: period.volume,
-        });
-    });
-
-    return csvWriter.writeRecords(records); // promise
+    return csvWriter.writeRecords(data); // promise
 }
 
 const setTradeData = async function(csvFilePath, data) {

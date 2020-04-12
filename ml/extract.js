@@ -6,6 +6,7 @@ const csv = require('./lib/csv');
 const utils = require('./lib/utils');
 const _ = require('lodash');
 const moment = require('moment');
+const datatools = require('./lib/datatools');
 
 // debug
 const hasNaN = function(o) {
@@ -19,35 +20,6 @@ const hasNaN = function(o) {
     return hasNaN;
 }
 
-const mergeSamples = function(intervalStart, arr) {
-    if (!arr || !arr.length) {
-        throw "mergeSamples: empty array";
-    }
-
-    let high = -Infinity;
-    let low = +Infinity;
-    let volume = 0;
-
-    _.each(arr, (period) => {
-        if (period.high > high) {
-            high = period.high;
-        }
-        if (period.low < low) {
-            low = period.low;
-        }
-        volume += period.volume;
-    });
-
-    return {
-        "timestamp": intervalStart.unix(),
-        "open": arr[0].open,
-        "high": high,
-        "low": low,
-        "close": arr[arr.length - 1].close,
-        "volume": volume
-    }
-}
-
 // make a smooth connection between samples, based on last closed value
 const connectSamples = function(samples) {
     let lastSample = samples[0];
@@ -57,7 +29,7 @@ const connectSamples = function(samples) {
         if (sample.open > sample.high) {
             sample.high = sample.open;
         }
-        if (sample.low < sample.open) {
+        if (sample.open < sample.low) {
             sample.low = sample.open;
         }
 
@@ -89,7 +61,7 @@ const convertToInterval = function(data, interval) {
             index++;
         } else {
             if (samplesToMerge.length) {
-                samples.push(mergeSamples(lastDate, samplesToMerge));
+                samples.push(datatools.mergeSamples(lastDate, samplesToMerge));
             } else {
                 // no new data during that interval, get from previous data
                 let lastSample = _.clone(samples[samples.length - 1]);

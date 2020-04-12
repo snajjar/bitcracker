@@ -1,38 +1,25 @@
+const _ = require('lodash');
+
 // data: array of arrays
-// each sample will be the computed difference between the previous one
-const computeDataVariations = function(data) {
-    var calibrationData = data[0];
-    var variations = [];
-
-    for (let i = 1; i < data.length; i++) {
-        var sample = data[i];
-        var sampleVariations = [];
-
-        for (let j = 0; j < sample.length; j++) {
-            sampleVariations.push(sample[j] - calibrationData[j])
-        }
-
-        variations.push(sampleVariations);
-        calibrationData = sample;
-    }
-
-    return variations;
-}
-
 const dataVariations = function(data) {
-    let lastClosePrice = data[0].open;
     let maxHighVariation = 1;
     let minLowVariation = 1;
+    let variations = [];
 
     console.log('[*] transforming price data into relative variations');
 
     for (let i = 0; i < data.length; i++) {
         let candle = data[i];
 
-        let openVariation = candle.open / lastClosePrice; // should be 1
-        let closeVariation = candle.close / lastClosePrice;
-        let lowVariation = candle.low / lastClosePrice;
-        let highVariation = candle.high / lastClosePrice;
+        // console.log(candle);
+
+        let openVariation = 1; // should be 1
+        let closeVariation = candle.close / candle.open;
+        let lowVariation = candle.low / candle.open;
+        let highVariation = candle.high / candle.open;
+
+        //console.log('lowVariation: ' + lowVariation);
+        console.log(`open: ${candle.open}, high: ${candle.high}, low: ${candle.low}, close: ${candle.close} lowVariation: ${lowVariation}`);
 
         if (maxHighVariation < highVariation) {
             maxHighVariation = highVariation;
@@ -41,20 +28,54 @@ const dataVariations = function(data) {
             minLowVariation = lowVariation;
         }
 
-        result.push({
+        let candleVariations = {
+            timestamp: candle.timestamp,
             open: openVariation,
             close: closeVariation,
             high: highVariation,
             low: lowVariation,
             volume: candle.volume
-        });
-        lastClosePrice = candle.open;
+        }
+        // console.log(candleVariations);
+        variations.push(candleVariations);
     }
 
     console.log(`  - highest up variation: ${maxHighVariation}`);
     console.log(`  - highest down variation: ${minLowVariation}`);
 
-    return result;
+    return variations;
+}
+
+const mergeSamples = function(intervalStart, arr) {
+    if (!arr || !arr.length) {
+        throw "mergeSamples: empty array";
+    }
+
+    let high = -Infinity;
+    let low = +Infinity;
+    let volume = 0;
+
+    _.each(arr, (period) => {
+        let pHigh = Math.max(period.high, period.open, period.close);
+        let pLow = Math.min(period.low, period.open, period.close);
+
+        if (pHigh > high) {
+            high = pHigh;
+        }
+        if (pLow < low) {
+            low = pLow;
+        }
+        volume += period.volume;
+    });
+
+    return {
+        "timestamp": intervalStart.unix(),
+        "open": arr[0].open,
+        "high": high,
+        "low": low,
+        "close": arr[arr.length - 1].close,
+        "volume": volume
+    }
 }
 
 const getMax = function(data) {
@@ -107,7 +128,8 @@ const kSplitData = function(data, ratio = 0.2) {
 }
 
 module.exports = {
-    computeDataVariations,
+    dataVariations,
+    mergeSamples,
     getMax,
     splitData,
     kSplitData,
