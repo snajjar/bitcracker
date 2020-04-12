@@ -9,10 +9,8 @@ var config = require('./config');
 
 const ensureRequiredDirs = function() {
     fs.ensureDirSync(path.join(path.resolve(__dirname), "data"));
-    fs.ensureDirSync(path.join(path.resolve(__dirname), "models"));
-    fs.ensureDirSync(path.join(path.resolve(__dirname), "models", "supervised"));
-    fs.ensureDirSync(path.join(path.resolve(__dirname), "models", "neuroevolution"));
-    fs.ensureDirSync(path.join(path.resolve(__dirname), "models", "neuroevolution", "generation"));
+    fs.ensureDirSync(path.join(path.resolve(__dirname), "models", "saved", "supervised"));
+    fs.ensureDirSync(path.join(path.resolve(__dirname), "models", "saved", "neuroevolution", "generation"));
 }
 ensureRequiredDirs();
 
@@ -49,31 +47,16 @@ yargs
             await extract(utils.strToInterval(argv.interval));
         }
     })
-    .command('train <interval>', 'Train a model from a data source', (yargs) => {
-        yargs.positional('interval', {
-            describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
-        }).option('type', {
-            alias: 't',
-            description: 'type of neural net: "dense" or "convolutional"',
+    .command('train <model> <interval>', 'Train a model from a data source', (yargs) => {
+        yargs.positional('model', {
+            description: 'name of the model',
             type: 'string',
+        }).positional('interval', {
+            describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
         })
     }, async (argv) => {
-        if (argv.type == "convolutional") {
-            console.log('[*] training a convolutional neural network to predict bitcoin price');
-            const train = require('./trainConvolutional');
-            await train(utils.strToInterval(argv.interval));
-        } else if (argv.type == "dense") {
-            console.log('[*] training a dense neural network to predict bitcoin price');
-            const train = require('./trainDense');
-            await train(utils.strToInterval(argv.interval));
-        } else if (argv.type == "denseVar") {
-            console.log('[*] training a dense neural network to predict bitcoin price variations');
-            const train = require('./trainDenseVar');
-            await train(utils.strToInterval(argv.interval));
-        } else {
-            console.error('[*] --type option required.');
-            return;
-        }
+        const train = require('./train');
+        await train(argv.model, utils.strToInterval(argv.interval));
     })
     .command('predict <model> <interval>', 'Predict next bitcoin values', (yargs) => {
         yargs.positional('model', {
@@ -82,13 +65,8 @@ yargs
             describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
         })
     }, async (argv) => {
-        if (argv.model == "dense") {
-            const predict = require('./predictDense');
-            await predict(utils.strToInterval(argv.interval));
-        } else {
-            const predict = require('./predictDenseVar');
-            await predict(utils.strToInterval(argv.interval));
-        }
+        const predict = require('./predict');
+        await predict(argv.model, utils.strToInterval(argv.interval));
     })
     .command('evolve <interval>', 'Evolve trader AIs to work on a market', (yargs) => {
         yargs.positional('interval', {

@@ -7,7 +7,7 @@ node_modules/
 **.lock
 public/*
 package-lock.json
-ml/models/
-ml/data/
+program/models/
+program/data/
 logs.txt
 logs.text
