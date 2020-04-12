@@ -47,16 +47,18 @@ class EMADivTrader extends Trader {
             var diff = (currentBitcoinPrice / currEMA * 100) - 100;
             let upTrend = -0.333;
             let downTrend = +0.333;
+            let trendUp = diff < upTrend;
+            let trendDown = diff > downTrend;
 
             if (!this.inTrade) {
-                if (diff < upTrend) {
+                if (trendUp) {
                     // BUY condition
                     this.buy();
                 } else {
                     this.hold();
                 }
             } else {
-                if (diff > downTrend) {
+                if (trendDown) {
                     // SELL conditions are take profit and stop loss
                     this.sell();
                 } else {

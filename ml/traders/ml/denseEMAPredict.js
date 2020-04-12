@@ -65,11 +65,13 @@ class TraderDense extends Trader {
             let currEMA = ema[ema.length - 1];
 
             var diff = (currentBitcoinPrice / currEMA * 100) - 100;
-            let upTrend = -0.2;
-            let downTrend = +0.2;
+            let upTrend = -0.333;
+            let downTrend = +0.333;
+            let trendingUp = diff < upTrend;
+            let trendingDown = diff > downTrend;
 
             if (!this.inTrade) {
-                if (diff < upTrend) {
+                if (trendingUp) {
                     // validate EMA strategy with next prediction
                     let prediction = await this.predictPrice(dataPeriods);
                     if (currentBitcoinPrice < prediction) {
@@ -82,7 +84,7 @@ class TraderDense extends Trader {
                     this.hold();
                 }
             } else {
-                if (diff > downTrend) {
+                if (trendingDown) {
                     // validate EMA strategy with next prediction
                     let prediction = await this.predictPrice(dataPeriods);
                     if (currentBitcoinPrice > prediction) {

@@ -75,8 +75,8 @@ const cutDataAfter = function(endTimestamp, data) {
 }
 
 const displayDataRange = function(btcData) {
-    let startStr = moment.unix(btcData[0].timestamp).format('YYYY/MM/DD hh:mm');
-    let endStr = moment.unix(btcData[btcData.length - 1].timestamp).format('YYYY/MM/DD hh:mm');
+    let startStr = moment.unix(btcData[0].timestamp).format('DD/MM/YYYY hh:mm');
+    let endStr = moment.unix(btcData[btcData.length - 1].timestamp).format('DD/MM/YYYY hh:mm');
     console.log(`[*] Dataset: ${startStr} -> ${endStr} : ${btcData.length} periods`);
 }
 

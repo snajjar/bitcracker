@@ -52,7 +52,7 @@ class Trader {
     }
 
     statisticsStr() {
-        let limit = 1 + buyTax + sellTax;
+        let limit = 1;
         let positiveTrades = _.filter(this.trades, v => v > limit);
         let negativeTrades = _.filter(this.trades, v => v < limit);
 
@@ -135,7 +135,7 @@ class Trader {
     winLossRatio() {
         let wins = 0;
         _.each(this.trades, r => {
-            if (r > 1 + buyTax + sellTax) {
+            if (r > 1) {
                 wins++;
             }
         });
@@ -151,13 +151,13 @@ class Trader {
     }
 
     nbPositiveTrades() {
-        let limit = 1 + buyTax + sellTax;
+        let limit = 1;
         let positiveTrades = _.filter(this.trades, v => v > limit);
         return positiveTrades.length;
     }
 
     nbNegativeTrades() {
-        let limit = 1 + buyTax + sellTax;
+        let limit = 1;
         let negativeTrades = _.filter(this.trades, v => v < limit);
         return negativeTrades.length;
     }
@@ -169,7 +169,7 @@ class Trader {
     }
 
     addTrade(oldBitcoinPrice, newBitcoinPrice) {
-        this.trades.push(newBitcoinPrice / oldBitcoinPrice);
+        this.trades.push(newBitcoinPrice / oldBitcoinPrice - buyTax - sellTax);
     }
 
     buy() {
