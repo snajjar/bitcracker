@@ -8,16 +8,18 @@ const utils = require('./lib/utils');
 const fs = require('fs-extra');
 const path = require('path');
 
-let tradersFolder = "./traders/algo";
+let tradersFolder = "./traders/";
 
 const getAllTraders = function() {
     return new Promise((resolve, reject) => {
-        fs.readdir("./traders/algo", (err, files) => {
+        fs.readdir("./traders/", (err, files) => {
             let traders = [];
             files.forEach(file => {
                 //console.log(file);
-                let TraderConstructor = require('./' + path.join(tradersFolder, file));
-                traders.push(new TraderConstructor());
+                if (file !== "trader.js" && file !== "evolve") {
+                    let TraderConstructor = require('./' + path.join(tradersFolder, file));
+                    traders.push(new TraderConstructor());
+                }
             });
             resolve(traders);
         });
@@ -36,6 +38,7 @@ const benchmark = async function(interval) {
     console.log('[*] starting benchmark');
     for (let trader of traders) {
         console.log('   - evaluating trader: ' + trader.hash() + "...");
+        await trader.initialize(interval);
         await trader.trade(btcData);
     }
 

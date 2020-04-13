@@ -14,8 +14,7 @@ const ensureRequiredDirs = function() {
 }
 ensureRequiredDirs();
 
-yargs
-    //.command('fetch', 'Fetch data from a source')
+var argv = yargs
     .command('fetch <pair> [source]', 'Fetch', (yargs) => {
         yargs.positional('pair', {
             describe: 'Pair of value you want to get data: ex BTCEUR',
@@ -86,25 +85,11 @@ yargs
     })
     .command('evaluate <name> <interval>', 'Evaluate a Trader on a data interval', (yargs) => {
         yargs.positional('name', {
-                describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
-            }).positional('interval', {
-                describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
-            }).option('start', {
-                describe: 'optional start date YYYY-MM-DD',
-                type: 'string',
-            })
-            .option('end', {
-                describe: 'optional end date YYYY-MM-DD',
-                type: 'string',
-            })
+            describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
+        }).positional('interval', {
+            describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
+        })
     }, async (argv) => {
-        if (argv.start) {
-            config.setStartDate(argv.start);
-        }
-        if (argv.end) {
-            config.setEndDate(argv.end);
-        }
-
         const evaluate = require('./evaluate');
         let interval = utils.strToInterval(argv.interval);
         await evaluate(argv.name, interval);
@@ -147,4 +132,20 @@ yargs
     .help()
     .demandCommand()
     .alias('help', 'h')
+    .option('start', {
+        describe: 'optional start date YYYY-MM-DD',
+        type: 'string',
+    })
+    .option('end', {
+        describe: 'optional end date YYYY-MM-DD',
+        type: 'string',
+    })
     .argv;
+
+// handle interval settings globally
+if (argv.start) {
+    config.setStartDate(argv.start);
+}
+if (argv.end) {
+    config.setEndDate(argv.end);
+}

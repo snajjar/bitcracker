@@ -22,7 +22,7 @@ class TraderDensePredictVar extends Trader {
     }
 
     hash() {
-        return "ML_DensePredict";
+        return "ML_DensePredictVar";
     }
 
     // predict next bitcoin price from period
@@ -39,13 +39,11 @@ class TraderDensePredictVar extends Trader {
         // if (stopped) return;
 
         // get predictions
-        let prediction = await this.predictPrice(dataPeriods);
-
-        // buy condition: 2 successive upward predictions
-        let bullish = currentBitcoinPrice < prediction;
+        let variationPrediction = await this.predictPrice(dataPeriods);
+        let bullish = variationPrediction > 1;
 
         // sell condition: 2 successive downward predictions
-        let bearish = currentBitcoinPrice > prediction;
+        let bearish = variationPrediction < 1;
 
         if (!this.inTrade) {
             if (bullish) {

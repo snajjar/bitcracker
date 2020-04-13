@@ -147,10 +147,61 @@ const kSplitData = function(data, ratio = 0.2) {
     return samples;
 }
 
+const cutDataBefore = function(startTimestamp, data) {
+    let startIndex = 0;
+    for (var i = 0; i < data.length; i++) {
+        if (data[i].timestamp < startTimestamp) {
+            startIndex = i;
+        } else {
+            break;
+        }
+    }
+
+    if (data.length > startIndex + 1) {
+        return data.slice(startIndex + 1);
+    } else {
+        return [];
+    }
+}
+
+const cutDataAfter = function(endTimestamp, data) {
+    let endIndex = 0;
+    for (var i = 0; i < data.length; i++) {
+        if (data[i].timestamp < endTimestamp) {
+            endIndex = i;
+        } else {
+            break;
+        }
+    }
+
+    if (endIndex + 1 < data.length) {
+        endIndex++;
+    }
+    return data.slice(0, endIndex);
+}
+
+// make sure the price starting point is where the endpoint is
+const equalize = function(data) {
+    let endValue = data[data.length - 1].close;
+
+    let startIndex = 0;
+    for (var i = 0; i < data.length; i++) {
+        if (data[i].low < endValue && endValue < data[i].high) {
+            startIndex = i;
+            break;
+        }
+    }
+
+    return data.slice(startIndex);
+}
+
 module.exports = {
     dataVariations,
     mergeSamples,
     getMax,
     splitData,
     kSplitData,
+    cutDataBefore,
+    cutDataAfter,
+    equalize,
 }

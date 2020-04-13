@@ -5,6 +5,7 @@ const moment = require('moment');
 const fs = require('fs-extra');
 const utils = require('./utils');
 const config = require('../config');
+const dt = require('./datatools');
 
 const getDataFromCSV = function(filePath) {
     return new Promise((resolve, reject) => {
@@ -20,58 +21,10 @@ const getDataFromCSV = function(filePath) {
     });
 }
 
-// make sure the price starting point is where the endpoint is
-const equalize = function(data) {
-    let endValue = data[data.length - 1].close;
-
-    let startIndex = 0;
-    for (var i = 0; i < data.length; i++) {
-        if (data[i].low < endValue && endValue < data[i].high) {
-            startIndex = i;
-            break;
-        }
-    }
-
-    return data.slice(startIndex);
-}
-
 const removeBlankLines = function(filePath) {
     var content = fs.readFileSync(filePath, "utf8");
     content = content.replace(/^\s*[\r\n]/gm, '');
     fs.writeFileSync(filePath, content);
-}
-
-const cutDataBefore = function(startTimestamp, data) {
-    let startIndex = 0;
-    for (var i = 0; i < data.length; i++) {
-        if (data[i].timestamp < startTimestamp) {
-            startIndex = i;
-        } else {
-            break;
-        }
-    }
-
-    if (data.length > startIndex + 1) {
-        return data.slice(startIndex + 1);
-    } else {
-        return [];
-    }
-}
-
-const cutDataAfter = function(endTimestamp, data) {
-    let endIndex = 0;
-    for (var i = 0; i < data.length; i++) {
-        if (data[i].timestamp < endTimestamp) {
-            endIndex = i;
-        } else {
-            break;
-        }
-    }
-
-    if (endIndex + 1 < data.length) {
-        endIndex++;
-    }
-    return data.slice(0, endIndex);
 }
 
 const displayDataRange = function(btcData) {
@@ -96,19 +49,15 @@ const getDataForInterval = async function(interval) {
 
     if (startTimestamp || endTimestamp) {
         if (startTimestamp) {
-            btcData = cutDataBefore(startTimestamp, btcData);
+            btcData = dt.cutDataBefore(startTimestamp, btcData);
         }
         if (endTimestamp) {
-            btcData = cutDataAfter(endTimestamp, btcData);
+            btcData = dt.cutDataAfter(endTimestamp, btcData);
         }
-
-        displayDataRange(btcData);
-        return btcData;
-    } else {
-        btcData = equalize(btcData);
-        displayDataRange(btcData);
-        return btcData;
     }
+
+    displayDataRange(btcData);
+    return btcData;
 }
 
 const getData = async function(csvFilePath) {

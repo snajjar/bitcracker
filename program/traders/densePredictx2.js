@@ -1,52 +1,46 @@
 const Trader = require('./trader');
 const _ = require('lodash');
 const tf = require('@tensorflow/tfjs-node');
+const DensePricePredictionModel = require('../models/prediction/densePricePrediction');
 
-class TraderDense extends Trader {
+class TraderDensePricePredictX2 extends Trader {
     constructor() {
         super();
     }
 
-    async initialize() {
-        this.model = await tf.loadLayersModel(`file://./models/supervised/Cex_BTCEUR_1m/model.json`);
+    getDescription() {
+        return "Try to predict uptrend and downtrends with 2 successive price predictions";
+    }
+
+    async initialize(interval) {
+        this.model = new DensePricePredictionModel();
+        await this.model.load(interval);
+        await this.model.initialize();
     }
 
     analysisIntervalLength() {
-        return 10; // model trained on 10 periods
+        return this.model.getNbInputPeriods() + 1;
     }
 
     hash() {
-        return "ML_DensePredict";
+        return "ML_DensePredictx2";
     }
 
     // predict next bitcoin price from period
     async predictPrice(dataPeriods) {
-        let closed = _.map(dataPeriods, p => p.close); // get closed prices
-        let inputTensor = tf.tensor2d([closed], [1, closed.length], 'float32');
-        let outputTensor = this.model.predict(inputTensor);
-        let arr = await outputTensor.data();
-        let predicted = arr[0];
-        tf.dispose(inputTensor);
-        tf.dispose(outputTensor);
-        return predicted;
+        return await this.model.predict(dataPeriods)
     }
 
     // get n predictions
     async getPredictions(dataPeriods, n) {
+        let periods = _.clone(dataPeriods);
         let predictions = [];
-        let closed = _.map(dataPeriods, p => p.close); // get closed prices
-
         for (var i = 0; i < n; i++) {
-            let inputTensor = tf.tensor2d([closed], [1, closed.length], 'float32');
-            let outputTensor = this.model.predict(inputTensor);
-            let arr = await outputTensor.data();
-            let predicted = arr[0];
-            tf.dispose(inputTensor);
-            tf.dispose(outputTensor);
+            let predicted = await this.predictPrice(periods);
             predictions.push(predicted);
 
-            closed.shift();
-            closed.push(predicted);
+            periods.shift();
+            periods.push({ 'close': predicted }); // push fake dataperiod
         }
 
         return predictions;
@@ -60,10 +54,6 @@ class TraderDense extends Trader {
         // stopped = this.takeProfit(this.takeProfitRatio);
         // if (stopped) return;
 
-        // get predicted price. If it's 1% above current price, buy
-        // if it's 1% below current price, sell
-        //let predicted = await this.predictPrice(dataPeriods);
-        //console.log(`current: ${currentBitcoinPrice.toFixed(2)}, prediction: ${predicted.toFixed(2)}`);
 
         // get predictions
         let predictions = await this.getPredictions(dataPeriods, 2);
@@ -93,4 +83,4 @@ class TraderDense extends Trader {
     }
 }
 
-module.exports = TraderDense;
+module.exports = TraderDensePricePredictX2;

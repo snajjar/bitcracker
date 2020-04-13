@@ -2,8 +2,9 @@ const Trader = require('./trader');
 const _ = require('lodash');
 const tulind = require('tulind');
 const tf = require('@tensorflow/tfjs-node');
+const DensePricePredictionModel = require('../models/prediction/densePricePrediction');
 
-class TraderDense extends Trader {
+class TraderDenseEMAPredict extends Trader {
     constructor() {
         super();
 
@@ -11,12 +12,18 @@ class TraderDense extends Trader {
         this.emaPeriods = 5;
     }
 
-    async initialize() {
-        this.model = await tf.loadLayersModel(`file://./models/supervised/Cex_BTCEUR_1m/model.json`);
+    getDescription() {
+        return "Use EMA to predict uptrends, then check it against a dense neural network directly trained to predict prices";
+    }
+
+    async initialize(interval) {
+        this.model = new DensePricePredictionModel();
+        await this.model.load(interval);
+        await this.model.initialize();
     }
 
     analysisIntervalLength() {
-        return Math.max(this.modelPeriods, this.emaPeriods + 1);
+        return Math.max(this.model.getNbInputPeriods(), this.emaPeriods) + 1;
     }
 
     hash() {
@@ -38,14 +45,7 @@ class TraderDense extends Trader {
 
     // predict next bitcoin price from period
     async predictPrice(dataPeriods) {
-        let closed = _.map(dataPeriods, p => p.close); // get closed prices
-        let inputTensor = tf.tensor2d([closed], [1, closed.length], 'float32');
-        let outputTensor = this.model.predict(inputTensor);
-        let arr = await outputTensor.data();
-        let predicted = arr[0];
-        tf.dispose(inputTensor);
-        tf.dispose(outputTensor);
-        return predicted;
+        return await this.model.predict(dataPeriods);
     }
 
     // decide for an action
@@ -104,4 +104,4 @@ class TraderDense extends Trader {
     }
 }
 
-module.exports = TraderDense;
+module.exports = TraderDenseEMAPredict;

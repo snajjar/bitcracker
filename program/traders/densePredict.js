@@ -8,6 +8,10 @@ class TraderDense extends Trader {
         super();
     }
 
+    getDescription() {
+        return "Try to speculate on bitcoin variations from a dense neural network directly trained to predict prices";
+    }
+
     async initialize(interval) {
         this.model = new DensePricePredictionModel();
         await this.model.load(interval);
@@ -15,7 +19,7 @@ class TraderDense extends Trader {
     }
 
     analysisIntervalLength() {
-        return this.model.getNbInputPeriods();
+        return this.model.getNbInputPeriods() + 1;
     }
 
     hash() {
