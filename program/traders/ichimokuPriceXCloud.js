@@ -1,8 +1,8 @@
-const Trader = require('../trader');
+const Trader = require('./trader');
 const Ichimoku = require('ichimoku');
 const _ = require('lodash');
 
-class IchimokuTenkanXKijunTrader extends Trader {
+class IchimokuPriceXCloudTrader extends Trader {
     constructor() {
         super();
     }
@@ -16,7 +16,7 @@ class IchimokuTenkanXKijunTrader extends Trader {
     }
 
     hash() {
-        return "Algo_ichimokuPriceXTenkan";
+        return "Algo_ichimokuPriceXCloud";
     }
 
     getIchimoku(dataPeriods) {
@@ -61,12 +61,13 @@ class IchimokuTenkanXKijunTrader extends Trader {
             let prevIchimokuValue = ich[ich.length - 2];
             let prevBitcoinPrice = dataPeriods[dataPeriods.length - 2].close;
 
-            let tenkanCrossedKijun =
-                prevBitcoinPrice < prevIchimokuValue.base &&
-                currentBitcoinPrice >= lastIchimokuValue.base;
+            let previouslyUnderCloud = prevBitcoinPrice < prevIchimokuValue.spanA || prevBitcoinPrice < prevIchimokuValue.spanB;
+            let nowOverCloud = currentBitcoinPrice > lastIchimokuValue.spanA && currentBitcoinPrice > lastIchimokuValue.spanB
+
+            let priceXCloud = previouslyUnderCloud && nowOverCloud;
 
             if (!this.inTrade) {
-                if (tenkanCrossedKijun) {
+                if (priceXCloud) {
                     // BUY condition
                     this.buy();
                 } else {
@@ -82,4 +83,4 @@ class IchimokuTenkanXKijunTrader extends Trader {
     }
 }
 
-module.exports = IchimokuTenkanXKijunTrader;
+module.exports = IchimokuPriceXCloudTrader;

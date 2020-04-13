@@ -84,19 +84,11 @@ yargs
         const plot = require('./plot');
         await plot(utils.strToInterval(argv.interval));
     })
-    .command('evaluate <tradertype> <interval>', 'Evaluate a Trader on a data interval', (yargs) => {
-        yargs.positional('tradertype', {
-                describe: 'The trader type. Allowed:\n  - "ml" for machine learning, with option --model\n  - "algo" for algorithmic, with option --strategy'
+    .command('evaluate <name> <interval>', 'Evaluate a Trader on a data interval', (yargs) => {
+        yargs.positional('name', {
+                describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
             }).positional('interval', {
                 describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
-            }).option('model', {
-                alias: 'm',
-                description: 'path to a tensorflow model.json file',
-                type: 'string',
-            }).option('strategy', {
-                alias: 's',
-                description: 'name of an implemented strategy. Allowed value:\n  - EMAxSMA: trade long if EMA upcross SMA',
-                type: 'string',
             }).option('start', {
                 describe: 'optional start date YYYY-MM-DD',
                 type: 'string',
@@ -115,7 +107,7 @@ yargs
 
         const evaluate = require('./evaluate');
         let interval = utils.strToInterval(argv.interval);
-        await evaluate(argv.tradertype, interval, { strategy: argv.strategy, model: argv.model });
+        await evaluate(argv.name, interval);
     })
     .command('benchmark <interval>', 'Evaluate all traders on a data interval', (yargs) => {
         yargs.option('stoploss', {

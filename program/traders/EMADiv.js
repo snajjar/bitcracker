@@ -1,28 +1,31 @@
-const Trader = require('../trader');
+const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-class RSITrader_70_30 extends Trader {
+class EMADivTrader extends Trader {
     constructor() {
         super();
+
+        // parameters
+        this.emaPeriods = 5;
     }
 
     analysisIntervalLength() {
-        return 120;
+        return this.emaPeriods + 1;
     }
 
     hash() {
-        return "Algo_rsi_80_20";
+        return "Algo_EMADiv";
     }
 
-    getRSI(dataPeriods) {
+    getEMA(dataPeriods) {
         let closePrices = _.map(dataPeriods, p => p.close);
         return new Promise((resolve, reject) => {
-            tulind.indicators.rsi.indicator([closePrices], [14], function(err, results) {
+            tulind.indicators.ema.indicator([closePrices], [this.emaPeriods], function(err, results) {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(results);
+                    resolve(results[0]);
                 }
             });
         });
@@ -38,19 +41,26 @@ class RSITrader_70_30 extends Trader {
 
         // calculate sma indicator
         try {
-            let rsi = await this.getRSI(dataPeriods);
-            let lastRSI = rsi[0][rsi[0].length - 1];
+            let ema = await this.getEMA(dataPeriods);
+            let currEMA = ema[ema.length - 1];
+
+            var diff = (currentBitcoinPrice / currEMA * 100) - 100;
+            let upTrend = -0.333;
+            let downTrend = +0.333;
+            let trendUp = diff < upTrend;
+            let trendDown = diff > downTrend;
 
             if (!this.inTrade) {
-                if (lastRSI < 20) {
+                if (trendUp) {
                     // BUY condition
                     this.buy();
                 } else {
                     this.hold();
                 }
             } else {
-                if (lastRSI > 80) {
-                    this.sell(currentBitcoinPrice);
+                if (trendDown) {
+                    // SELL conditions are take profit and stop loss
+                    this.sell();
                 } else {
                     this.hold();
                 }
@@ -62,4 +72,4 @@ class RSITrader_70_30 extends Trader {
     }
 }
 
-module.exports = RSITrader_70_30;
+module.exports = EMADivTrader;

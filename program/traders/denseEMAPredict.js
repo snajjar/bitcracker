@@ -1,4 +1,4 @@
-const Trader = require('../trader');
+const Trader = require('./trader');
 const _ = require('lodash');
 const tulind = require('tulind');
 const tf = require('@tensorflow/tfjs-node');

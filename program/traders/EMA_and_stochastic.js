@@ -1,4 +1,4 @@
-const Trader = require('../trader');
+const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 

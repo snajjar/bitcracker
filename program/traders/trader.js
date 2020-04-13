@@ -12,6 +12,8 @@ class Trader {
     constructor() {
         this.number = Trader.count++;
 
+        this.interval = null;
+
         // wallet and score values
         this.btcWallet = 0;
         this.eurWallet = startingFunding;
@@ -36,6 +38,13 @@ class Trader {
         this.nbStopLoss = 0;
         this.nbTakeProfit = 0;
     }
+
+    getDescription() {
+        return "this trader has no description";
+    }
+
+    // to be redefined if needed
+    initialize() {}
 
     resetTrading() {
         this.btcWallet = 0;
