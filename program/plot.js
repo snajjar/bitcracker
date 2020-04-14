@@ -11,21 +11,11 @@ const csv = require('./lib/csv');
 const NeuroTrader = require('./neuroevolution').NeuroTrader;
 const utils = require('./lib/utils');
 
-const getInputTensor = function(periodArray) {
-    let arr = [];
-    _.each(periodArray, (period) => {
-        let activatedInputData = modelData.activateInput(period);
-        _.each(activatedInputData, (v) => {
-            arr.push(v);
-        });
-    });
+// TODO: integrate this into Trader class
 
-    return tf.tensor2d(arr, [1, modelData.nbDataInput], 'float32');
-}
-
-var plot = async function(interval) {
+var plot = async function() {
     // load data from CSV
-    let btcData = await csv.getDataForInterval(interval);
+    let btcData = await csv.getData();
     //let [trainData, testData] = datatools.splitData(btcData, 0.6);
 
     // load Trader from model
@@ -38,7 +28,6 @@ var plot = async function(interval) {
 
     // make the trader trade on all data
     let marketData = btcData;
-    console.log(`[*] Trading on ${utils.intervalToStr(interval)} test sample`);
     let inputs = marketData.slice(0, modelData.nbPeriods - 1);
     for (var j = modelData.nbPeriods - 1; j < marketData.length; j++) {
         let candle = marketData[j]; // current bitcoin data

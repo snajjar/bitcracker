@@ -6,11 +6,10 @@ const config = {
     takeProfitRatio: 0.05,
     cumulateGain: false,
 
-    // time range
+    // time range and interval
+    interval: null,
     startDate: null,
     endDate: null,
-
-
 }
 
 const getConfig = function() {
@@ -63,6 +62,14 @@ const getCumulateGain = function() {
     return config.cumulateGain;
 }
 
+const getInterval = function() {
+    return config.interval;
+}
+
+const setInterval = function(i) {
+    config.interval = i;
+}
+
 module.exports = {
     getConfig,
     setConfig,
@@ -75,5 +82,7 @@ module.exports = {
     setEndDate,
     getEndDate,
     setCumulateGain,
-    getCumulateGain
+    getCumulateGain,
+    getInterval,
+    setInterval
 }

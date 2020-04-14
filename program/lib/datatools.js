@@ -1,4 +1,5 @@
 const _ = require('lodash');
+const moment = require('moment');
 
 // cap variation between 0.5 and 1.5 to avoid absurd data effects
 const capVariation = function(variation, maxVariance) {
@@ -180,6 +181,22 @@ const cutDataAfter = function(endTimestamp, data) {
     return data.slice(0, endIndex);
 }
 
+const breakData = function(data, breakTimestamp) {
+    let breakIndex = 0;
+    for (var i = 0; i < data.length; i++) {
+        if (data[i].timestamp < breakTimestamp) {
+            breakIndex = i;
+        } else {
+            break;
+        }
+    }
+
+    if (breakIndex + 1 < data.length) {
+        breakIndex++;
+    }
+    return [data.slice(0, breakIndex), data.slice(breakIndex)];
+}
+
 // make sure the price starting point is where the endpoint is
 const equalize = function(data) {
     let endValue = data[data.length - 1].close;
@@ -195,6 +212,12 @@ const equalize = function(data) {
     return data.slice(startIndex);
 }
 
+const rangeStr = function(btcData) {
+    let startStr = moment.unix(btcData[0].timestamp).format('DD/MM/YYYY hh:mm');
+    let endStr = moment.unix(btcData[btcData.length - 1].timestamp).format('DD/MM/YYYY hh:mm');
+    return `${startStr} -> ${endStr} (${btcData.length} periods)`;
+}
+
 module.exports = {
     dataVariations,
     mergeSamples,
@@ -204,4 +227,6 @@ module.exports = {
     cutDataBefore,
     cutDataAfter,
     equalize,
+    breakData,
+    rangeStr
 }

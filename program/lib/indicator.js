@@ -77,26 +77,6 @@ var addIchimokuIndicator = function(data) {
     return ichimokuValues;
 }
 
-/*
-var test = async function test() {
-    const csv = require('./csv');
-    let btcData = await csv.getData(`./data/Cex_BTCEUR_5m_Refined.csv`);
-    //console.log(btcData);
-
-    // test on 5min period, 4h local min/max
-    let period = 48;
-    btcData = btcData.slice(0, 2016 + period);
-
-    addLocalMinMaxIndicator(btcData, period);
-    for (let candle of btcData) {
-        indicator = candle.min ? '[MIN]' : (candle.max ? '[MAX]' : '');
-        console.log(`low ${candle.low.toFixed(2)}€ -> high ${candle.high.toFixed(2)}€ ${indicator}`);
-    }
-}
-
-test();
-*/
-
 module.exports = {
     addIchimokuIndicator,
     addLocalMinMaxIndicator

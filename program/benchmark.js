@@ -26,8 +26,8 @@ const getAllTraders = function() {
     });
 }
 
-const benchmark = async function(interval) {
-    let btcData = await csv.getDataForInterval(interval);
+const benchmark = async function() {
+    let btcData = await csv.getData();
     let traders = await getAllTraders();
 
     console.log('[*] Traders:');
@@ -38,7 +38,7 @@ const benchmark = async function(interval) {
     console.log('[*] starting benchmark');
     for (let trader of traders) {
         console.log('   - evaluating trader: ' + trader.hash() + "...");
-        await trader.initialize(interval);
+        await trader.initialize();
         await trader.trade(btcData);
     }
 

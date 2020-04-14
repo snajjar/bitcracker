@@ -98,9 +98,9 @@ const convertToInterval = function(data, interval) {
 
 var extract = async function(interval) {
     console.log(`[*] Extracting data for interval ${utils.intervalToStr(interval)}`);
-    let data1m = await csv.getData('./data/Cex_BTCEUR_1m.csv');
+    let data1m = await csv.getFileData('./data/Cex_BTCEUR_1m.csv');
     let data = convertToInterval(data1m, interval);
-    await csv.setData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`, data);
+    await csv.setFileData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`, data);
 }
 
 module.exports = extract;

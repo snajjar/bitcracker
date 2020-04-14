@@ -58,7 +58,7 @@ const writeDataToCSVFile = function(data) {
 let getExistingData = async function(pair, source) {
     let filePath = getRawFilePath(pair, source);
     if (fs.existsSync(filePath)) {
-        return await csv.getData(filePath);
+        return await csv.getFileData(filePath);
     } else {
         return [];
     }

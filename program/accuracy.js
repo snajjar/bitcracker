@@ -5,7 +5,7 @@ const csv = require('./lib/csv');
 const dt = require('./lib/datatools');
 const moment = require('moment');
 
-const train = async function(model, breakDate = null) {
+const accuracy = async function(model) {
     // load model class
     let Model = require('./models/prediction/' + model);
     let m = new Model();
@@ -15,19 +15,12 @@ const train = async function(model, breakDate = null) {
 
     // load data from CSV
     let btcData = await csv.getData();
+    let acc = await m.accuracy(btcData);
 
-    if (breakDate) {
-        let breakTimestamp = moment(breakDate, "DD/MM/YYYY").unix();
-        let [trainData, testData] = dt.breakData(btcData, breakTimestamp);
-        console.log(`[*] Train set : ${dt.rangeStr(trainData)}`);
-        console.log(`[*] Test set : ${dt.rangeStr(testData)}`);
-        await m.train(trainData, testData);
-    } else {
-        console.log(`[*] Train set : ${dt.rangeStr(btcData)}`);
-        await m.train(btcData);
+    let percent = (n) => {
+        return (n * 100).toFixed(2) + "%";
     }
-
-    await m.save(interval);
+    console.log(`[*] Model acc: min=${percent(acc.min)} avg=${percent(acc.avg)} max=${percent(acc.max)} inconsistent_predictions=${percent(acc.inconsistencies)}`);
 }
 
-module.exports = train;
+module.exports = accuracy;

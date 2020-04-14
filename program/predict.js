@@ -5,9 +5,8 @@
 const tf = require('@tensorflow/tfjs-node');
 const axios = require('axios');
 const _ = require('lodash');
-const utils = require('./lib/utils');
 const colors = require('colors');
-const datatools = require('./lib/datatools');
+const config = require('./config.js');
 
 const debug = function(o) {
     console.log(require('util').inspect(o));
@@ -35,14 +34,14 @@ const getKrakenData = async function(interval) {
     return _.sortBy(periods, p => p.timestamp);
 }
 
-const predict = async function(modelName, interval) {
+const predict = async function(modelName) {
     // load model class
     let Model = require('./models/prediction/' + modelName);
     let model = new Model();
     await model.load(interval);
 
     // get btcdata
-    let btcData = await getKrakenData(interval);
+    let btcData = await getKrakenData(config.getInterval());
     let predictedPrice = await model.predict(btcData);
 
     console.log(`Predicting next period: price=${predictedPrice.toFixed(0)}€`);

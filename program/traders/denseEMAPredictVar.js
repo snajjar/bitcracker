@@ -3,6 +3,7 @@ const _ = require('lodash');
 const tulind = require('tulind');
 const tf = require('@tensorflow/tfjs-node');
 const datatools = require('../lib/datatools');
+const config = require('../../config');
 const DensePriceVariationPredictionModel = require('../models/prediction/densePriceVariationPrediction');
 
 class TraderEMAPredictVar extends Trader {
@@ -18,6 +19,7 @@ class TraderEMAPredictVar extends Trader {
 
     async initialize(interval) {
         this.model = new DensePriceVariationPredictionModel();
+        let interval = config.getInterval();
         await this.model.load(interval);
         await this.model.initialize();
     }

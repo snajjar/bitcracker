@@ -46,55 +46,54 @@ var argv = yargs
             await extract(utils.strToInterval(argv.interval));
         }
     })
-    .command('train <model> <interval>', 'Train a model from a data source', (yargs) => {
+    .command('train <model>', 'Train a model from a data source', (yargs) => {
         yargs.positional('model', {
             description: 'name of the model',
             type: 'string',
-        }).positional('interval', {
-            describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
+        }).option('break', {
+            describe: 'optional date to separate train data and test data. format DD/MM/YYYY',
+            type: 'string',
         })
     }, async (argv) => {
         const train = require('./train');
-        await train(argv.model, utils.strToInterval(argv.interval));
+        await train(argv.model, argv.break);
     })
-    .command('predict <model> <interval>', 'Predict next bitcoin values', (yargs) => {
+    .command('predict <model>', 'Predict next bitcoin values', (yargs) => {
         yargs.positional('model', {
             describe: 'model to be used. "dense" or "denseVar"'
-        }).positional('interval', {
-            describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
         })
     }, async (argv) => {
         const predict = require('./predict');
-        await predict(argv.model, utils.strToInterval(argv.interval));
+        await predict(argv.model);
     })
-    .command('evolve <interval>', 'Evolve trader AIs to work on a market', (yargs) => {
-        yargs.positional('interval', {
-            describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
-        })
-    }, async (argv) => {
+    .command('evolve', 'Evolve trader AIs to work on a market', (yargs) => {}, async (argv) => {
         const evolve = require('./evolve');
-        await evolve(utils.strToInterval(argv.interval));
+        await evolve();
     })
-    .command('plot <interval>', 'Output a plottable .csv file of a Trader results', (yargs) => {
-        yargs.positional('interval', {
-            describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
+    .command('plot', 'Output a plottable .csv file of a Trader results', (yargs) => {}, async (argv) => {
+        const plot = require('./plot');
+        await plot();
+    })
+    .command('evaluate <name>', 'Evaluate a Trader on a data interval', (yargs) => {
+        yargs.positional('name', {
+            describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
         })
     }, async (argv) => {
-        const plot = require('./plot');
-        await plot(utils.strToInterval(argv.interval));
+        const evaluate = require('./evaluate');
+        await evaluate(argv.name);
     })
-    .command('evaluate <name> <interval>', 'Evaluate a Trader on a data interval', (yargs) => {
-        yargs.positional('name', {
+    .command('accuracy <name>', 'Evaluate a model accuracy on a price interval', (yargs) => {
+        yargs.positional('model', {
             describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
         }).positional('interval', {
             describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
         })
     }, async (argv) => {
-        const evaluate = require('./evaluate');
+        const accuracy = require('./accuracy');
         let interval = utils.strToInterval(argv.interval);
-        await evaluate(argv.name, interval);
+        await accuracy(argv.name, interval);
     })
-    .command('benchmark <interval>', 'Evaluate all traders on a data interval', (yargs) => {
+    .command('benchmark', 'Evaluate all traders on a data interval', (yargs) => {
         yargs.option('stoploss', {
                 describe: 'ratio for stoploss',
                 type: 'number',
@@ -126,17 +125,24 @@ var argv = yargs
         }
 
         const benchmark = require('./benchmark');
-        let interval = utils.strToInterval(argv.interval);
-        await benchmark(interval);
+        await benchmark();
     })
     .help()
     .demandCommand()
     .alias('help', 'h')
+    .option('interval', {
+        describe: 'The data interval to use. Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d". Default to 1m',
+        alias: 'i',
+        type: 'string',
+        default: '1m'
+    })
     .option('start', {
+        alias: 's',
         describe: 'optional start date YYYY-MM-DD',
         type: 'string',
     })
     .option('end', {
+        alias: 'e',
         describe: 'optional end date YYYY-MM-DD',
         type: 'string',
     })
@@ -148,4 +154,8 @@ if (argv.start) {
 }
 if (argv.end) {
     config.setEndDate(argv.end);
+}
+if (argv.interval) {
+    let interval = utils.strToInterval(argv.interval);
+    config.setInterval(interval);
 }

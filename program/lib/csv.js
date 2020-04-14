@@ -27,10 +27,8 @@ const removeBlankLines = function(filePath) {
     fs.writeFileSync(filePath, content);
 }
 
-const displayDataRange = function(btcData) {
-    let startStr = moment.unix(btcData[0].timestamp).format('DD/MM/YYYY hh:mm');
-    let endStr = moment.unix(btcData[btcData.length - 1].timestamp).format('DD/MM/YYYY hh:mm');
-    console.log(`[*] Dataset: ${startStr} -> ${endStr} : ${btcData.length} periods`);
+const getData = async function() {
+    return await getDataForInterval(config.getInterval());
 }
 
 const getDataForInterval = async function(interval) {
@@ -38,7 +36,7 @@ const getDataForInterval = async function(interval) {
     let dataFile = `./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`;
 
     if (fs.existsSync(dataFile)) {
-        btcData = await getData(dataFile);
+        btcData = await getFileData(dataFile);
     } else {
         console.error(`[*] Error: could not find .csv file ${adjustedDataFile} or ${dataFile}`);
         process.exit(-1);
@@ -56,11 +54,11 @@ const getDataForInterval = async function(interval) {
         }
     }
 
-    displayDataRange(btcData);
+    console.log(`[*] Dataset: ${dt.rangeStr(btcData)}`);
     return btcData;
 }
 
-const getData = async function(csvFilePath) {
+const getFileData = async function(csvFilePath) {
     let btcData = [];
     const csvData = await getDataFromCSV(csvFilePath);
     let i = 0;
@@ -86,7 +84,7 @@ const getData = async function(csvFilePath) {
     return btcData;
 }
 
-const setData = async function(csvFilePath, data) {
+const setFileData = async function(csvFilePath, data) {
     let csvWriter = createCsvWriter({
         path: csvFilePath,
         header: [
@@ -132,7 +130,8 @@ const setTradeData = async function(csvFilePath, data) {
 
 module.exports = {
     getData,
-    setData,
+    getFileData,
+    setFileData,
     setTradeData,
     getDataForInterval,
     removeBlankLines

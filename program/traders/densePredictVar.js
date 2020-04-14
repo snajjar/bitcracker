@@ -1,5 +1,6 @@
 const Trader = require('./trader');
 const _ = require('lodash');
+const config = require('../../config');
 const DensePriceVariationPredictionModel = require('../models/prediction/densePriceVariationPrediction');
 
 class TraderDensePredictVar extends Trader {
@@ -13,6 +14,7 @@ class TraderDensePredictVar extends Trader {
 
     async initialize(interval) {
         this.model = new DensePriceVariationPredictionModel();
+        let interval = config.getInterval();
         await this.model.load(interval);
         await this.model.initialize();
     }

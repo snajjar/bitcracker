@@ -2,6 +2,7 @@ const Trader = require('./trader');
 const _ = require('lodash');
 const tulind = require('tulind');
 const tf = require('@tensorflow/tfjs-node');
+const config = require('../../config');
 const DensePricePredictionModel = require('../models/prediction/densePricePrediction');
 
 class TraderDenseEMAPredictFit extends Trader {
@@ -21,6 +22,7 @@ class TraderDenseEMAPredictFit extends Trader {
 
     async initialize(interval) {
         this.model = new DensePricePredictionModel();
+        let interval = config.getInterval();
         await this.model.load(interval);
         await this.model.initialize();
     }

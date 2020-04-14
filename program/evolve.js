@@ -8,6 +8,7 @@ const modelData = require('./model');
 const csv = require('./lib/csv');
 const datatools = require('./lib/datatools');
 const NeuroTrader = require('./traders/ml/neurotrader');
+const config = require('./config');
 
 // tweak this
 const graduationRate = 0.1; // how many traders are selected for reproduction
@@ -153,9 +154,9 @@ var saveTraders = async function(arr, interval) {
     }
 }
 
-var evolve = async function(interval) {
+var evolve = async function() {
     // load data from CSV
-    let btcData = await csv.getDataForInterval(interval);
+    let btcData = await csv.getData();
     let [trainData, testSample] = datatools.splitData(btcData, 0.8);
 
     const population = new Population(populationSize);
@@ -188,7 +189,7 @@ var evolve = async function(interval) {
                 await utils.displayTraders(bestTradersClones);
 
                 // save current best traders
-                await saveTraders(bestTraders, interval);
+                await saveTraders(bestTraders, config.getInterval());
             }
         } else {
             //console.log(`    - no traders worth mentionning`);
