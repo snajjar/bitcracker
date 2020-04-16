@@ -13,7 +13,7 @@ class TraderDensePricePredictX2 extends Trader {
         return "Try to predict uptrend and downtrends with 2 successive price predictions";
     }
 
-    async initialize(interval) {
+    async initialize() {
         this.model = new DensePricePredictionModel();
         let interval = config.getInterval();
         await this.model.load(interval);

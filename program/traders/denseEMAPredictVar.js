@@ -3,13 +3,13 @@ const _ = require('lodash');
 const tulind = require('tulind');
 const tf = require('@tensorflow/tfjs-node');
 const datatools = require('../lib/datatools');
-const config = require('../../config');
+const config = require('../config');
 const DensePriceVariationPredictionModel = require('../models/prediction/densePriceVariationPrediction');
 
 class TraderEMAPredictVar extends Trader {
     constructor() {
         super();
-        this.emaPeriods = 5;
+        this.emaPeriods = 2;
         this.emaTrigger = 0.333;
     }
 
@@ -17,7 +17,7 @@ class TraderEMAPredictVar extends Trader {
         return "Use EMA to predict uptrends, then check it against a dense neural network trained to predict prices variations";
     }
 
-    async initialize(interval) {
+    async initialize() {
         this.model = new DensePriceVariationPredictionModel();
         let interval = config.getInterval();
         await this.model.load(interval);

@@ -28,7 +28,7 @@ class DensePriceVariationPredictionModel extends Model {
 
     // nb candles to train/predict for this model
     getNbInputPeriods() {
-        return 10; // for variations computation
+        return 26; // for variations computation
     }
 
     // asynchronous initialization can't be done in the constructor
@@ -40,11 +40,9 @@ class DensePriceVariationPredictionModel extends Model {
         const nbDataInput = this.getNbInputPeriods();
         this.model = tf.sequential({
             layers: [
-                tf.layers.dense({ inputShape: [nbDataInput], units: 8, activation: 'relu' }),
+                tf.layers.lstm({ inputShape: [nbDataInput, 3], units: nbDataInput, activation: 'relu' }),
                 tf.layers.dropout(0.5),
-                tf.layers.dense({ units: 10, activation: 'relu' }),
-                tf.layers.dropout(0.5),
-                tf.layers.dense({ units: 5, activation: 'relu' }),
+                tf.layers.dense({ units: 8, activation: 'relu' }),
                 tf.layers.dropout(0.5),
                 tf.layers.dense({ units: 1, activation: 'relu' }),
             ]
@@ -60,21 +58,37 @@ class DensePriceVariationPredictionModel extends Model {
         });
     }
 
-    // method to get a input tensor for this model for an input, from periods of btc price
-    getInputTensor(candles) {
+    getInputArray(candles) {
         // get variations
         let candleVariations = datatools.dataVariations(candles, this.maxVariancePerPeriod);
         candleVariations = candleVariations.slice(candles.length - this.getNbInputPeriods());
 
-        let inputArray = [];
-        _.each(candleVariations, candleVariation => {
-            inputArray.push(this.activateVariation(candleVariation.close));
+        let arr = [];
+        _.each(candleVariations, (candleVariation, index) => {
+            arr.push([
+                //candleVariation.timestamp,
+                this.activateVariation(candleVariation.close),
+                this.activateVariation(candleVariation.high),
+                this.activateVariation(candleVariation.low)
+            ]);
         });
-        return tf.tensor1d(inputArray, 'float32');
+
+        return arr;
+    }
+
+    getOutputArray(candle) {
+        return [this.activateVariation(candle.close)];
+    }
+
+    // method to get a input tensor for this model for an input, from periods of btc price
+    getInputTensor(candles) {
+        let inputs = this.getInputArray(tensor);
+        return tf.tensor2d(inputs);
     }
 
     getOutputTensor(candle) {
-        return tf.tensor1d([this.activateVariation(candle.close)], 'float32');
+        let outputs = this.getOutputArray(tensor);
+        return tf.tensor1d(outputs);
     }
 
     // variation is between [1-maxVariance, 1+maxVariance], map this to [0, 1]
@@ -87,42 +101,34 @@ class DensePriceVariationPredictionModel extends Model {
         return x * 2 * this.maxVariancePerPeriod + 1 - this.maxVariancePerPeriod;
     }
 
-    async train(trainCandles, testCandles = null) {
-        let trainingSet = trainCandles;
-        // let testSet = testCandles;
-        // if (!testSet) {
-        //     // if no test data provided, use a portion of the train data
-        //     [trainingSet, testSet] = datatools.splitData(trainCandles, 0.8);
-        // }
-
-        let inputs = [];
-        let outputs = [];
+    getTrainData(candles) {
         let nbPeriods = this.getNbInputPeriods();
-
-        // get price variations
-        let candleVariations = datatools.dataVariations(trainingSet, this.maxVariancePerPeriod);
-        console.log('tensors: ', tf.memory().numTensors);
+        let batchInputs = [];
+        let batchOutputs = [];
 
         // build input and output tensors from data
-        for (var i = 0; i < candleVariations.length - nbPeriods - 1; i++) {
+        for (var i = 0; i < candles.length - nbPeriods - 1; i++) {
             // only push actual price variations to the model, otherwise it sucks
             // we really don't care about predicting no movement
-            let outputCloseVar = candleVariations[i + nbPeriods + 1].close;
+            let outputCloseVar = candles[i + nbPeriods + 1].close;
             if (outputCloseVar !== 1) {
-                let tensorInput = this.getInputTensor(candleVariations.slice(i, i + nbPeriods));
-                let tensorOutput = this.getOutputTensor(candleVariations[i + nbPeriods + 1]);
-                inputs.push(tensorInput);
-                outputs.push(tensorOutput);
+                batchInputs.push(this.getInputArray(candles.slice(i, i + nbPeriods)));
+                batchOutputs.push(this.getOutputArray(candles[i + nbPeriods + 1]));
             }
         }
 
-        // stack our inputs and outputs tensors
-        let inputTensor = tf.stack(inputs);
-        let outputTensor = tf.stack(outputs);
+        const inputTensor = tf.tensor3d(batchInputs, [batchInputs.length, nbPeriods, 3], 'float32');
+        const outputTensor = tf.tensor2d(batchOutputs, [batchOutputs.length, 1], 'float32');
+        return [inputTensor, outputTensor];
+    }
 
-        // dispose our previous tensors now that we stacked them
-        _.each(inputs, t => t.dispose());
-        _.each(outputs, t => t.dispose());
+    async train(trainCandles, testCandles = null) {
+        let trainingSet = trainCandles;
+
+        // get price variations
+        let candleVariations = datatools.dataVariations(trainingSet, this.maxVariancePerPeriod);
+
+        let [inputTensor, outputTensor] = this.getTrainData(candleVariations);
 
         inputTensor.print();
         outputTensor.print();

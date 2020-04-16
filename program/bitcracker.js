@@ -15,6 +15,23 @@ const ensureRequiredDirs = function() {
 ensureRequiredDirs();
 
 var argv = yargs
+    .option('interval', {
+        describe: 'The data interval to use. Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d". Default to 1m',
+        alias: 'i',
+        type: 'string',
+        default: '1m'
+    })
+    .option('start', {
+        alias: 's',
+        describe: 'optional start date YYYY-MM-DD',
+        type: 'string',
+    })
+    .option('end', {
+        alias: 'e',
+        describe: 'optional end date YYYY-MM-DD',
+        type: 'string',
+    })
+    .middleware([setIntervalOptions])
     .command('fetch <pair> [source]', 'Fetch', (yargs) => {
         yargs.positional('pair', {
             describe: 'Pair of value you want to get data: ex BTCEUR',
@@ -130,32 +147,21 @@ var argv = yargs
     .help()
     .demandCommand()
     .alias('help', 'h')
-    .option('interval', {
-        describe: 'The data interval to use. Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d". Default to 1m',
-        alias: 'i',
-        type: 'string',
-        default: '1m'
-    })
-    .option('start', {
-        alias: 's',
-        describe: 'optional start date YYYY-MM-DD',
-        type: 'string',
-    })
-    .option('end', {
-        alias: 'e',
-        describe: 'optional end date YYYY-MM-DD',
-        type: 'string',
-    })
     .argv;
 
-// handle interval settings globally
-if (argv.start) {
-    config.setStartDate(argv.start);
-}
-if (argv.end) {
-    config.setEndDate(argv.end);
-}
-if (argv.interval) {
-    let interval = utils.strToInterval(argv.interval);
-    config.setInterval(interval);
+function setIntervalOptions(argv) {
+    // handle interval settings globally
+    if (argv.start) {
+        config.setStartDate(argv.start);
+    }
+    if (argv.end) {
+        config.setEndDate(argv.end);
+    }
+
+    if (argv.interval) {
+        let interval = utils.strToInterval(argv.interval);
+        config.setInterval(interval);
+    } else {
+        config.setInterval(1);
+    }
 }

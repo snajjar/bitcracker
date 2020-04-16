@@ -20,7 +20,7 @@ class TraderDenseEMAPredictFit extends Trader {
         return "Same as denseEMAPredict, but try to be smarter and evaluate a few known prices to calculate accuracy, and invest only if accuracy is good";
     }
 
-    async initialize(interval) {
+    async initialize() {
         this.model = new DensePricePredictionModel();
         let interval = config.getInterval();
         await this.model.load(interval);

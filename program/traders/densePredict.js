@@ -13,7 +13,7 @@ class TraderDense extends Trader {
         return "Try to speculate on bitcoin variations from a dense neural network directly trained to predict prices";
     }
 
-    async initialize(interval) {
+    async initialize() {
         this.model = new DensePricePredictionModel();
         let interval = config.getInterval();
         await this.model.load(interval);

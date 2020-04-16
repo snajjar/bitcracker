@@ -17,7 +17,7 @@ class DenseEMAPredictTrendTrader extends Trader {
         return "Use EMA to predict uptrends, then check it against a dense neural network trained to predict prices variations";
     }
 
-    async initialize(interval) {
+    async initialize() {
         this.model = new DensePriceVariationPredictionModel();
         let interval = config.getInterval();
         await this.model.load(interval);

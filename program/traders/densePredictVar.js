@@ -1,6 +1,6 @@
 const Trader = require('./trader');
 const _ = require('lodash');
-const config = require('../../config');
+const config = require('../config');
 const DensePriceVariationPredictionModel = require('../models/prediction/densePriceVariationPrediction');
 
 class TraderDensePredictVar extends Trader {
@@ -12,7 +12,7 @@ class TraderDensePredictVar extends Trader {
         return "Try to speculate on bitcoin variations from a dense neural network trained to predict prices variations";
     }
 
-    async initialize(interval) {
+    async initialize() {
         this.model = new DensePriceVariationPredictionModel();
         let interval = config.getInterval();
         await this.model.load(interval);
@@ -41,11 +41,9 @@ class TraderDensePredictVar extends Trader {
         // if (stopped) return;
 
         // get predictions
-        let variationPrediction = await this.predictPrice(dataPeriods);
-        let bullish = variationPrediction > 1;
-
-        // sell condition: 2 successive downward predictions
-        let bearish = variationPrediction < 1;
+        let prediction = await this.predictPrice(dataPeriods);
+        let bullish = prediction > currentBitcoinPrice;
+        let bearish = prediction < currentBitcoinPrice;
 
         if (!this.inTrade) {
             if (bullish) {

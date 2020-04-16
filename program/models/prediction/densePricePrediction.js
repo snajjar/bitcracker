@@ -97,7 +97,17 @@ class DensePricePredictionModel extends Model {
         outputTensor.print();
 
         // train the model for each tensor
-        const response = await this.model.fit(inputTensor, outputTensor, this.trainingOptions);
+        let options = _.clone(this.trainingOptions);
+        options.callbacks = {
+            onEpochEnd: async (epoch, logs) => {
+                // let acc = await this.accuracy(trainingSet);
+                // console.log(`Train set acc: min=${acc.min} avg=${acc.avg} max=${acc.max}`);
+                // acc = await this.accuracy(testSet);
+                // console.log(`Test set acc: min=${acc.min} avg=${acc.avg} max=${acc.max}`);
+                await this.save();
+            }
+        }
+        const response = await this.model.fit(inputTensor, outputTensor, options);
 
         tf.dispose(inputTensor);
         tf.dispose(outputTensor);
