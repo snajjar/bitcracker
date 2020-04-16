@@ -38,7 +38,7 @@ const predict = async function(modelName) {
     // load model class
     let Model = require('./models/prediction/' + modelName);
     let model = new Model();
-    await model.load(interval);
+    await model.load();
 
     // get btcdata
     let btcData = await getKrakenData(config.getInterval());

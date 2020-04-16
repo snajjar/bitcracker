@@ -28,7 +28,7 @@ class DensePriceVariationPredictionModel extends Model {
 
     // nb candles to train/predict for this model
     getNbInputPeriods() {
-        return 26; // for variations computation
+        return 8; // for variations computation
     }
 
     // asynchronous initialization can't be done in the constructor
@@ -42,7 +42,7 @@ class DensePriceVariationPredictionModel extends Model {
             layers: [
                 tf.layers.lstm({ inputShape: [nbDataInput, 3], units: nbDataInput, activation: 'relu' }),
                 tf.layers.dropout(0.5),
-                tf.layers.dense({ units: 8, activation: 'relu' }),
+                tf.layers.dense({ units: 4, activation: 'relu' }),
                 tf.layers.dropout(0.5),
                 tf.layers.dense({ units: 1, activation: 'relu' }),
             ]
@@ -82,13 +82,13 @@ class DensePriceVariationPredictionModel extends Model {
 
     // method to get a input tensor for this model for an input, from periods of btc price
     getInputTensor(candles) {
-        let inputs = this.getInputArray(tensor);
-        return tf.tensor2d(inputs);
+        let inputs = this.getInputArray(candles);
+        return tf.tensor3d([inputs]);
     }
 
     getOutputTensor(candle) {
-        let outputs = this.getOutputArray(tensor);
-        return tf.tensor1d(outputs);
+        let outputs = this.getOutputArray(candle);
+        return tf.tensor2d([outputs]);
     }
 
     // variation is between [1-maxVariance, 1+maxVariance], map this to [0, 1]
