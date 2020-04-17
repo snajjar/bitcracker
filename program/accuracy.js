@@ -15,12 +15,9 @@ const accuracy = async function(model) {
 
     // load data from CSV
     let btcData = await csv.getData();
-    let acc = await m.accuracy(btcData);
 
-    let percent = (n) => {
-        return (n * 100).toFixed(2) + "%";
-    }
-    console.log(`[*] Model acc: min=${percent(acc.min)} avg=${percent(acc.avg)} max=${percent(acc.max)} inconsistent_predictions=${percent(acc.inconsistencies)}`);
+    // accuracy fonction should print results
+    let acc = await m.accuracy(btcData);
 }
 
 module.exports = accuracy;

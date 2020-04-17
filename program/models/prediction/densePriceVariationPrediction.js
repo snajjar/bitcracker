@@ -70,11 +70,11 @@ class DensePriceVariationPredictionModel extends Model {
         _.each(candleVariations, candleVariation => {
             inputArray.push(this.activateVariation(candleVariation.close));
         });
-        return tf.tensor1d(inputArray, 'float32');
+        return tf.tensor2d([inputArray], [1, inputArray.length], 'float32');
     }
 
     getOutputTensor(candle) {
-        return tf.tensor1d([this.activateVariation(candle.close)], 'float32');
+        return tf.tensor2d([this.activateVariation(candle.close)], 'float32');
     }
 
     // variation is between [1-maxVariance, 1+maxVariance], map this to [0, 1]

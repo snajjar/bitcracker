@@ -42,9 +42,9 @@ const predict = async function(modelName) {
 
     // get btcdata
     let btcData = await getKrakenData(config.getInterval());
-    let predictedPrice = await model.predict(btcData);
+    let predicted = await model.predict(btcData);
 
-    console.log(`Predicting next period: price=${predictedPrice.toFixed(0)}€`);
+    console.log(`prediction=${predicted}`);
 }
 
 module.exports = predict;

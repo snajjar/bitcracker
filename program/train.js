@@ -27,7 +27,7 @@ const train = async function(model, breakDate = null) {
         await m.train(btcData);
     }
 
-    await m.save(interval);
+    await m.save();
 }
 
 module.exports = train;

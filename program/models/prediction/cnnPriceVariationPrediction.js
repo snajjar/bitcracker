@@ -1,5 +1,5 @@
 /******************************************************************************
- * densePricePrediction.js - simple dense model to predict btc price
+ * simple dense model to predict btc price
  *****************************************************************************/
 
 const Model = require('../model');
@@ -8,14 +8,12 @@ const _ = require('lodash');
 const datatools = require('../../lib/datatools');
 const config = require('../../config');
 
-class LSTMPriceVariationPredictionModel extends Model {
+class CNNPriceVariationPredictionModel extends Model {
     constructor() {
         super();
         this.trainingOptions = {
-            //shuffle: true,
-            shuffle: false,
-            stateful: true,
-            epochs: 300,
+            shuffle: true,
+            epochs: 10,
             batchsize: 10,
         }
 
@@ -25,12 +23,12 @@ class LSTMPriceVariationPredictionModel extends Model {
 
     // uniq model name - usefull for save & load
     getName() {
-        return "LSTMPriceVariationPrediction";
+        return "CNNPriceVariationPrediction";
     }
 
     // nb candles to train/predict for this model
     getNbInputPeriods() {
-        return 8; // for variations computation
+        return 32; // for variations computation
     }
 
     // asynchronous initialization can't be done in the constructor
@@ -43,23 +41,38 @@ class LSTMPriceVariationPredictionModel extends Model {
 
         let model = tf.sequential();
 
-        // add LSTM layer, 1 LSTM cell for each period
-        let lstmCells = [];
-        for (let i = 0; i < nbPeriods; i++) {
-            lstmCells.push(tf.layers.lstmCell({ units: 3 }));
-        }
-        model.add(tf.layers.rnn({
-            cell: lstmCells,
-            inputShape: [nbPeriods, 3],
-            returnSequences: false,
-            activation: 'relu'
+        // add a conv2d layer
+        model.add(tf.layers.inputLayer({ inputShape: [nbPeriods, 3], }));
+        model.add(tf.layers.conv1d({
+            kernelSize: 2,
+            filters: 128,
+            strides: 1,
+            use_bias: true,
+            activation: 'relu',
+            kernelInitializer: 'VarianceScaling'
         }));
-
-        // add dropout and dense layer
-        model.add(tf.layers.dropout(0.5));
-        model.add(tf.layers.dense({ units: 4, activation: 'relu' }));
-        model.add(tf.layers.dropout(0.5));
-        model.add(tf.layers.dense({ units: 1, activation: 'relu' }));
+        model.add(tf.layers.averagePooling1d({
+            poolSize: [2],
+            strides: [1]
+        }));
+        model.add(tf.layers.conv1d({
+            kernelSize: 2,
+            filters: 64,
+            strides: 1,
+            use_bias: true,
+            activation: 'relu',
+            kernelInitializer: 'VarianceScaling'
+        }));
+        model.add(tf.layers.averagePooling1d({
+            poolSize: [2],
+            strides: [1]
+        }));
+        model.add(tf.layers.flatten());
+        model.add(tf.layers.dense({
+            units: 1,
+            kernelInitializer: 'VarianceScaling',
+            activation: 'linear'
+        }));
 
         this.model = model;
         return model;
@@ -151,15 +164,6 @@ class LSTMPriceVariationPredictionModel extends Model {
 
         // train the model for each tensor
         let options = _.clone(this.trainingOptions);
-        options.callbacks = {
-            onEpochEnd: async (epoch, logs) => {
-                // let acc = await this.accuracy(trainingSet);
-                // console.log(`Train set acc: min=${acc.min} avg=${acc.avg} max=${acc.max}`);
-                // acc = await this.accuracy(testSet);
-                // console.log(`Test set acc: min=${acc.min} avg=${acc.avg} max=${acc.max}`);
-                await this.save();
-            }
-        }
         await this.model.fit(inputTensor, outputTensor, options);
 
         tf.dispose(inputTensor);
@@ -208,14 +212,8 @@ class LSTMPriceVariationPredictionModel extends Model {
             }
         }
 
-        return {
-            max: _.max(accuracies),
-            min: _.min(accuracies),
-            avg: _.mean(accuracies),
-            avgLoss: _.mean(losses),
-            inconsistencies: nbInconsistencies / periods.length,
-        }
+        console.log(`Accuracy: min=${_.min(accuracies)} avg=${_.mean(accuracies)} max=${_.max(accuracies)} inconsistencies=${nbInconsistencies / periods.length}`);
     }
 }
 
-module.exports = LSTMPriceVariationPredictionModel;
+module.exports = CNNPriceVariationPredictionModel;
