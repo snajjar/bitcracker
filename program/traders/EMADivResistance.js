@@ -1,17 +1,22 @@
 const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
+const dt = require('../lib/datatools');
 
-class EMADivTrader extends Trader {
+class EMADivResistanceTrader extends Trader {
     constructor() {
         super();
 
         // parameters
         this.emaPeriods = 2;
+        this.trendStrengh = 0.006;
+
+
+        this.trend = "still";
     }
 
     analysisIntervalLength() {
-        return this.emaPeriods + 1;
+        return 50;
     }
 
     hash() {
@@ -29,6 +34,21 @@ class EMADivTrader extends Trader {
                 }
             });
         });
+    }
+
+    getNextResistancePrice(periods, currentBitcoinPrice) {
+        periods = dt.labelTrends(periods, this.trendStrengh, this.trendStrengh);
+
+        let downTrendPeriods = _.filter(periods, p => p.trend == "down");
+        let resistancePeriods = _.filter(downTrendPeriods, p => p.high > currentBitcoinPrice);
+        let nextResistance = _.minBy(resistancePeriods, p => p.high);
+
+        if (nextResistance) {
+            // return avg of the down trend start period, so we make sure
+            return nextResistance.high;
+        } else {
+            return null;
+        }
     }
 
     // decide for an action
@@ -52,8 +72,18 @@ class EMADivTrader extends Trader {
 
             if (!this.inTrade) {
                 if (trendUp) {
-                    // BUY condition
-                    this.buy();
+                    // find the last resistance
+                    let lastResistancePrice = this.getNextResistancePrice(dataPeriods, currentBitcoinPrice);
+                    if (lastResistancePrice) {
+                        if (currentBitcoinPrice * (1 + this.buyTax + this.sellTax) < lastResistancePrice) {
+                            // BUY condition
+                            this.buy();
+                        } else {
+                            this.hold();
+                        }
+                    } else {
+                        this.buy();
+                    }
                 } else {
                     this.hold();
                 }
@@ -72,4 +102,4 @@ class EMADivTrader extends Trader {
     }
 }
 
-module.exports = EMADivTrader;
+module.exports = EMADivResistanceTrader;

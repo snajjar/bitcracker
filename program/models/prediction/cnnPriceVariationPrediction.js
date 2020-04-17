@@ -28,7 +28,7 @@ class CNNPriceVariationPredictionModel extends Model {
 
     // nb candles to train/predict for this model
     getNbInputPeriods() {
-        return 32; // for variations computation
+        return 16; // for variations computation
     }
 
     // asynchronous initialization can't be done in the constructor

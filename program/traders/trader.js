@@ -12,6 +12,9 @@ class Trader {
     constructor() {
         this.number = Trader.count++;
 
+        this.buyTax = buyTax;
+        this.sellTax = sellTax;
+
         // wallet and score values
         this.btcWallet = 0;
         this.eurWallet = startingFunding;
