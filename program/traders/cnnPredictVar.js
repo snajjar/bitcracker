@@ -6,6 +6,8 @@ const CNNPriceVariationPredictionModel = require('../models/prediction/cnnPriceV
 class TraderCNNPredictVar extends Trader {
     constructor() {
         super();
+        this.tresholdBuy = 0.01;
+        this.tresholdSell = 0.01;
     }
 
     getDescription() {
@@ -42,8 +44,8 @@ class TraderCNNPredictVar extends Trader {
 
         // get predictions
         let prediction = await this.predictPrice(dataPeriods);
-        let bullish = prediction > currentBitcoinPrice;
-        let bearish = prediction < currentBitcoinPrice;
+        let bullish = prediction > currentBitcoinPrice * (1 + this.tresholdBuy);
+        let bearish = prediction < currentBitcoinPrice * (1 - this.tresholdSell);
 
         if (!this.inTrade) {
             if (bullish) {

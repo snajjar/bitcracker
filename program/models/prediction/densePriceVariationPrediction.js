@@ -28,7 +28,7 @@ class DensePriceVariationPredictionModel extends Model {
 
     // nb candles to train/predict for this model
     getNbInputPeriods() {
-        return 10; // for variations computation
+        return 5; // for variations computation
     }
 
     // asynchronous initialization can't be done in the constructor
@@ -163,6 +163,7 @@ class DensePriceVariationPredictionModel extends Model {
     async accuracy(periods) {
         let accuracies = [];
         let nbInconsistencies = 0;
+        let errors = [];
 
         let currPeriods = periods.slice(0, this.getNbInputPeriods() - 1); // no trades in this area
         for (var i = this.getNbInputPeriods(); i < periods.length - 1; i++) {
@@ -171,6 +172,7 @@ class DensePriceVariationPredictionModel extends Model {
 
             let realValue = periods[i + 1].close;
             let prediction = await this.predict(currPeriods);
+            let error = prediction - realValue;
             if (prediction > realValue * 1.5 || prediction < realValue * 0.75) {
                 // inconsistent prediction
                 nbInconsistencies++;
@@ -178,16 +180,13 @@ class DensePriceVariationPredictionModel extends Model {
                 let loss = Math.abs(realValue - prediction);
                 let acc = 1 - (loss / realValue);
                 accuracies.push(acc);
+                errors.push(error);
                 currPeriods.shift();
             }
         }
 
-        return {
-            max: _.max(accuracies),
-            min: _.min(accuracies),
-            avg: _.mean(accuracies),
-            inconsistencies: nbInconsistencies / periods.length,
-        }
+        console.log(`Accuracy: min=${_.min(accuracies)} avg=${_.mean(accuracies)} max=${_.max(accuracies)} inconsistencies=${nbInconsistencies / periods.length}`);
+        console.log(`Error: min=${_.min(errors)} avg=${_.mean(errors)} max=${_.max(errors)}`);
     }
 }
 

@@ -1,23 +1,24 @@
 const Trader = require('./trader');
 const _ = require('lodash');
 const config = require('../config');
-const DensePriceVariationPredictionModel = require('../models/prediction/densePriceVariationPrediction');
+const CNNPricePredictionModel = require('../models/prediction/cnnPricePrediction');
 
-class TraderDensePredictVar extends Trader {
+class TraderCNNEMAPredict extends Trader {
     constructor() {
         super();
-        this.tresholdBuy = 0.01;
-        this.tresholdSell = 0.01;
+
+        this.buyTreshold = 0.0046;
+        this.sellTreshold = 0.0046;
     }
 
     getDescription() {
-        return "Try to speculate on bitcoin variations from a dense neural network trained to predict prices variations";
+        return "use a CNN to predict btc price, and buy/sell if prediction crosses a treshold";
     }
 
     async initialize() {
-        this.model = new DensePriceVariationPredictionModel();
+        this.model = new CNNPricePredictionModel();
         let interval = config.getInterval();
-        await this.model.load(interval);
+        await this.model.load();
         await this.model.initialize();
     }
 
@@ -26,7 +27,7 @@ class TraderDensePredictVar extends Trader {
     }
 
     hash() {
-        return "ML_DensePredictVar";
+        return "ML_CNNPredict";
     }
 
     // predict next bitcoin price from period
@@ -42,20 +43,19 @@ class TraderDensePredictVar extends Trader {
         // stopped = this.takeProfit(this.takeProfitRatio);
         // if (stopped) return;
 
-        // get predictions
         let prediction = await this.predictPrice(dataPeriods);
-        let bullish = prediction > currentBitcoinPrice * (1 + this.tresholdBuy);
-        let bearish = prediction < currentBitcoinPrice * (1 - this.tresholdSell);
 
+        // calculate ema indicator
         if (!this.inTrade) {
-            if (bullish) {
+            if (currentBitcoinPrice * (1 + this.buyTreshold) < prediction) {
                 // BUY condition
                 this.buy();
             } else {
                 this.hold();
             }
         } else {
-            if (bearish) {
+            if (currentBitcoinPrice * (1 - this.sellTreshold) > prediction) {
+                // SELL condition
                 this.sell();
             } else {
                 this.hold();
@@ -64,4 +64,4 @@ class TraderDensePredictVar extends Trader {
     }
 }
 
-module.exports = TraderDensePredictVar;
+module.exports = TraderCNNEMAPredict;

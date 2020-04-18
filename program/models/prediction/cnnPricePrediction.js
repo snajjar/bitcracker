@@ -8,27 +8,29 @@ const _ = require('lodash');
 const datatools = require('../../lib/datatools');
 const config = require('../../config');
 
-class CNNPriceVariationPredictionModel extends Model {
+class CNNPricePredictionModel extends Model {
     constructor() {
         super();
         this.trainingOptions = {
             shuffle: true,
-            epochs: 10,
+            epochs: 15,
             batchsize: 10,
         }
 
-        // cap maximum variance per period to improve neural net's accuracy
-        this.maxVariancePerPeriod = 0.01;
+        this.nbFeatures = 4;
+        this.settings.nbInputPeriods = 16;
+
+        this.scaleMargin = 1.2; // 1.2: we can go 20% higher than the higher value
     }
 
     // uniq model name - usefull for save & load
     getName() {
-        return "CNNPriceVariationPrediction";
+        return "CNNPricePrediction";
     }
 
     // nb candles to train/predict for this model
     getNbInputPeriods() {
-        return 16; // for variations computation
+        return this.settings.nbInputPeriods; // for variations computation
     }
 
     // asynchronous initialization can't be done in the constructor
@@ -41,8 +43,8 @@ class CNNPriceVariationPredictionModel extends Model {
 
         let model = tf.sequential();
 
-        // add a conv2d layer
-        model.add(tf.layers.inputLayer({ inputShape: [nbPeriods, 3], }));
+        // add a conv2d layer  with 4 features, high, low, close and volume
+        model.add(tf.layers.inputLayer({ inputShape: [nbPeriods, this.nbFeatures], }));
         model.add(tf.layers.conv1d({
             kernelSize: 2,
             filters: 128,
@@ -87,26 +89,97 @@ class CNNPriceVariationPredictionModel extends Model {
         });
     }
 
+    // get scale parameters from an array of candles
+    findScaleParameters(candles) {
+        let scaleParameters = {};
+        _.each(candles[0], (v, k) => {
+            if (typeof v === 'number') {
+                scaleParameters[k] = v;
+            }
+        });
+
+        _.each(candles, candle => {
+            _.each(candle, (v, k) => {
+                if (typeof v === 'number' && k != "timestamp") {
+                    if (v > scaleParameters[k]) {
+                        scaleParameters[k] = v;
+                    }
+                }
+            });
+        });
+
+        // apply scale margin
+        scaleParameters = _.each(scaleParameters, k => k * this.scaleMargin);
+        this.settings.scaleParameters = scaleParameters;
+    }
+
+    // return an array of scaled candles, according to previously determined scale factors
+    scaleCandles(candles) {
+        if (!this.settings.scaleParameters) {
+            throw new Error("scale parameters were not loaded");
+        }
+
+        let scaledCandles = [];
+        _.each(candles, candle => {
+            let scaledCandle = _.clone(candle);
+            _.each(candle, (v, k) => {
+                // if we determined the scale factor for this parameter, apply it
+                if (this.settings.scaleParameters[k]) {
+                    scaledCandle[k] = v / this.settings.scaleParameters[k];
+                } else {
+                    scaledCandle[k] = v; // some data are not meant to be scaled (ex: trend)
+                }
+            });
+            scaledCandles.push(scaledCandle);
+        });
+        return scaledCandles;
+    }
+
+    scaleValue(name, value) {
+        if (!this.settings.scaleParameters) {
+            throw new Error("scale parameters were not loaded");
+        }
+        if (!this.settings.scaleParameters[name]) {
+            throw new Error("scale parameters for " + name + " is not defined");
+        }
+
+        return value / this.settings.scaleParameters[name];
+    }
+
+    unscaleValue(name, value) {
+        if (!this.settings.scaleParameters) {
+            throw new Error("scale parameters were not loaded");
+        }
+        if (!this.settings.scaleParameters[name]) {
+            throw new Error("scale parameters for " + name + " is not defined");
+        }
+
+        return value * this.settings.scaleParameters[name];
+    }
+
+    // return a noramized NN-ready array of input
     getInputArray(candles) {
-        // get variations
-        let candleVariations = datatools.dataVariations(candles, this.maxVariancePerPeriod);
-        candleVariations = candleVariations.slice(candles.length - this.getNbInputPeriods());
+        // get scaled candles
+        let scaledCandles = this.scaleCandles(candles);
+        scaledCandles = scaledCandles.slice(scaledCandles.length - this.getNbInputPeriods());
 
         let arr = [];
-        _.each(candleVariations, (candleVariation, index) => {
+        _.each(scaledCandles, (scaledCandle, index) => {
             arr.push([
                 //candleVariation.timestamp,
-                this.activateVariation(candleVariation.close),
-                this.activateVariation(candleVariation.high),
-                this.activateVariation(candleVariation.low)
+                scaledCandle.close,
+                scaledCandle.high,
+                scaledCandle.low,
+                scaledCandle.volume
             ]);
         });
 
         return arr;
     }
 
+    // return a noramized NN-ready array of output
     getOutputArray(candle) {
-        return [this.activateVariation(candle.close)];
+        return [this.scaleValue("close", candle.close)];
     }
 
     // method to get a input tensor for this model for an input, from periods of btc price
@@ -115,49 +188,32 @@ class CNNPriceVariationPredictionModel extends Model {
         return tf.tensor3d([inputs]);
     }
 
-    getOutputTensor(candle) {
-        let outputs = this.getOutputArray(candle);
-        return tf.tensor2d([outputs]);
-    }
-
-    // variation is between [1-maxVariance, 1+maxVariance], map this to [0, 1]
-    activateVariation(x) {
-        return (x + this.maxVariancePerPeriod - 1) / (2 * this.maxVariancePerPeriod);
-    }
-
-    // output is between [0, 1], map this to [1-maxVariance, 1+maxVariance]
-    deactivateVariation(x) {
-        return x * 2 * this.maxVariancePerPeriod + 1 - this.maxVariancePerPeriod;
-    }
-
     getTrainData(candles) {
+        this.findScaleParameters(candles);
+        console.log('[*] Training model with following settings: ' + JSON.stringify(this.settings, null, 2));
+
         let nbPeriods = this.getNbInputPeriods();
+
         let batchInputs = [];
         let batchOutputs = [];
 
         // build input and output tensors from data
         for (var i = 0; i < candles.length - nbPeriods - 1; i++) {
-            // only push actual price variations to the model, otherwise it sucks
-            // we really don't care about predicting no movement
-            let outputCloseVar = candles[i + nbPeriods + 1].close;
-            if (outputCloseVar !== 1) {
+            // don't train our model on data that doesn't change, it's useless
+            if (candles[i + nbPeriods].volume > 0) {
                 batchInputs.push(this.getInputArray(candles.slice(i, i + nbPeriods)));
                 batchOutputs.push(this.getOutputArray(candles[i + nbPeriods + 1]));
             }
         }
 
-        const inputTensor = tf.tensor3d(batchInputs, [batchInputs.length, nbPeriods, 3], 'float32');
+        const inputTensor = tf.tensor3d(batchInputs, [batchInputs.length, nbPeriods, this.nbFeatures], 'float32');
         const outputTensor = tf.tensor2d(batchOutputs, [batchOutputs.length, 1], 'float32');
         return [inputTensor, outputTensor];
     }
 
-    async train(trainCandles, testCandles = null) {
-        let trainingSet = trainCandles;
-
+    async train(trainCandles) {
         // get price variations
-        let candleVariations = datatools.dataVariations(trainingSet, this.maxVariancePerPeriod);
-
-        let [inputTensor, outputTensor] = this.getTrainData(candleVariations);
+        let [inputTensor, outputTensor] = this.getTrainData(trainCandles);
 
         inputTensor.print();
         outputTensor.print();
@@ -173,16 +229,18 @@ class CNNPriceVariationPredictionModel extends Model {
     async predict(candles) {
         let inputCandles = candles.slice(candles.length - this.getNbInputPeriods());
         let inputTensor = this.getInputTensor(inputCandles);
+        // inputTensor.print();
 
         let outputTensor = this.model.predict(inputTensor);
         let arr = await outputTensor.data();
 
+        // outputTensor.print();
         tf.dispose(inputTensor);
         tf.dispose(outputTensor);
 
-        let predictedVariation = this.deactivateVariation(arr[0]);
-        let predictedPrice = candles[candles.length - 1].close * predictedVariation;
-        return predictedPrice;
+        let scaledPrediction = arr[0];
+        let prediction = this.unscaleValue('close', scaledPrediction);
+        return prediction;
     }
 
     async accuracy(periods) {
@@ -190,11 +248,15 @@ class CNNPriceVariationPredictionModel extends Model {
         let nbInconsistencies = 0;
         let errors = [];
 
+        let nbRightTrendPredictions = 0;
+        let nbWrongTrendPredictions = 0;
+
         let currPeriods = periods.slice(0, this.getNbInputPeriods() - 1); // no trades in this area
         for (var i = this.getNbInputPeriods(); i < periods.length - 1; i++) {
             let nextPeriod = periods[i];
             currPeriods.push(nextPeriod);
 
+            let lastValue = periods[i].close;
             let realValue = periods[i + 1].close;
             let prediction = await this.predict(currPeriods);
             let error = prediction - realValue;
@@ -203,6 +265,22 @@ class CNNPriceVariationPredictionModel extends Model {
                 // inconsistent prediction
                 nbInconsistencies++;
             } else {
+                if (realValue > lastValue) {
+                    // up trend
+                    if (prediction > lastValue) {
+                        nbRightTrendPredictions++;
+                    } else {
+                        nbWrongTrendPredictions++;
+                    }
+                } else if (realValue < lastValue) {
+                    if (prediction < lastValue) {
+                        nbRightTrendPredictions++;
+                    } else {
+                        nbWrongTrendPredictions++;
+                    }
+                }
+
+
                 let loss = Math.abs(realValue - prediction);
                 let acc = 1 - (loss / realValue);
                 errors.push(error);
@@ -213,7 +291,8 @@ class CNNPriceVariationPredictionModel extends Model {
 
         console.log(`Accuracy: min=${_.min(accuracies)} avg=${_.mean(accuracies)} max=${_.max(accuracies)} inconsistencies=${nbInconsistencies / periods.length}`);
         console.log(`Error: min=${_.min(errors)} avg=${_.mean(errors)} max=${_.max(errors)}`);
+        console.log(`Trend prediction: right=${nbRightTrendPredictions} wrong=${nbWrongTrendPredictions}`);
     }
 }
 
-module.exports = CNNPriceVariationPredictionModel;
+module.exports = CNNPricePredictionModel;

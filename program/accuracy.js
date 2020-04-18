@@ -9,9 +9,7 @@ const accuracy = async function(model) {
     // load model class
     let Model = require('./models/prediction/' + model);
     let m = new Model();
-    await m.initialize();
-    m.createModel();
-    await m.compile();
+    await m.load();
 
     // load data from CSV
     let btcData = await csv.getData();

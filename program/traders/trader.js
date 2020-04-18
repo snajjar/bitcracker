@@ -107,7 +107,6 @@ class Trader {
         for (var i = analysisIntervalLength; i < periods.length; i++) {
             let nextPeriod = periods[i];
             dataPeriods.push(nextPeriod);
-
             await this.decideAction(dataPeriods);
 
             dataPeriods.shift();

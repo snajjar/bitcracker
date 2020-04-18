@@ -6,10 +6,18 @@ const tf = require('@tensorflow/tfjs-node');
 const utils = require('../lib/utils');
 const fs = require('fs-extra');
 const config = require('../config');
+let path = require('path');
 
 class Model {
     constructor() {
         this.model = null;
+
+        // this object will be saved and loaded with the model by model.load()
+        // or be initialized by model.train()
+        this.settings = {
+            nbInputPeriods: null, // to be redefined by the inherited class
+            scaleParameters: null,
+        };
     }
 
     // asynchronous initialization can't be done in the constructor
@@ -55,6 +63,7 @@ class Model {
         throw "to be redefined";
     }
 
+    // expected to end with '/'
     path() {
         let interval = config.getInterval();
         let intervalStr = utils.intervalToStr(interval);
@@ -63,10 +72,13 @@ class Model {
 
     async save() {
         fs.ensureDirSync(this.path());
+        fs.writeFileSync(this.path() + "settings.json", JSON.stringify(this.settings, null, 2));
         return await this.model.save('file://' + this.path());
     }
 
     async load() {
+        this.settings = require(path.join("../", this.path(), "settings.json"));
+        console.log('[*] Loading model settings: ' + JSON.stringify(this.settings, null, 2));
         this.model = await tf.loadLayersModel(`file://${this.path()}/model.json`);
     }
 
