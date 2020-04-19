@@ -182,6 +182,31 @@ const cutDataAfter = function(endTimestamp, data) {
     return data.slice(0, endIndex);
 }
 
+const splitByDuration = function(candles, duration) {
+    let results = [];
+    let durationMs = duration.asMilliseconds();
+
+    let startIndex = 0;
+    let startTime = moment.unix(candles[0].timestamp);
+
+    for (var i = 1; i < candles.length; i++) {
+        let candle = candles[i];
+
+        let now = moment.unix(candle.timestamp);
+        let mdiff = moment.duration(now.diff(startTime)).asMilliseconds();
+        if (mdiff >= durationMs) {
+            // we reached the end of a period
+            results.push(candles.slice(startIndex, i - 1));
+            startTime = now;
+            startIndex = i;
+        }
+    }
+
+    // push the last "period" too
+    results.push(candles.slice(startIndex));
+    return results;
+}
+
 const breakData = function(data, breakTimestamp) {
     let breakIndex = 0;
     for (var i = 0; i < data.length; i++) {
@@ -357,5 +382,6 @@ module.exports = {
     equalize,
     breakData,
     rangeStr,
-    labelTrends
+    labelTrends,
+    splitByDuration
 }

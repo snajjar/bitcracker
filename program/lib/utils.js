@@ -32,15 +32,21 @@ const debug = function(o) {
     console.log(require('util').inspect(o));
 }
 
+var displayTrader = async function(t) {
+    let hash = await t.hash();
+    let s = t.statisticsColoredStr();
+    let trades = s.trades;
+    console.log(`    Trader #${t.number} (${hash}):`);
+    console.log(`      gain: ${s.cumulatedGain} win/loss: ${s.winLossRatio} avg ROI: ${s.avgROI}`);
+    console.log(`      ${trades.nbTrades} trades, ${trades.nbPositiveTrades} won, ${trades.nbNegativeTrades} lost, ${trades.nbStopLoss} stop loss, ${trades.nbTakeProfit} take profit`);
+    console.log(`      ${trades.nbBuy} buy, ${trades.nbSell} sell, ${trades.nbHold} hold (${trades.nbHoldIn} in, ${trades.nbHoldOut} out)`);
+}
+
 var displayTraders = async function(arr) {
     let toDisplay = arr.slice(0, Math.min(arr.length, 5));
     for (var i = 0; i < toDisplay.length; i++) {
         let t = toDisplay[i];
-        let hash = await t.hash();
-        console.log(`    Trader #${t.number} (${hash}):`);
-        console.log(`      gain: ${t.gainStr()} win/loss: ${t.winLossRatioStr()} avg ROI: ${t.avgROIStr()}`);
-        console.log(`      ${t.statisticsStr()}`);
-        console.log(`      ${t.tradesStr()}`);
+        await displayTrader(t);
     }
 }
 
@@ -53,5 +59,6 @@ module.exports = {
     intervalsStr,
     intervalToStr,
     strToInterval,
+    displayTrader,
     displayTraders,
 }

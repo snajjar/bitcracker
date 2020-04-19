@@ -49,7 +49,10 @@ class Trader {
 
     resetTrading() {
         this.btcWallet = 0;
-        this.eurWallet = 1000;
+        this.eurWallet = startingFunding;
+        this.lastBitcoinPrice = 0;
+        this.inTrade = false;
+        this.enterTradeValue = 0;
     }
 
     resetStatistics() {
@@ -59,15 +62,73 @@ class Trader {
         this.nbBuy = 0;
         this.nbSell = 0;
         this.nbHold = 0;
+        this.nbHoldOut = 0;
+        this.nbHoldIn = 0;
+        this.nbStopLoss = 0;
+        this.nbTakeProfit = 0;
     }
 
-    statisticsStr() {
-        let limit = 1;
-        let positiveTrades = _.filter(this.trades, v => v > limit);
-        let negativeTrades = _.filter(this.trades, v => v < limit);
+    statistics() {
+        let totalROI = _.reduce(this.trades, (a, b) => a * b) || 1;
+        let nbPositiveTrades = _.filter(this.trades, t => t > 1).length || 0;
+        let nbNegativeTrades = this.trades.length - nbPositiveTrades || 0;
+        let assets = this.btcWallet * this.lastBitcoinPrice + this.eurWallet;
 
-        //return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbPenalties} penalities, ${((this.totalROI())*100).toFixed(2) + "%"} result`;
-        return `${this.trades.length} trades, ${positiveTrades.length} won, ${negativeTrades.length} lost, ${this.nbStopLoss} stop loss, ${this.nbTakeProfit} take profit`;
+        return {
+            assets: assets,
+            cumulatedGain: assets - startingFunding,
+            avgROI: _.mean(this.trades) || 0,
+            winLossRatio: (nbPositiveTrades / this.trades.length) || 0,
+            trades: {
+                nbTrades: this.trades.length,
+                nbPositiveTrades: nbPositiveTrades,
+                nbNegativeTrades: nbNegativeTrades,
+                nbStopLoss: this.nbStopLoss,
+                nbTakeProfit: this.nbTakeProfit,
+                nbBuy: this.nbBuy,
+                nbSell: this.nbSell,
+                nbHold: this.nbHold,
+                nbHoldIn: this.nbHoldIn,
+                nbHoldOut: this.nbHoldOut
+            }
+        }
+    }
+
+    // same as statistics(), but return displayable strings
+    statisticsStr() {
+        let stats = this.statistics();
+
+        let assetsStr = `${stats.assets.toFixed(0)}€`;
+        stats.assets = assetsStr;
+
+        let gainStr = `${stats.cumulatedGain.toFixed(0)}€`;
+        stats.cumulatedGain = gainStr;
+        // stats.cumulatedGain = stats.cumulatedGain > 0 ? gainStr.green : gainStr.red;
+
+        let winLossRatioStr = `${(stats.winLossRatio*100).toFixed(2)}%`;
+        stats.winLossRatio = winLossRatioStr;
+        // stats.winLossRatio = stats.winLossRatio > 0.5 ? winLossRatioStr.green : winLossRatioStr.red;
+
+        let avgROIStr = (stats.avgROI * 100).toFixed(2) + "%";
+        stats.avgROI = avgROIStr;
+        // stats.avgROI = stats.avgROI > 1 ? avgROIStr.green : avgROIStr.red;
+
+        return stats;
+    }
+
+    statisticsColoredStr() {
+        let stats = this.statistics();
+
+        let gainStr = `${stats.cumulatedGain.toFixed(0)}€`;
+        stats.cumulatedGain = stats.cumulatedGain > 0 ? gainStr.green : gainStr.red;
+
+        let winLossRatioStr = `${(stats.winLossRatio*100).toFixed(2)}%`;
+        stats.winLossRatio = stats.winLossRatio > 0.5 ? winLossRatioStr.green : winLossRatioStr.red;
+
+        let avgROIStr = (stats.avgROI * 100).toFixed(2) + "%";
+        stats.avgROI = stats.avgROI > 1 ? avgROIStr.green : avgROIStr.red;
+
+        return stats;
     }
 
     tradesStr() {
@@ -113,68 +174,10 @@ class Trader {
         }
     }
 
-    gain() {
-        let gain = 0;
-        _.each(this.trades, (trade) => {
-            gain += trade * startingFunding - startingFunding;
-        });
-        return gain + (this.eurWallet + this.btcWallet * this.lastBitcoinPrice) - startingFunding;
-    }
-
-    gainStr() {
-        let gain = this.gain();
-        let gainStr = `${gain.toFixed(0)}€`;
-        return gain > 0 ? gainStr.green : gainStr.red;
-    }
-
-    totalROI() {
-        return _.reduce(this.trades, (a, b) => a * b) || 1;
-    }
-
-    avgROI() {
-        return _.meanBy(this.trades) || 0; // return 0 if no trades done
-    }
-
-    avgROIStr() {
-        let avgROI = this.avgROI();
-        let avgStr = (this.avgROI() * 100).toFixed(2) + "%";
-        return avgROI > 1 ? avgStr.green : avgStr.red;
-    }
-
-    winLossRatio() {
-        let wins = 0;
-        _.each(this.trades, r => {
-            if (r > 1) {
-                wins++;
-            }
-        });
-        let nbTrades = this.trades.length;
-
-        return nbTrades > 0 ? wins / nbTrades : 0; // ensure it's not null
-    }
-
-    winLossRatioStr() {
-        let wl = this.winLossRatio();
-        let wlStr = `${(this.winLossRatio()*100).toFixed(2)}%`;
-        return wl > 0.5 ? wlStr.green : wlStr.red;
-    }
-
-    nbPositiveTrades() {
-        let limit = 1;
-        let positiveTrades = _.filter(this.trades, v => v > limit);
-        return positiveTrades.length;
-    }
-
-    nbNegativeTrades() {
-        let limit = 1;
-        let negativeTrades = _.filter(this.trades, v => v < limit);
-        return negativeTrades.length;
-    }
-
     score() {
         // score is the global ROI of the trader
         // add the buy/sell tax into account
-        return this.gain();
+        //return this.gain();
     }
 
     addTrade(oldBitcoinPrice, newBitcoinPrice) {

@@ -9,8 +9,12 @@ const CNNPricePredictionModel = require('../models/prediction/cnnPricePrediction
 class TraderCNNEMAPredict extends Trader {
     constructor() {
         super();
+
+        // tune theses
         this.emaPeriods = 2;
         this.emaTrigger = 0.333;
+        this.buyTreshold = 0.002;
+        this.sellTreshold = 0.002;
     }
 
     getDescription() {
@@ -71,7 +75,7 @@ class TraderCNNEMAPredict extends Trader {
                 if (upTrend) {
                     // validate EMA strategy with next prediction
                     let prediction = await this.predictPrice(dataPeriods);
-                    if (currentBitcoinPrice < prediction) {
+                    if (currentBitcoinPrice * (1 + this.buyTreshold) < prediction) {
                         // BUY condition
                         this.buy();
                     } else {
@@ -84,7 +88,7 @@ class TraderCNNEMAPredict extends Trader {
                 if (downTrend) {
                     // validate EMA strategy with next prediction
                     let prediction = await this.predictPrice(dataPeriods);
-                    if (currentBitcoinPrice > prediction) {
+                    if (currentBitcoinPrice * (1 - this.sellTreshold) > prediction) {
                         // SELL conditions are take profit and stop loss
                         this.sell();
                     } else {

@@ -5,7 +5,8 @@ const yargs = require('yargs');
 const _ = require('lodash');
 const fs = require('fs-extra');
 const path = require('path');
-var config = require('./config');
+const moment = require('moment');
+const config = require('./config');
 
 const ensureRequiredDirs = function() {
     fs.ensureDirSync(path.join(path.resolve(__dirname), "data"));
@@ -91,13 +92,23 @@ var argv = yargs
         const plot = require('./plot');
         await plot();
     })
-    .command('evaluate <name>', 'Evaluate a Trader on a data interval', (yargs) => {
+    .command('evaluate <name> [resultInterval]', 'Evaluate a Trader.', (yargs) => {
         yargs.positional('name', {
             describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
+        }).positional('resultInterval', {
+            describe: 'Gather results for every [interval]. Examples: 5m 5h 5d 5w 5M 5Y',
         })
     }, async (argv) => {
         const evaluate = require('./evaluate');
-        await evaluate(argv.name);
+
+        let duration = null;
+        if (argv.resultInterval) {
+            let n = parseInt(argv.resultInterval);
+            let unit = argv.resultInterval.replace(n.toString(), '');
+            duration = moment.duration(n, unit);
+        }
+
+        await evaluate(argv.name, duration);
     })
     .command('accuracy <name>', 'Evaluate a model accuracy on a price interval', (yargs) => {
         yargs.positional('model', {

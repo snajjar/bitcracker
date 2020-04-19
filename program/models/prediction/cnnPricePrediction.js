@@ -13,7 +13,7 @@ class CNNPricePredictionModel extends Model {
         super();
         this.trainingOptions = {
             shuffle: true,
-            epochs: 15,
+            epochs: 30,
             batchsize: 10,
         }
 
@@ -81,7 +81,7 @@ class CNNPricePredictionModel extends Model {
     }
 
     compile() {
-        const optimizer = tf.train.adam(0.002);
+        const optimizer = tf.train.adam(0.001);
         this.model.compile({
             optimizer: optimizer,
             loss: 'meanSquaredError',

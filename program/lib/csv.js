@@ -28,7 +28,9 @@ const removeBlankLines = function(filePath) {
 }
 
 const getData = async function() {
-    return await getDataForInterval(config.getInterval());
+    console.log('[*] Retrieving bitcoin history...');
+    let data = await getDataForInterval(config.getInterval());
+    return data;
 }
 
 const getDataForInterval = async function(interval) {
@@ -52,6 +54,10 @@ const getDataForInterval = async function(interval) {
         if (endTimestamp) {
             btcData = dt.cutDataAfter(endTimestamp, btcData);
         }
+    }
+
+    if (btcData.length === 0) {
+        throw 'No bitcoin data is available for the selected period';
     }
 
     console.log(`[*] Dataset: ${dt.rangeStr(btcData)}`);

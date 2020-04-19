@@ -7,8 +7,8 @@ class TraderCNNEMAPredict extends Trader {
     constructor() {
         super();
 
-        this.buyTreshold = 0.0046;
-        this.sellTreshold = 0.0046;
+        this.buyTreshold = 0.002;
+        this.sellTreshold = 0.002;
     }
 
     getDescription() {
