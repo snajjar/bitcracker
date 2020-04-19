@@ -40,6 +40,10 @@ class Trader {
         this.nbTakeProfit = 0;
     }
 
+    hash() {
+        throw "to be redefined";
+    }
+
     getDescription() {
         return "this trader has no description";
     }
@@ -164,6 +168,10 @@ class Trader {
     // trade on the whole data
     async trade(periods) {
         let analysisIntervalLength = this.analysisIntervalLength();
+        if (!analysisIntervalLength) {
+            throw "analysisIntervalLength is not defined for trader " + this.hash();
+        }
+
         let dataPeriods = periods.slice(0, analysisIntervalLength - 1); // no trades in this area
         for (var i = analysisIntervalLength; i < periods.length; i++) {
             let nextPeriod = periods[i];

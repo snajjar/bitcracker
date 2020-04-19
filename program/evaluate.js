@@ -20,6 +20,14 @@ const evaluateTrader = async function(trader, duration) {
             let dataset = btcDataSets[i];
             let start = moment.unix(dataset[0].timestamp);
 
+            // adjust dataset to the trader, by adding end of previous data
+            // (we simulate a continuous trading, but we want results period by period)
+            if (i > 0) {
+                let analysisIntervalLength = trader.analysisIntervalLength();
+                let endPeriodData = btcDataSets[i - 1].slice(btcDataSets[i - 1].length - analysisIntervalLength);
+                dataset = endPeriodData.concat(dataset);
+            }
+
             await trader.trade(dataset);
             let stats = trader.statisticsStr();
             // console.log(JSON.stringify(stats, null, 2));
