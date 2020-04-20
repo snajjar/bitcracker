@@ -1,25 +1,42 @@
 const Trader = require('./trader');
-const tulind = require('tulind');
 const _ = require('lodash');
+const tulind = require('tulind');
+const tf = require('@tensorflow/tfjs-node');
+const datatools = require('../lib/datatools');
+const config = require('../config');
+const CNNPricePredictionModel = require('../models/prediction/cnnPricePrediction');
 
-class EMAADXTrader extends Trader {
+class TraderCNNEMAADXPredict extends Trader {
     constructor() {
         super();
 
-        // parameters
+        // tune theses
         this.emaPeriods = 2;
-        this.adxPeriods = 14;
         this.emaTrigger = 0.4;
+        this.adxPeriods = 14;
         this.adxTrigger = 13;
+        this.buyTreshold = 0.003;
+        this.sellTreshold = 0.003;
+    }
+
+    getDescription() {
+        return "Use EMA to predict uptrends, then check it against a dense neural network trained to predict prices variations";
+    }
+
+    async initialize() {
+        this.model = new CNNPricePredictionModel();
+        let interval = config.getInterval();
+        await this.model.load(interval);
+        await this.model.initialize();
     }
 
     analysisIntervalLength() {
-        //return Math.max(this.emaPeriods, this.adxPeriods) + 1;
-        return 28;
+        // 28 periods for ADX don't know why it's not 14
+        return Math.max(this.model.getNbInputPeriods(), this.emaPeriods, 28) + 1;
     }
 
     hash() {
-        return "Algo_EMAADX";
+        return "ML_CNNEMAADXPredict";
     }
 
     getEMA(dataPeriods) {
@@ -50,6 +67,11 @@ class EMAADXTrader extends Trader {
         });
     }
 
+    // predict next bitcoin price from period
+    async predictPrice(dataPeriods) {
+        return await this.model.predict(dataPeriods);
+    }
+
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
@@ -58,14 +80,14 @@ class EMAADXTrader extends Trader {
         // stopped = this.takeProfit(this.takeProfitRatio);
         // if (stopped) return;
 
-        // calculate sma indicator
+        // calculate ema indicator
         try {
             // determine trend with EMA
             let ema = await this.getEMA(dataPeriods);
             let currEMA = ema[ema.length - 1];
             var diff = (currentBitcoinPrice / currEMA * 100) - 100;
-            let trendUp = diff < -this.emaTrigger;
-            let trendDown = diff > this.emaTrigger;
+            let upTrend = diff < -this.emaTrigger;
+            let downTrend = diff > this.emaTrigger;
 
             // determine trend strengh with ADX
             let adx = await this.getADX(dataPeriods);
@@ -73,16 +95,28 @@ class EMAADXTrader extends Trader {
             let trendSeemsStrong = !isNaN(lastADX) && lastADX > this.adxTrigger;
 
             if (!this.inTrade) {
-                if (trendUp && trendSeemsStrong) {
-                    // BUY condition
-                    this.buy();
+                if (upTrend && trendSeemsStrong) {
+                    // validate strategy with next prediction
+                    let prediction = await this.predictPrice(dataPeriods);
+                    if (currentBitcoinPrice * (1 + this.buyTreshold) < prediction) {
+                        // BUY condition
+                        this.buy();
+                    } else {
+                        this.hold();
+                    }
                 } else {
                     this.hold();
                 }
             } else {
-                if (trendDown) {
-                    // SELL conditions are take profit and stop loss
-                    this.sell();
+                if (downTrend) {
+                    // validate strategy with next prediction
+                    let prediction = await this.predictPrice(dataPeriods);
+                    if (currentBitcoinPrice * (1 - this.sellTreshold) > prediction) {
+                        // SELL conditions are take profit and stop loss
+                        this.sell();
+                    } else {
+                        this.hold();
+                    }
                 } else {
                     this.hold();
                 }
@@ -94,4 +128,4 @@ class EMAADXTrader extends Trader {
     }
 }
 
-module.exports = EMAADXTrader;
+module.exports = TraderCNNEMAADXPredict;
