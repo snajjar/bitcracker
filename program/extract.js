@@ -6,7 +6,7 @@ const csv = require('./lib/csv');
 const utils = require('./lib/utils');
 const _ = require('lodash');
 const moment = require('moment');
-const datatools = require('./lib/datatools');
+const dt = require('./lib/datatools');
 
 // debug
 const hasNaN = function(o) {
@@ -61,7 +61,7 @@ const convertToInterval = function(data, interval) {
             index++;
         } else {
             if (samplesToMerge.length) {
-                samples.push(datatools.mergeSamples(lastDate, samplesToMerge));
+                samples.push(dt.mergeSamples(lastDate, samplesToMerge));
             } else {
                 // no new data during that interval, get from previous data
                 let lastSample = _.clone(samples[samples.length - 1]);
@@ -99,8 +99,9 @@ const convertToInterval = function(data, interval) {
 var extract = async function(interval) {
     console.log(`[*] Extracting data for interval ${utils.intervalToStr(interval)}`);
     let data1m = await csv.getFileData('./data/Cex_BTCEUR_1m.csv');
-    let data = convertToInterval(data1m, interval);
-    await csv.setFileData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`, data);
+    let cleanedData = dt.removePriceAnomalies(data1m)
+    // let data = convertToInterval(cleanedData, interval);
+    // await csv.setFileData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`, data);
 }
 
 module.exports = extract;

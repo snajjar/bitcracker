@@ -15,10 +15,13 @@ const evaluateTrader = async function(trader, duration) {
         let btcDataSets = dt.splitByDuration(btcData, duration);
         console.log(`[*] splitted into ${btcDataSets.length} sets of ${btcDataSets[0].length} candles`);
 
-        let results = [];
+        let results = {};
         for (let i = 0; i < btcDataSets.length; i++) {
             let dataset = btcDataSets[i];
             let start = moment.unix(dataset[0].timestamp);
+
+            let btcTrend = (dt.trend(dataset) * 100).toFixed(0) + '%'
+            let btcVar = dt.variance(dataset).toFixed(0);
 
             // adjust dataset to the trader, by adding end of previous data
             // (we simulate a continuous trading, but we want results period by period)
@@ -30,15 +33,17 @@ const evaluateTrader = async function(trader, duration) {
 
             await trader.trade(dataset);
             let stats = trader.statisticsStr();
-            // console.log(JSON.stringify(stats, null, 2));
 
-            results.push({
-                'period': `${start.format('DD/MM/YY hh:mm')}`,
+            // console.log(JSON.stringify(stats, null, 2));
+            let period = `${start.format('YYYY-MM-DD hh:mm')}`;
+            results[period] = ({
                 'gain': stats.cumulatedGain,
                 'w/l': stats.winLossRatio,
                 'avgROI': stats.avgROI,
                 'pos': stats.trades.nbPositiveTrades,
                 'neg': stats.trades.nbNegativeTrades,
+                'btc trend': btcTrend,
+                'variance': btcVar,
             });
 
             // trader.resetStatistics();

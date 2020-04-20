@@ -190,7 +190,10 @@ class CNNPricePredictionModel extends Model {
 
     getTrainData(candles) {
         this.findScaleParameters(candles);
-        console.log('[*] Training model with following settings: ' + JSON.stringify(this.settings, null, 2));
+
+        if (this.trainingOptions.verbose !== 0) {
+            console.log('[*] Training model with following settings: ' + JSON.stringify(this.settings, null, 2));
+        }
 
         let nbPeriods = this.getNbInputPeriods();
 
@@ -215,8 +218,10 @@ class CNNPricePredictionModel extends Model {
         // get price variations
         let [inputTensor, outputTensor] = this.getTrainData(trainCandles);
 
-        inputTensor.print();
-        outputTensor.print();
+        if (this.trainingOptions.verbose !== 0) {
+            inputTensor.print();
+            outputTensor.print();
+        }
 
         // train the model for each tensor
         let options = _.clone(this.trainingOptions);

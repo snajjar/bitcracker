@@ -16,9 +16,13 @@ const getAllTraders = function() {
             let traders = [];
             files.forEach(file => {
                 //console.log(file);
-                if (file !== "trader.js" && file !== "evolve") {
-                    let TraderConstructor = require('./' + path.join(tradersFolder, file));
-                    traders.push(new TraderConstructor());
+                try {
+                    if (file !== "trader.js" && file !== "evolve") {
+                        let TraderConstructor = require('./' + path.join(tradersFolder, file));
+                        traders.push(new TraderConstructor());
+                    }
+                } catch (e) {
+                    console.error(`Error requiring trader ${file}`);
                 }
             });
             resolve(traders);
@@ -38,24 +42,29 @@ const benchmark = async function() {
     console.log('[*] starting benchmark');
     for (let trader of traders) {
         console.log('   - evaluating trader: ' + trader.hash() + "...");
-        await trader.initialize();
-        await trader.trade(btcData);
+        try {
+            await trader.initialize();
+            await trader.trade(btcData);
+        } catch (e) {
+            console.error(`Exception when running trader ${trader.hash()}: ${e}`);
+        }
     }
 
     console.log('[*] benchmark results:');
     let arrResults = [];
-    let sortedTraders = _.sortBy(traders, t => t.gain());
+    let sortedTraders = _.sortBy(traders, t => t.statistics().cumulatedGain);
     sortedTraders = _.reverse(sortedTraders);
     for (let trader of sortedTraders) {
+        let stats = trader.statisticsStr();
+
         // group all data in an array
         arrResults.push({
             name: trader.hash(),
-            gain: trader.gain().toFixed(0) + '€',
-            "win ratio": (trader.winLossRatio() * 100).toFixed(2) + '%',
-            "avg ROI": (trader.avgROI() * 100).toFixed(2) + "%",
-            "trades": trader.trades.length,
-            "pos": trader.nbPositiveTrades(),
-            "neg": trader.nbNegativeTrades(),
+            'gain': stats.cumulatedGain,
+            'w/l': stats.winLossRatio,
+            'avgROI': stats.avgROI,
+            'pos': stats.trades.nbPositiveTrades,
+            'neg': stats.trades.nbNegativeTrades,
         });
     }
     console.table(arrResults);

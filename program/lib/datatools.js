@@ -338,38 +338,41 @@ const labelTrends = function(candles, targetUp = 0.05, targetDown = 0.05) {
     return candles;
 }
 
-// const data = [
-//     { "open": 100, "close": 99 },
-//     { "open": 99, "close": 101 },
-//     { "open": 101, "close": 102 },
-//     { "open": 102, "close": 101 },
-//     { "open": 101, "close": 106 },
-//     { "open": 106, "close": 108 },
-//     { "open": 108, "close": 107 },
-//     { "open": 107, "close": 104 },
-//     { "open": 104, "close": 105 },
-//     { "open": 105, "close": 108 },
-//     { "open": 108, "close": 113 },
-//     { "open": 113, "close": 114 },
-//     { "open": 114, "close": 110 },
-//     { "open": 110, "close": 108 },
-//     { "open": 108, "close": 110 },
-//     { "open": 110, "close": 107 },
-//     { "open": 107, "close": 105 },
-//     { "open": 105, "close": 106 },
-//     { "open": 106, "close": 110 },
-//     { "open": 110, "close": 113 },
-//     { "open": 113, "close": 117 },
-//     { "open": 117, "close": 121 },
-//     { "open": 121, "close": 119 },
-//     { "open": 119, "close": 117 },
-//     { "open": 117, "close": 115 },
-//     { "open": 115, "close": 111 },
-//     { "open": 111, "close": 112 },
-// ]
+// remove 1m candles where the close price grew or shrink by more than 10% of the btc value over 1 min
+removePriceAnomalies = function(candles) {
+    let results = [];
+    for (let i = 0; i < candles.length; i++) {
+        let candle = candles[i];
+        let relativeDifference = Math.abs(candle.close - candle.open) / candle.open;
+        if (relativeDifference > 0.1) {
+            // big relative difference, check if we also have a big difference with next candle
+            if (i + 1 < candles.length) {
+                let nextCandle = candles[i + 1];
 
-// labelTrends(data);
-// console.log(data);
+                let nextCandleDifference = Math.abs(nextCandle.open - candle.close) / nextCandle.open;
+                if (nextCandleDifference > 0.1) {
+                    let m = moment.unix(candle.timestamp);
+                    console.log(`removing anomaly at ${m.format('YYYY-MM-DD hh:mm')}: price ${candle.open.toFixed(0)}€ -> ${candle.close.toFixed(0)}€ -> ${nextCandle.close.toFixed(0)}€ in 2 minutes`);
+                } else {
+                    results.push(candle);
+                }
+            }
+        } else {
+            results.push(candle);
+        }
+    }
+    return results;
+}
+
+const trend = function(candles) {
+    return (candles[0].open - candles[candles.length - 1].close) / candles[0].open;
+}
+
+const variance = function(candles) {
+    let mean = _.meanBy(candles, c => c.close);
+    let differences = _.map(candles, c => Math.pow(c.close - mean, 2));
+    return _.mean(differences);
+}
 
 module.exports = {
     dataVariations,
@@ -383,5 +386,8 @@ module.exports = {
     breakData,
     rangeStr,
     labelTrends,
-    splitByDuration
+    splitByDuration,
+    trend,
+    variance,
+    removePriceAnomalies,
 }
