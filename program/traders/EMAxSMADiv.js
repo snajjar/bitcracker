@@ -8,7 +8,7 @@ class EMAxSMATrader extends Trader {
 
         // parameters
         this.smaPeriods = 100;
-        this.emaPeriods = 5;
+        this.emaPeriods = 2;
 
         this.prevSMA = null;
         this.prevEMA = null;
@@ -50,11 +50,11 @@ class EMAxSMATrader extends Trader {
 
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
-        let stopped = this.stopLoss(this.stopLossRatio);
-        if (stopped) return;
+        // let stopped = this.stopLoss(this.stopLossRatio);
+        // if (stopped) return;
 
-        stopped = this.takeProfit(this.takeProfitRatio);
-        if (stopped) return;
+        // stopped = this.takeProfit(this.takeProfitRatio);
+        // if (stopped) return;
 
         // calculate sma indicator
         try {
@@ -66,16 +66,26 @@ class EMAxSMATrader extends Trader {
             let prevSMA = sma[sma.length - 2];
             let prevEMA = ema[ema.length - 2];
 
+            var diff = (currSMA / currEMA * 100) - 100;
+            let upTrend = -0.5;
+            let downTrend = +0.5;
+            let trendUp = diff < upTrend;
+            let trendDown = diff > downTrend;
+
             if (!this.inTrade) {
-                if (prevEMA < prevSMA && currEMA >= currSMA) {
+                if (trendUp) {
                     // BUY condition
                     this.buy();
                 } else {
                     this.hold();
                 }
             } else {
-                // SELL conditions are take profit and stop loss
-                this.hold();
+                if (trendDown) {
+                    // SELL conditions are take profit and stop loss
+                    this.sell();
+                } else {
+                    this.hold();
+                }
             }
         } catch (e) {
             console.error("Err: " + e.stack);

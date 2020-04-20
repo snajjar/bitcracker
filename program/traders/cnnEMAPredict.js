@@ -12,9 +12,9 @@ class TraderCNNEMAPredict extends Trader {
 
         // tune theses
         this.emaPeriods = 2;
-        this.emaTrigger = 0.333;
-        this.buyTreshold = 0.002;
-        this.sellTreshold = 0.002;
+        this.emaTrigger = 0.4;
+        this.buyTreshold = 0.003;
+        this.sellTreshold = 0.003;
     }
 
     getDescription() {
