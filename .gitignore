@@ -11,3 +11,4 @@ program/models/saved
 program/data/
 logs.txt
 logs.text
+.env

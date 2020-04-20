@@ -155,7 +155,11 @@ var argv = yargs
         const benchmark = require('./benchmark');
         await benchmark();
     })
-    .command('trade <name>', 'Trade with a trader', (yargs) => {
+    .command('auth', 'Authenticate to Kraken. Required to trade', (yargs) => {}, async argv => {
+        const auth = require('./auth');
+        await auth();
+    })
+    .command('trade <name>', 'Trade with a trader. require Authentication.', (yargs) => {
         yargs.positional('name', {
             describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
         }).positional('resultInterval', {
