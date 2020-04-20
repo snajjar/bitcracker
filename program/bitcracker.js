@@ -155,6 +155,16 @@ var argv = yargs
         const benchmark = require('./benchmark');
         await benchmark();
     })
+    .command('trade <name>', 'Trade with a trader', (yargs) => {
+        yargs.positional('name', {
+            describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
+        }).positional('resultInterval', {
+            describe: 'Gather results for every [interval]. Examples: 5m 5h 5d 5w 5M 5Y',
+        })
+    }, async (argv) => {
+        const trade = require('./trade');
+        await trade(argv.name);
+    })
     .help()
     .demandCommand()
     .alias('help', 'h')

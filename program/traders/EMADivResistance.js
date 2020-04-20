@@ -20,7 +20,7 @@ class EMADivResistanceTrader extends Trader {
     }
 
     hash() {
-        return "Algo_EMADiv";
+        return "Algo_EMADivResistance";
     }
 
     getEMA(dataPeriods) {
