@@ -157,17 +157,20 @@ var argv = yargs
     })
     .command('auth', 'Authenticate to Kraken. Required to trade', (yargs) => {}, async argv => {
         const auth = require('./auth');
-        await auth();
+        await auth(fake);
     })
     .command('trade <name>', 'Trade with a trader. require Authentication.', (yargs) => {
         yargs.positional('name', {
             describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
-        }).positional('resultInterval', {
-            describe: 'Gather results for every [interval]. Examples: 5m 5h 5d 5w 5M 5Y',
+        }).option('fake', {
+            describe: "trade for fake. Doesn't require auth",
+            type: "boolean",
+            default: false,
         })
     }, async (argv) => {
         const trade = require('./trade');
-        await trade(argv.name);
+        const fake = argv.fake == true;
+        await trade(argv.name, fake);
     })
     .help()
     .demandCommand()
