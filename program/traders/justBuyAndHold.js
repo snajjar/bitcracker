@@ -29,9 +29,9 @@ class JustBuyAndHoldTrader extends Trader {
 
             if (!this.inTrade) {
                 // BUY everytime
-                this.buy();
+                return this.buy();
             } else {
-                this.hold();
+                return this.hold();
             }
         } catch (e) {
             console.error("Err: " + e.stack);

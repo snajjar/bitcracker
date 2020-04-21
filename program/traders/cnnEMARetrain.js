@@ -102,6 +102,8 @@ class TraderCNNEMAPredict extends Trader {
             this.hold();
             await this.logToHistory(dataPeriods);
         } else {
+            let action = null;
+
             // calculate ema indicator
             try {
                 let ema = await this.getEMA(dataPeriods);
@@ -117,12 +119,12 @@ class TraderCNNEMAPredict extends Trader {
                         let prediction = await this.predictPrice(dataPeriods);
                         if (currentBitcoinPrice * (1 + this.buyTreshold) < prediction) {
                             // BUY condition
-                            this.buy();
+                            action = this.buy();
                         } else {
-                            this.hold();
+                            action = this.hold();
                         }
                     } else {
-                        this.hold();
+                        action = this.hold();
                     }
                 } else {
                     if (downTrend) {
@@ -130,12 +132,12 @@ class TraderCNNEMAPredict extends Trader {
                         let prediction = await this.predictPrice(dataPeriods);
                         if (currentBitcoinPrice * (1 - this.sellTreshold) > prediction) {
                             // SELL conditions are take profit and stop loss
-                            this.sell();
+                            action = this.sell();
                         } else {
-                            this.hold();
+                            action = this.hold();
                         }
                     } else {
-                        this.hold();
+                        action = this.hold();
                     }
                 }
             } catch (e) {
@@ -144,6 +146,7 @@ class TraderCNNEMAPredict extends Trader {
             }
 
             await this.logToHistory(dataPeriods);
+            return action;
         }
     }
 }

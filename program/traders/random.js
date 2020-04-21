@@ -29,12 +29,12 @@ class RandomTrader extends Trader {
             if (!this.inTrade) {
                 if (rand) {
                     // BUY condition
-                    this.buy();
+                    return this.buy();
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             } else {
-                this.hold();
+                return this.hold();
             }
         } catch (e) {
             console.error("Err: " + e.stack);

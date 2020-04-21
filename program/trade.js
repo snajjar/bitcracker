@@ -26,10 +26,20 @@ const extractFieldsFromKrakenData = function(arr) {
     }
 }
 
-const getKrakenData = async function(interval) {
+const getKrakenData = async function(interval, since) {
+    let response = null;
+    let results = null;
+    let url = null;
+
+    if (since) {
+        url = `https://api.kraken.com/0/public/OHLC?pair=BTCEUR&interval=${interval}&since=${since}`;
+    } else {
+        url = `https://api.kraken.com/0/public/OHLC?pair=BTCEUR&interval=${interval}`;
+    }
+
     try {
-        let response = await axios.get(`https://api.kraken.com/0/public/OHLC?pair=BTCEUR&interval=${interval}`);
-        let results = response.data.result["XXBTZEUR"];
+        response = await axios.get(url);
+        results = response.data.result["XXBTZEUR"];
 
         let periods = [];
         _.each(results, r => {
@@ -37,7 +47,12 @@ const getKrakenData = async function(interval) {
         });
         return _.sortBy(periods, p => p.timestamp);
     } catch (e) {
-        console.error('Error while fetching Kraken data');
+        let errorMsg = _.get(response, ['data', 'error', 0]);
+        if (errorMsg) {
+            console.error('Error from Kraken while fetching data: ' + errorMsg.red);
+        } else {
+            console.error('Error while fetching Kraken data');
+        }
     }
 }
 
@@ -59,6 +74,10 @@ const sleep = function(s) {
 
 const price = function(p) {
     return (p.toFixed(0) + '€').cyan
+};
+
+const priceYellow = function(p) {
+    return (p.toFixed(0) + '€').yellow
 };
 
 const btc = function(p) {
@@ -151,40 +170,41 @@ class Kraken {
     }
 
     async refreshBalance() {
+        let r = null;
         try {
             // get balance info
-            let r = await this.kraken.api('Balance');
+            r = await this.kraken.api('Balance');
             this.eurWallet = parseInt(r.result["ZEUR"]);
             this.btcWallet = parseInt(r.result["XXBT"]);
         } catch (e) {
-            console.error('Error retrieving account balance'.red);
-            process.exit(-1);
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error retrieving account balance: ' + errorMsg.red);
+            } else {
+                console.error('Error retrieving account balance');
+            }
         }
-    }
-
-    displayBalance() {
-        console.log(`- You currently own ${price(this.eurWallet)} and ${btc(this.btcWallet)}.`);
     }
 
     async refreshOpenOrders() {
+        let r = null;
         try {
             // get balance info
-            let r = await this.kraken.api('OpenOrders');
+            r = await this.kraken.api('OpenOrders');
             this.openOrders = r.result.open;
         } catch (e) {
-            console.error(('Error while retrieving orders: ' + e).red);
-            process.exit(-1);
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error retrieving account orders: ' + errorMsg.red);
+            } else {
+                console.error('Error retrieving account orders');
+            }
         }
     }
 
-    displayOpenOrders() {
-        console.log(`- ${_.keys(this.openOrders).length.toString().cyan} open orders`);
-        _.each(this.openOrders, (o, key) => {
-            console.log(`   - ${key}: ${o.descr.order}`);
-        });
-    }
-
     async buyAll(currentBitcoinPrice) {
+        let r = null;
+
         // reference that order, we never know
         let userref = Math.floor(Math.random() * 1000000000);
         let options = {
@@ -199,17 +219,24 @@ class Kraken {
 
         try {
             // get balance info
-            let r = await this.kraken.api('AddOrder', options);
+            console.log(`[*] BUYING ${btc(this._getMaxBTCVolume(currentBitcoinPrice))}`);
+            r = await this.kraken.api('AddOrder', options);
             console.log(`[*] placed BUY order: ${r.result.descr.order}`);
             this.placedOrders.push({ order: options, result: r.result });
         } catch (e) {
-            console.error(('Error while buying: ' + e).red);
-            console.error(e.message.red);
-            throw e;
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error while buying: ' + errorMsg.red);
+            } else {
+                console.error('Error while buying'.red);
+            }
+            process.exit(-1);
         }
     }
 
     async sellAll(currentBitcoinPrice) {
+        let r = null;
+
         // reference that order, we never know
         let userref = Math.floor(Math.random() * 1000000000);
         let options = {
@@ -224,54 +251,101 @@ class Kraken {
 
         try {
             // get balance info
-            let r = await this.kraken.api('AddOrder', options);
+            console.log(`[*] SELLING FOR ${price(this._getMaxEURVolume(currentBitcoinPrice))}`);
+            r = await this.kraken.api('AddOrder', options);
             console.log(`[*] placed SELL order: ${r.result.descr.order}`);
             this.placedOrders.push({ order: options, result: r.result });
         } catch (e) {
-            console.error(('Error while selling: ' + e).red);
-            console.error(e.message.red);
-            throw e;
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error while selling: ' + errorMsg.red);
+            } else {
+                console.error('Error while selling'.red);
+            }
+            process.exit(-1);
         }
+    }
+
+    async refreshAccount() {
+        await sleep(1);
+        await this.refreshBalance();
+
+        await sleep(1);
+        await this.refreshOpenOrders();
+    }
+
+    displayBalance() {
+        console.log(`- You currently own ${price(this.eurWallet)} and ${btc(this.btcWallet)}.`);
+    }
+
+    displayOpenOrders() {
+        console.log(`- ${_.keys(this.openOrders).length.toString().cyan} open orders`);
+        _.each(this.openOrders, (o, key) => {
+            console.log(`   - ${key}: ${o.descr.order}`);
+        });
+    }
+
+    displayAccount() {
+        console.log('-----------------------------------------------------------------------------');
+        console.log(' Current account status: ');
+        this.displayBalance();
+        this.displayOpenOrders();
+        console.log('-----------------------------------------------------------------------------');
     }
 }
 
 const realTrade = async function(name) {
     let trader = await getTrader(name);
     let k = new Kraken();
-    let btcData = null;
+    let btcData = [];
 
     // check if we have some new data in in theses candles
     const isNewData = function(candles) {
-        if (!btcData) {
+        if (!btcData || btcData.length == 0) {
             return true;
         } else {
             let lastKnownData = btcData[btcData.length - 1];
             let lastNewData = candles[candles.length - 1];
-            return lastKnownData.timestamp !== lastNewData.timestamp;
+            return !lastKnownData || lastKnownData.timestamp !== lastNewData.timestamp;
         }
     }
 
+    // login and display account infos
     await k.login();
-    console.log('[*] Successfully connected to your kraken account.');
-    k.displayBalance();
+    await k.refreshAccount();
+    k.displayAccount();
 
-    // get orders info
-    await sleep(1);
-    await k.refreshOpenOrders();
-    k.displayOpenOrders();
-
-    // every 5 sec: fetch BTC price and trade
+    // every 30 sec: fetch BTC price and trade
+    let lastCandle = null;
+    let currentCandle = null;
     setInterval(async () => {
-        let remoteData = await getKrakenData(1);
-        if (remoteData && isNewData(remoteData)) {
-            btcData = remoteData;
-            let lastCandle = btcData[btcData.length - 1];
+        let since = lastCandle ? lastCandle.close + 1 : undefined; // add 1 sec to last candle
+        let remoteData = await getKrakenData(1, since);
+
+        // the last candle is the "current" minute, unfinished and subject to changes. Remove it.
+        currantCandle = remoteData.pop();
+
+        if (!_.isEmpty(remoteData) && isNewData(remoteData)) {
+            // concat new periods to old ones
+            btcData = btcData.concat(remoteData);
+            if (btcData.length > 1000) {
+                btcData = btcData.slice(btcData.length - 1000);
+            }
+
+            lastCandle = btcData[btcData.length - 1];
             let currentBitcoinPrice = lastCandle.close;
-            console.log(`[*] Received data: ${candleStr(lastCandle)}`)
+            console.log(`[*] Received data: ${candleStr(lastCandle)}`);
+            console.log(`[*] Last prices: ${price(btcData[btcData.length-4].close)} -> ` +
+                `${price(btcData[btcData.length-3].close)} -> ` +
+                `${price(btcData[btcData.length-2].close)} -> ` +
+                `${price(btcData[btcData.length-1].close)} -> ` +
+                `${priceYellow(lastCandle.close)} (current candle)`);
 
             // time for trader action
-            let action = await trader.decideAction(btcData);
-            console.log(`  - trader (${trader.hash()}): ${action.yellow}. expected status: ${traderStatusStr(trader, currentBitcoinPrice)}`);
+            let candlesToAnalyse = btcData.slice(btcData.length - trader.analysisIntervalLength());
+            dt.connectCandles(candlesToAnalyse);
+            let action = await trader.decideAction(candlesToAnalyse);
+            console.log(`[*] Trader (${trader.hash()}): ${action.yellow}. Expected status: ${traderStatusStr(trader, currentBitcoinPrice)}`);
 
             switch (action) {
                 case "HOLD":
@@ -279,29 +353,25 @@ const realTrade = async function(name) {
                     break;
                 case "SELL":
                     console.log(`  - SELLING ${btc(k.btcWallet)} at expected price ${price(currentBitcoinPrice * k.btcWallet)}`);
-                    //await k.sellAll(currentBitcoinPrice);
+                    await k.sellAll(currentBitcoinPrice);
                     break;
                 case "BUY":
                     console.log(`  - BUYING for ${price(k.eurWallet)} of bitcoin at expected price ${price(currentBitcoinPrice)}: ${btc(k.eurWallet/currentBitcoinPrice)}`);
-                    //await k.buyAll(currentBitcoinPrice);
+                    await k.buyAll(currentBitcoinPrice);
                     break;
                 default:
                     console.error('Trader returned no action !');
             }
         }
-    }, 5000);
+    }, 10000);
 
-    // every 30 sec: refresh the private infos
+    await sleep(4); // desynchronize both setInterval
+
+    // every 5 min: refresh the private infos
     setInterval(async () => {
-        console.log('[*] Current account status: ');
-        await k.refreshBalance();
-        k.displayBalance();
-
-        // get orders info
-        await sleep(1);
-        await k.refreshOpenOrders();
-        k.displayOpenOrders();
-    }, 30000);
+        await k.refreshAccount();
+        k.displayAccount();
+    }, 60000 * 5);
 }
 
 const fakeTrade = async function(name) {

@@ -46,15 +46,15 @@ class StochasticTrader extends Trader {
             if (!this.inTrade) {
                 if (lastStoch < 30) {
                     // BUY condition
-                    this.buy();
+                    return this.buy();
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             } else {
                 if (lastStoch > 70) {
-                    this.sell(currentBitcoinPrice);
+                    return this.sell(currentBitcoinPrice);
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             }
         } catch (e) {

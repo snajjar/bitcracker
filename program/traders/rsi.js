@@ -44,15 +44,15 @@ class RSITrader_70_30 extends Trader {
             if (!this.inTrade) {
                 if (lastRSI < 30) {
                     // BUY condition
-                    this.buy();
+                    return this.buy();
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             } else {
                 if (lastRSI > 70) {
-                    this.sell(currentBitcoinPrice);
+                    return this.sell(currentBitcoinPrice);
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             }
         } catch (e) {

@@ -38,12 +38,12 @@ class ScalpingTrader extends Trader {
                 // BUY condition
                 this.inTrade = true;
                 this.enterTradeValue = currentBitcoinPrice;
-                this.buy();
+                return this.buy();
             } else {
-                this.hold();
+                return this.hold();
             }
         } else {
-            this.hold();
+            return this.hold();
         }
     }
 }

@@ -53,15 +53,15 @@ class TraderDense extends Trader {
         if (!this.inTrade) {
             if (bullish) {
                 // BUY condition
-                this.buy();
+                return this.buy();
             } else {
-                this.hold();
+                return this.hold();
             }
         } else {
             if (bearish) {
-                this.sell();
+                return this.sell();
             } else {
-                this.hold();
+                return this.hold();
             }
         }
     }

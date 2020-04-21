@@ -73,12 +73,12 @@ class DenseEMAPredictTrendTrader extends Trader {
                     let prediction = await this.predictTrend(dataPeriods);
                     if (prediction == "up") {
                         // BUY condition
-                        this.buy();
+                        return this.buy();
                     } else {
-                        this.hold();
+                        return this.hold();
                     }
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             } else {
                 if (downTrend) {
@@ -86,12 +86,12 @@ class DenseEMAPredictTrendTrader extends Trader {
                     let prediction = await this.predictTrend(dataPeriods);
                     if (prediction == "down") {
                         // SELL conditions are take profit and stop loss
-                        this.sell();
+                        return this.sell();
                     } else {
-                        this.hold();
+                        return this.hold();
                     }
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             }
         } catch (e) {

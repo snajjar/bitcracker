@@ -49,16 +49,16 @@ class TraderCNNEMAPredict extends Trader {
         if (!this.inTrade) {
             if (currentBitcoinPrice * (1 + this.buyTreshold) < prediction) {
                 // BUY condition
-                this.buy();
+                return this.buy();
             } else {
-                this.hold();
+                return this.hold();
             }
         } else {
             if (currentBitcoinPrice * (1 - this.sellTreshold) > prediction) {
                 // SELL condition
-                this.sell();
+                return this.sell();
             } else {
-                this.hold();
+                return this.hold();
             }
         }
     }

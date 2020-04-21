@@ -149,6 +149,10 @@ class Trader {
 
     // called on each new period, will call the action() method
     async decideAction(dataPeriods) {
+        if (dataPeriods.length !== this.analysisIntervalLength()) {
+            console.error(`Trader ${this.hash()}: expected ${this.analysisIntervalLength()} periods but got ${dataPeriods.length}`);
+        }
+
         // save this for trade count and the action methods buy/sell/hold
         let currentBitcoinPrice = dataPeriods[dataPeriods.length - 1].close;
         this.lastBitcoinPrice = currentBitcoinPrice;

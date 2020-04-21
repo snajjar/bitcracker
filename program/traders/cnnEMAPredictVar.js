@@ -73,12 +73,12 @@ class TraderCNNEMAPredictVar extends Trader {
                     let prediction = await this.predictPrice(dataPeriods);
                     if (currentBitcoinPrice < prediction) {
                         // BUY condition
-                        this.buy();
+                        return this.buy();
                     } else {
-                        this.hold();
+                        return this.hold();
                     }
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             } else {
                 if (downTrend) {
@@ -86,12 +86,12 @@ class TraderCNNEMAPredictVar extends Trader {
                     let prediction = await this.predictPrice(dataPeriods);
                     if (currentBitcoinPrice > prediction) {
                         // SELL conditions are take profit and stop loss
-                        this.sell();
+                        return this.sell();
                     } else {
-                        this.hold();
+                        return this.hold();
                     }
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             }
         } catch (e) {

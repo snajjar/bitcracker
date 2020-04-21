@@ -374,6 +374,23 @@ const variance = function(candles) {
     return _.mean(differences);
 }
 
+// make a smooth connection between candles, based on last closed value
+const connectCandles = function(samples) {
+    let lastSample = samples[0];
+    for (let i = 1; i < samples.length; i++) {
+        let sample = samples[i];
+        sample.open = lastSample.close;
+        if (sample.open > sample.high) {
+            sample.high = sample.open;
+        }
+        if (sample.open < sample.low) {
+            sample.low = sample.open;
+        }
+
+        lastSample = sample;
+    }
+}
+
 module.exports = {
     dataVariations,
     mergeSamples,
@@ -390,4 +407,5 @@ module.exports = {
     trend,
     variance,
     removePriceAnomalies,
+    connectCandles
 }

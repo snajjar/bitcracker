@@ -69,13 +69,13 @@ class EMAxSMATrader extends Trader {
             if (!this.inTrade) {
                 if (prevEMA < prevSMA && currEMA >= currSMA) {
                     // BUY condition
-                    this.buy();
+                    return this.buy();
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             } else {
                 // SELL conditions are take profit and stop loss
-                this.hold();
+                return this.hold();
             }
         } catch (e) {
             console.error("Err: " + e.stack);

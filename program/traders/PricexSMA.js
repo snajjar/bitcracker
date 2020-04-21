@@ -55,16 +55,16 @@ class EMAxSMATrader extends Trader {
             if (!this.inTrade) {
                 if (priceCrossingSMAUp) {
                     // BUY condition
-                    this.buy();
+                    return this.buy();
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             } else {
                 if (priceCrossingSMADown) {
-                    this.sell();
+                    return this.sell();
                 } else {
                     // SELL conditions are take profit and stop loss
-                    this.hold();
+                    return this.hold();
                 }
             }
         } catch (e) {

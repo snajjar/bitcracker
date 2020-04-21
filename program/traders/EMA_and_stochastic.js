@@ -76,16 +76,16 @@ class EMAAndStochasticTrader extends Trader {
             if (!this.inTrade) {
                 if (trendUp && oversell) {
                     // BUY condition
-                    this.buy();
+                    return this.buy();
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             } else {
                 if (trendDown || overbought) {
                     // SELL conditions are take profit and stop loss
-                    this.sell();
+                    return this.sell();
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             }
         } catch (e) {

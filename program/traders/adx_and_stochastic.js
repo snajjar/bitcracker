@@ -66,16 +66,16 @@ class ADXAndStochastic extends Trader {
             if (!this.inTrade) {
                 if (lastStoch < 20 && lastADX > 25) {
                     // BUY condition: oversell and strong trend
-                    this.buy();
+                    return this.buy();
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             } else {
                 if (lastStoch > 70 || lastADX < 20) {
                     // SELL condition: overbought or trend loosing strengh
-                    this.sell(currentBitcoinPrice);
+                    return this.sell(currentBitcoinPrice);
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             }
         } catch (e) {

@@ -107,24 +107,24 @@ class TraderCNNEMAPredictVar extends Trader {
                         if (lastResistancePrice) {
                             if (currentBitcoinPrice * (1 + this.buyTax + this.sellTax) < lastResistancePrice) {
                                 // BUY condition
-                                this.buy();
+                                return this.buy();
                             } else {
-                                this.hold();
+                                return this.hold();
                             }
                         } else {
-                            this.buy();
+                            return this.buy();
                         }
                     } else {
-                        this.hold();
+                        return this.hold();
                     }
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             } else {
                 if (downTrend) {
-                    this.sell();
+                    return this.sell();
                 } else {
-                    this.hold();
+                    return this.hold();
                 }
             }
         } catch (e) {
