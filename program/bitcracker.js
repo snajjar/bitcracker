@@ -193,3 +193,8 @@ function setIntervalOptions(argv) {
         config.setInterval(1);
     }
 }
+
+process.on('SIGINT', function() {
+    console.log('Interrupted');
+    process.exit();
+});
