@@ -140,11 +140,23 @@ class Trader {
     }
 
     hasEuros() {
-        return this.eurWaller > 0 ? 1 : 0;
+        return this.eurWallet > 0 ? 1 : 0;
     }
 
     hasBitcoins() {
         return this.btcWallet > 0 ? 1 : 0;
+    }
+
+    setBalance(eurWallet, btcWallet, currentBitcoinPrice) {
+        this.eurWallet = eurWallet;
+        this.btcWallet = btcWallet;
+        if (this.eurWallet > this.btcWallet * currentBitcoinPrice) {
+            this.inTrade = false;
+        } else {
+            // set up trading position
+            this.inTrade = true;
+            this.enterTradeValue = currentBitcoinPrice;
+        }
     }
 
     // called on each new period, will call the action() method

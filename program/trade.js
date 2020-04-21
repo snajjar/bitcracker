@@ -341,6 +341,10 @@ const realTrade = async function(name) {
                 `${price(btcData[btcData.length-1].close)} -> ` +
                 `${priceYellow(lastCandle.close)} (current candle)`);
 
+            // get trading infos to set up our trader correctly
+            await k.refreshBalance();
+            trader.setBalance(k.eurWallet, k.btcWallet, currentBitcoinPrice);
+
             // time for trader action
             let candlesToAnalyse = btcData.slice(btcData.length - trader.analysisIntervalLength());
             dt.connectCandles(candlesToAnalyse);
