@@ -157,7 +157,7 @@ var argv = yargs
     })
     .command('auth', 'Authenticate to Kraken. Required to trade', (yargs) => {}, async argv => {
         const auth = require('./auth');
-        await auth(fake);
+        await auth();
     })
     .command('trade <name>', 'Trade with a trader. require Authentication.', (yargs) => {
         yargs.positional('name', {

@@ -52,9 +52,17 @@ const getTrader = async function(name) {
     return trader;
 }
 
+const sleep = function(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 const price = function(p) {
     return (p.toFixed(0) + '€').cyan
 };
+
+const btc = function(p) {
+    return (p.toFixed(3) + 'BTC').cyan
+}
 
 const candleStr = function(c) {
     let time = moment.unix(c.timestamp);
@@ -95,37 +103,110 @@ const fakeTrade = async function(name) {
     }, 10000);
 }
 
+const displayOrder = function(order) {
+
+}
+
+class Kraken {
+    constructor() {
+        this.kraken = null;
+        this.eurWallet = 0;
+        this.btcWallet = 0;
+        this.openOrders = {};
+    }
+
+    async login() {
+        let envConfig = dotenv.config();
+        if (!envConfig || !envConfig.parsed) {
+            console.error("You must auth first.".red);
+            process.exit(-1);
+        }
+        let config = envConfig.parsed;
+        if (!config.KRAKEN_API_KEY || !config.KRAKEN_SECRET_API_KEY) {
+            console.error("You must auth first.".red);
+            process.exit(-1);
+        }
+
+        var promptPW = new Prompt({
+            type: 'password',
+            message: 'password',
+            name: 'password'
+        });
+        let password = await promptPW.run();
+
+        // decrypt api key, secret key, and login to kraken
+        let apiKey = encryption.decrypt(config.KRAKEN_API_KEY, password);
+        let secretApiKey = encryption.decrypt(config.KRAKEN_SECRET_API_KEY, password);
+
+        // console.log("apiKey:", apiKey);
+        // console.log("secretAPIKey: ", secretApiKey);
+
+        try {
+            this.kraken = new KrakenClient(apiKey, secretApiKey);
+        } catch (e) {
+            console.error("Auth failed, incorrect password".red);
+            process.exit(-1);
+        }
+
+        // check if we logged in successfully but retrieving balance
+        try {
+            // get balance info
+            let r = await this.kraken.api('Balance');
+            this.eurWallet = parseInt(r.result["ZEUR"]);
+            this.btcWallet = parseInt(r.result["XXBT"]);
+        } catch (e) {
+            console.error('It appears that you are not logged in correctly'.red);
+            throw e;
+            process.exit(-1);
+        }
+    }
+
+    async refreshBalance() {
+        try {
+            // get balance info
+            let r = await this.kraken.api('Balance');
+            this.eurWallet = parseInt(r.result["ZEUR"]);
+            this.btcWallet = parseInt(r.result["XXBT"]);
+        } catch (e) {
+            console.error('Error retrieving account balance'.red);
+            process.exit(-1);
+        }
+    }
+
+    displayBalance() {
+        console.log(`- You currently own ${price(this.eurWallet)} and ${btc(this.btcWallet)}.`);
+    }
+
+    async refreshOpenOrders() {
+        try {
+            // get balance info
+            let r = await this.kraken.api('OpenOrders');
+            this.openOrders = r.result.open;
+        } catch (e) {
+            console.error(('Error while retrieving orders: ' + e).red);
+            process.exit(-1);
+        }
+    }
+
+    displayOpenOrders() {
+        console.log(`- ${_.keys(this.openOrders).length.toString().cyan} open orders`);
+        _.each(this.openOrders, (o, key) => {
+            console.log(`   - ${key}: ${o.descr.order}`);
+        });
+    }
+}
+
 const realTrade = async function(name) {
-    process.env.NODE_PENDING_DEPRECATION = 0;
-    let envConfig = dotenv.config();
-    if (!envConfig || !envConfig.parsed) {
-        console.error("You must auth first.".red);
-        process.exit(-1);
-    }
-    let config = envConfig.parsed;
-    if (!config.KRAKEN_API_KEY || !config.KRAKEN_SECRET_API_KEY) {
-        console.error("You must auth first.".red);
-        process.exit(-1);
-    }
+    let k = new Kraken();
 
-    var promptPW = new Prompt({
-        type: 'password',
-        message: 'password',
-        name: 'password'
-    });
-    let password = await promptPW.run();
+    await k.login();
+    console.log('[*] Successfully connected to your kraken account.');
+    k.displayBalance();
 
-    // decrypt api key, secret key, and login to kraken
-    let apiKey = encryption.decrypt(config.KRAKEN_API_KEY, password);
-    let secretApiKey = encryption.decrypt(config.KRAKEN_SECRET_API_KEY, password);
-    const kraken = new KrakenClient(apiKey, secretApiKey);
-
-    try {
-        let balance = await kraken.api('Balance');
-
-    } catch (e) {
-        console.error('It appears that you are not logged in correctly'.red);
-    }
+    // get orders info
+    await sleep(1);
+    await k.refreshOpenOrders();
+    k.displayOpenOrders();
 }
 
 const trade = async function(name, fake) {
