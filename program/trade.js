@@ -94,7 +94,8 @@ const traderStatusStr = function(trader, currentBitcoinPrice) {
 }
 
 class Kraken {
-    constructor() {
+    constructor(fake) {
+        this.fake = fake ? true : false;
         this.kraken = null;
         this.eurWallet = 0;
         this.btcWallet = 0;
@@ -214,14 +215,16 @@ class Kraken {
             volume: this._getMaxBTCVolume(currentBitcoinPrice),
             expiretm: "+60", // expire in 60s,
             userref: userref, // reference for order, to be used internally
-            validate: true, // validate input only, do not submit order !
+            // validate: true, // validate input only, do not submit order !
+        }
+        if (this.fake) {
+            options.validate = true;
         }
 
         try {
             // get balance info
-            console.log(`[*] BUYING ${btc(this._getMaxBTCVolume(currentBitcoinPrice))}`);
             r = await this.kraken.api('AddOrder', options);
-            console.log(`[*] placed BUY order: ${r.result.descr.order}`);
+            console.log(`[*] placed ${this.fake ? "(FAKE)": ""} BUY order: ${r.result.descr.order}`);
             this.placedOrders.push({ order: options, result: r.result });
         } catch (e) {
             let errorMsg = _.get(r, ['data', 'error', 0]);
@@ -246,14 +249,16 @@ class Kraken {
             volume: this._getMaxEURVolume(currentBitcoinPrice),
             expiretm: "+60", // expire in 60s,
             userref: userref, // reference for order, to be used internally
-            validate: true, // validate input only, do not submit order !
+        }
+
+        if (this.fake) {
+            options.validate = true;
         }
 
         try {
             // get balance info
-            console.log(`[*] SELLING FOR ${price(this._getMaxEURVolume(currentBitcoinPrice))}`);
             r = await this.kraken.api('AddOrder', options);
-            console.log(`[*] placed SELL order: ${r.result.descr.order}`);
+            console.log(`[*] placed ${this.fake ? "(FAKE)": ""} SELL order: ${r.result.descr.order}`);
             this.placedOrders.push({ order: options, result: r.result });
         } catch (e) {
             let errorMsg = _.get(r, ['data', 'error', 0]);
@@ -294,9 +299,15 @@ class Kraken {
     }
 }
 
-const realTrade = async function(name) {
+const trade = async function(name, fake) {
+    if (fake) {
+        console.log('[*] Fake trading on current bitcoin price');
+    } else {
+        console.log('[*] Real trading on current bitcoin price');
+    }
+
     let trader = await getTrader(name);
-    let k = new Kraken();
+    let k = new Kraken(fake);
     let btcData = [];
 
     // check if we have some new data in in theses candles
@@ -349,7 +360,7 @@ const realTrade = async function(name) {
             let candlesToAnalyse = btcData.slice(btcData.length - trader.analysisIntervalLength());
             dt.connectCandles(candlesToAnalyse);
             let action = await trader.decideAction(candlesToAnalyse);
-            console.log(`[*] Trader (${trader.hash()}): ${action.yellow}. Expected status: ${traderStatusStr(trader, currentBitcoinPrice)}`);
+            console.log(`[*] ${k.fake ? "(FAKE)" : ""} Trader (${trader.hash()}): ${action.yellow}. Expected status: ${traderStatusStr(trader, currentBitcoinPrice)}`);
 
             switch (action) {
                 case "HOLD":
@@ -376,46 +387,6 @@ const realTrade = async function(name) {
         await k.refreshAccount();
         k.displayAccount();
     }, 60000 * 5);
-}
-
-const fakeTrade = async function(name) {
-    let trader = await getTrader(name);
-    let btcData = null;
-
-    const isNewData = function(candles) {
-        if (!btcData) {
-            return true;
-        } else {
-            let lastKnownData = btcData[btcData.length - 1];
-            let lastNewData = candles[candles.length - 1];
-            return lastKnownData.timestamp !== lastNewData.timestamp;
-        }
-    }
-
-    // every 10 sec
-    setInterval(async () => {
-        let remoteData = await getKrakenData(1);
-        if (remoteData && isNewData(remoteData)) {
-            btcData = remoteData;
-            let lastCandle = btcData[btcData.length - 1];
-            let currentBitcoinPrice = lastCandle.close;
-            console.log(`[*] Received data: ${candleStr(lastCandle)}`)
-
-            // time for trader action
-            let action = await trader.decideAction(btcData);
-            console.log(`    trader: ${action.yellow}. status: ${traderStatusStr(trader, currentBitcoinPrice)}`);
-        }
-    }, 10000);
-}
-
-const trade = async function(name, fake) {
-    if (fake) {
-        console.log('[*] Fake trading on current bitcoin price');
-        await fakeTrade(name);
-    } else {
-        console.log('[*] Real trading on current bitcoin price');
-        await realTrade(name);
-    }
 }
 
 module.exports = trade;
