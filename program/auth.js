@@ -2,31 +2,32 @@
  * auth.js - authenticate to Kraken
  *****************************************************************************/
 
-const Prompt = require('prompt-password');
+const prompts = require('prompts');
 const encryption = require('./lib/encryption');
 const fs = require('fs-extra');
 
 const auth = async function() {
-    var promptPW = new Prompt({
+    const promptPW = await prompts({
         type: 'password',
+        name: 'password',
         message: 'Choose a local password: (will be required for real operations)',
-        name: 'password'
+        validate: value => value.length < 8 ? `password is at least 8 chararacters` : true
     });
-    let password = await promptPW.run();
+    let password = await promptPW.password;
 
-    var promptAPIKey = new Prompt({
+    const promptAPIKey = await prompts({
         type: 'password',
+        name: 'apiKey',
         message: 'Kraken API Key',
-        name: 'apiKey'
     });
-    let apiKey = await promptAPIKey.run();
+    let apiKey = await promptAPIKey.apiKey;
 
-    var promptSecretAPIKey = new Prompt({
+    var promptSecretAPIKey = await prompts({
         type: 'password',
         message: 'Kraken Secret API Key',
-        name: 'apiKey'
+        name: 'secretApiKey'
     });
-    let secretApiKey = await promptSecretAPIKey.run();
+    let secretApiKey = await promptSecretAPIKey.secretApiKey;
 
     // store encrypted keys to .env file
     let envFileArr = [

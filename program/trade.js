@@ -10,7 +10,8 @@ const moment = require('moment');
 const colors = require('colors');
 const axios = require('axios');
 const dotenv = require('dotenv');
-const Prompt = require('prompt-password');
+// const Prompt = require('prompt-password');
+const prompts = require('prompts');
 const encryption = require('./lib/encryption');
 const KrakenClient = require('kraken-api');
 
@@ -114,12 +115,13 @@ class Kraken {
             process.exit(-1);
         }
 
-        var promptPW = new Prompt({
+        const response = await prompts({
             type: 'password',
+            name: 'password',
             message: 'password',
-            name: 'password'
+            validate: value => value.length < 8 ? `password is at least 8 chararacters` : true
         });
-        let password = await promptPW.run();
+        let password = await response.password;
 
         // decrypt api key, secret key, and login to kraken
         let apiKey = encryption.decrypt(config.KRAKEN_API_KEY, password);
@@ -257,9 +259,6 @@ const realTrade = async function(name) {
     await sleep(1);
     await k.refreshOpenOrders();
     k.displayOpenOrders();
-
-    await sleep(10);
-    console.log('you sleeped well');
 
     // every 5 sec: fetch BTC price and trade
     setInterval(async () => {
