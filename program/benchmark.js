@@ -30,9 +30,13 @@ const getAllTraders = function() {
     });
 }
 
-const benchmark = async function() {
+const benchmark = async function(filter) {
     let btcData = await csv.getData();
     let traders = await getAllTraders();
+
+    if (filter) {
+        traders = _.filter(traders, t => t.hash().indexOf(filter) !== -1);
+    }
 
     console.log('[*] Traders:');
     for (let trader of traders) {

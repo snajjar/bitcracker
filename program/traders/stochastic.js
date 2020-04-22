@@ -12,7 +12,7 @@ class StochasticTrader extends Trader {
     }
 
     hash() {
-        return "Algo_stochastic_70_30";
+        return "Algo_stochastic";
     }
 
     getStochastic(dataPeriods) {
@@ -32,11 +32,11 @@ class StochasticTrader extends Trader {
 
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
-        let stopped = this.stopLoss(this.stopLossRatio);
-        if (stopped) return;
+        // let stopped = this.stopLoss(this.stopLossRatio);
+        // if (stopped) return;
 
-        stopped = this.takeProfit(this.takeProfitRatio);
-        if (stopped) return;
+        // stopped = this.takeProfit(this.takeProfitRatio);
+        // if (stopped) return;
 
         // calculate sma indicator
         try {
@@ -44,14 +44,14 @@ class StochasticTrader extends Trader {
             let lastStoch = stoch[0][stoch[0].length - 1];
 
             if (!this.inTrade) {
-                if (lastStoch < 30) {
+                if (lastStoch < 20) {
                     // BUY condition
                     return this.buy();
                 } else {
                     return this.hold();
                 }
             } else {
-                if (lastStoch > 70) {
+                if (lastStoch > 80) {
                     return this.sell(currentBitcoinPrice);
                 } else {
                     return this.hold();

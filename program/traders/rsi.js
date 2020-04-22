@@ -2,7 +2,7 @@ const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-class RSITrader_70_30 extends Trader {
+class RSITrader extends Trader {
     constructor() {
         super();
     }
@@ -12,7 +12,7 @@ class RSITrader_70_30 extends Trader {
     }
 
     hash() {
-        return "Algo_rsi_70_30";
+        return "Algo_rsi";
     }
 
     getRSI(dataPeriods) {
@@ -42,14 +42,14 @@ class RSITrader_70_30 extends Trader {
             let lastRSI = rsi[0][rsi[0].length - 1];
 
             if (!this.inTrade) {
-                if (lastRSI < 30) {
+                if (lastRSI < 20) {
                     // BUY condition
                     return this.buy();
                 } else {
                     return this.hold();
                 }
             } else {
-                if (lastRSI > 70) {
+                if (lastRSI > 80) {
                     return this.sell(currentBitcoinPrice);
                 } else {
                     return this.hold();
@@ -62,4 +62,4 @@ class RSITrader_70_30 extends Trader {
     }
 }
 
-module.exports = RSITrader_70_30;
+module.exports = RSITrader;

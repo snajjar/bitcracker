@@ -130,6 +130,10 @@ var argv = yargs
                 describe: 'ratio for takeprofit',
                 type: 'number',
             })
+            .option('filter', {
+                describe: 'filter all traders who contains the filter name in string',
+                type: 'string',
+            })
             .option('start', {
                 describe: 'optional start date YYYY-MM-DD',
                 type: 'string',
@@ -145,15 +149,9 @@ var argv = yargs
         if (argv.takeprofit) {
             config.setTakeProfitRatio(argv.takeprofit);
         }
-        if (argv.start) {
-            config.setStartDate(argv.start);
-        }
-        if (argv.end) {
-            config.setEndDate(argv.end);
-        }
 
         const benchmark = require('./benchmark');
-        await benchmark();
+        await benchmark(argv.filter);
     })
     .command('auth', 'Authenticate to Kraken. Required to trade', (yargs) => {}, async argv => {
         const auth = require('./auth');
