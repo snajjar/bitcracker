@@ -13,8 +13,8 @@ class TraderCNNEMAPredict extends Trader {
         // tune theses
         this.emaPeriods = 2;
         this.emaTrigger = 0.4;
-        this.buyTreshold = 0.003;
-        this.sellTreshold = 0.003;
+        this.buyTreshold = 0.0017;
+        this.sellTreshold = 0.0017;
     }
 
     getDescription() {
@@ -29,7 +29,7 @@ class TraderCNNEMAPredict extends Trader {
     }
 
     analysisIntervalLength() {
-        return Math.max(this.model.getNbInputPeriods(), this.emaPeriods) + 1;
+        return Math.max(this.model.getNbInputPeriods() + 5, this.emaPeriods) + 1;
     }
 
     hash() {
@@ -51,7 +51,7 @@ class TraderCNNEMAPredict extends Trader {
 
     // predict next bitcoin price from period
     async predictPrice(dataPeriods) {
-        return await this.model.predict(dataPeriods);
+        return await this.model.adjustedPredict(dataPeriods);
     }
 
     // decide for an action

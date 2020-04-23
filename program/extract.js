@@ -83,8 +83,8 @@ var extract = async function(interval) {
     console.log(`[*] Extracting data for interval ${utils.intervalToStr(interval)}`);
     let data1m = await csv.getFileData('./data/Cex_BTCEUR_1m.csv');
     let cleanedData = dt.removePriceAnomalies(data1m)
-    // let data = convertToInterval(cleanedData, interval);
-    // await csv.setFileData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`, data);
+    let data = convertToInterval(cleanedData, interval);
+    await csv.setFileData(`./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`, data);
 }
 
 module.exports = extract;

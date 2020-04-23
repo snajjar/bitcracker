@@ -88,9 +88,29 @@ var argv = yargs
         const evolve = require('./evolve');
         await evolve();
     })
-    .command('plot', 'Output a plottable .csv file of a Trader results', (yargs) => {}, async (argv) => {
+    .command('plot', 'Output a plottable .csv file of a Trader results', (yargs) => {
+        yargs.option('trader', {
+            alias: 't',
+            describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list',
+            type: 'string',
+        }).option('model', {
+            alias: 'm',
+            describe: 'The model name. Type "./bitcracker.js list models" to have the complete list',
+            type: 'string',
+        }).option('output', {
+            describe: 'output file',
+            alias: 'o',
+            type: 'string',
+        }).demandOption(['output'], 'Please provide output file for the plot command (-o output)')
+    }, async (argv) => {
         const plot = require('./plot');
-        await plot();
+        if (argv.trader) {
+            await plot("trader", argv.trader, argv.output);
+        } else if (argv.model) {
+            await plot("model", argv.model, argv.output);
+        } else {
+            console.error('You must choose either --trader or --model option');
+        }
     })
     .command('evaluate <name> [resultInterval]', 'Evaluate a Trader.', (yargs) => {
         yargs.positional('name', {

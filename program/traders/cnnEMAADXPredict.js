@@ -15,8 +15,8 @@ class TraderCNNEMAADXPredict extends Trader {
         this.emaTrigger = 0.4;
         this.adxPeriods = 14;
         this.adxTrigger = 13;
-        this.buyTreshold = 0.003;
-        this.sellTreshold = 0.003;
+        this.buyTreshold = 0.0015;
+        this.sellTreshold = 0.0015;
     }
 
     getDescription() {
@@ -32,7 +32,7 @@ class TraderCNNEMAADXPredict extends Trader {
 
     analysisIntervalLength() {
         // 28 periods for ADX don't know why it's not 14
-        return Math.max(this.model.getNbInputPeriods(), this.emaPeriods, 28) + 1;
+        return Math.max(this.model.getNbInputPeriods() + 5, this.emaPeriods, 28) + 1;
     }
 
     hash() {
@@ -69,7 +69,7 @@ class TraderCNNEMAADXPredict extends Trader {
 
     // predict next bitcoin price from period
     async predictPrice(dataPeriods) {
-        return await this.model.predict(dataPeriods);
+        return await this.model.adjustedPredict(dataPeriods);
     }
 
     // decide for an action

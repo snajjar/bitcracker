@@ -122,7 +122,7 @@ const setTradeData = async function(csvFilePath, data) {
     var records = [];
     _.each(data, (period) => {
         records.push({
-            date: moment.unix(period.timestamp).format('YYYY-MM-DD hh:mm'),
+            date: moment.unix(period.timestamp).format('YYYY-MM-DD HH:mm'),
             open: period.open.toFixed(0),
             high: period.high.toFixed(0),
             low: period.low.toFixed(0),
@@ -134,11 +134,42 @@ const setTradeData = async function(csvFilePath, data) {
     return csvWriter.writeRecords(records); // promise
 }
 
+const setPredictionData = async function(csvFilePath, data) {
+    let csvWriter = createCsvWriter({
+        path: csvFilePath,
+        header: [
+            { id: 'date', title: 'Date' },
+            { id: 'open', title: 'Open' },
+            { id: 'high', title: 'High' },
+            { id: 'low', title: 'Low' },
+            { id: 'close', title: 'Close' },
+            { id: 'prediction', title: 'Prediction' },
+            { id: 'adjustedPrediction', title: 'AdjustedPrediction' },
+        ]
+    });
+
+    var records = [];
+    _.each(data, (period) => {
+        records.push({
+            date: moment.unix(period.timestamp).format('YYYY-MM-DD HH:mm'),
+            open: period.open.toFixed(0),
+            high: period.high.toFixed(0),
+            low: period.low.toFixed(0),
+            close: period.close.toFixed(0),
+            prediction: period.prediction ? period.prediction.toFixed(0) : "",
+            adjustedPrediction: period.adjustedPrediction ? period.adjustedPrediction.toFixed(0) : "",
+        });
+    });
+
+    return csvWriter.writeRecords(records); // promise
+}
+
 module.exports = {
     getData,
     getFileData,
     setFileData,
     setTradeData,
+    setPredictionData,
     getDataForInterval,
     removeBlankLines
 }

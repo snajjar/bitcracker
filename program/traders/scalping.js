@@ -36,8 +36,6 @@ class ScalpingTrader extends Trader {
         if (!this.inTrade) {
             if (currentBitcoinPrice < avg) {
                 // BUY condition
-                this.inTrade = true;
-                this.enterTradeValue = currentBitcoinPrice;
                 return this.buy();
             } else {
                 return this.hold();

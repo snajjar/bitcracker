@@ -13,7 +13,7 @@ class CNNPricePredictionModel extends Model {
         super();
         this.trainingOptions = {
             shuffle: true,
-            epochs: 30,
+            epochs: 40,
             batchsize: 10,
         }
 
@@ -246,6 +246,40 @@ class CNNPricePredictionModel extends Model {
         let scaledPrediction = arr[0];
         let prediction = this.unscaleValue('close', scaledPrediction);
         return prediction;
+    }
+
+    // if we have more data for our prediction, do a few guesses for the previous
+    // values and adjust the prediction with the average loss
+    async adjustedPredict(candles) {
+        let nbInput = this.getNbInputPeriods();
+        let nbGuesses = candles.length - nbInput - 1;
+        if (nbGuesses >= 3) {
+            nbGuesses = 3; // 3 last prediction is enough
+        }
+
+        if (nbGuesses > 0) {
+            let losses = [];
+            for (let i = 0; i < nbGuesses; i++) {
+                let endIndex = candles.length - i - 2;
+                let inputCandles = candles.slice(endIndex - nbInput, endIndex);
+                let outputCandle = candles[candles.length - i - 1];
+
+                let prediction = await this.predict(inputCandles);
+                let realValue = outputCandle.close;
+
+                losses.push(realValue - prediction);
+            }
+
+            let avgLoss = _.mean(losses);
+            let prediction = await this.predict(candles);
+            let adjustedPrediction = prediction + avgLoss;
+
+            // console.log('last:', candles[candles.length - 1].close, 'losses:', JSON.stringify(losses) + ", prediction=", prediction, "adjusted=", adjustedPrediction);
+            return adjustedPrediction;
+        } else {
+            console.warn('Not enough candles to adjust prediction');
+            return await this.predict(candles);
+        }
     }
 
     async accuracy(periods) {

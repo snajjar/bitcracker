@@ -6,34 +6,37 @@
 const _ = require('lodash');
 const tf = require('@tensorflow/tfjs-node');
 const utils = require('./lib/utils');
-const modelData = require('./model');
 const csv = require('./lib/csv');
-const NeuroTrader = require('./neuroevolution').NeuroTrader;
-const utils = require('./lib/utils');
+const config = require('./config');
 
-// TODO: integrate this into Trader class
+const getTrader = async function(name) {
+    let TraderConstructor = require('./traders/' + name);
+    if (!TraderConstructor) {
+        console.error(`Trader ${name} is not implemented (yet!)`);
+        process.exit(-1);
+    }
 
-var plot = async function() {
-    // load data from CSV
+    let trader = new TraderConstructor();
+    await trader.initialize(config.getInterval());
+    return trader;
+}
+
+const plotTrader = async function(name, outputFilePath) {
+    let trader = await getTrader(name);
     let btcData = await csv.getData();
-    //let [trainData, testData] = datatools.splitData(btcData, 0.6);
-
-    // load Trader from model
-    const model = await tf.loadLayersModel(`file://./models/neuroevolution/generation76/Cex_BTCEUR_4h_Top3/model.json`);
-    let trader = new NeuroTrader(model);
 
     let trades = [];
     let lastAction = "SELL";
     let lastActionPrice = 0;
 
     // make the trader trade on all data
-    let marketData = btcData;
-    let inputs = marketData.slice(0, modelData.nbPeriods - 1);
-    for (var j = modelData.nbPeriods - 1; j < marketData.length; j++) {
-        let candle = marketData[j]; // current bitcoin data
+    let candles = btcData;
+    let inputs = candles.slice(0, trader.analysisIntervalLength() - 1);
+    for (var j = trader.analysisIntervalLength(); j < candles.length; j++) {
+        let candle = candles[j]; // current bitcoin data
         inputs.push(candle);
         let currentBitcoinPrice = candle.close; // close price of the last candle
-        let action = await trader.action(inputs, currentBitcoinPrice);
+        let action = await trader.decideAction(inputs);
         candle.action = action; // save the action into the candle
         inputs.shift(); // remove 1st element that is not relevant anymore
 
@@ -51,11 +54,53 @@ var plot = async function() {
         }
     }
 
-    utils.displayTraders([trader]);
+    await utils.displayTrader(trader);
 
-    let outputFileName = `./data/Trade_Data_${utils.intervalToStr(interval)}.csv`;
-    console.log(`[*] saving trade data into file: ${outputFileName}`);
-    csv.setTradeData(outputFileName, btcData);
+    console.log(`[*] saving trade data as CSV into file: ${outputFilePath}`);
+    csv.setTradeData(outputFilePath, btcData);
+}
+
+const plotModel = async function(name, outputFilePath) {
+    let btcData = await csv.getData();
+
+    // load model class
+    let Model = require('./models/prediction/' + name);
+    let m = new Model();
+    await m.load();
+
+    // add candles for prediction adjustement
+    let nbInput = m.getNbInputPeriods() + 4;
+
+    // make the trader trade on all data
+    let candles = btcData;
+    let inputs = candles.slice(0, nbInput - 1);
+    for (var j = nbInput; j < candles.length; j++) {
+        let candle = candles[j]; // current bitcoin data
+        inputs.push(candle);
+
+        let prediction = await m.predict(inputs);
+        if (j < candles.length - 1) {
+            candles[j].prediction = prediction;
+        }
+
+        let adjustedPrediction = await m.adjustedPredict(inputs);
+        if (j < candles.length - 1) {
+            candles[j].adjustedPrediction = adjustedPrediction;
+        }
+
+        inputs.shift(); // remove 1st element that is not relevant anymore
+    }
+
+    console.log(`[*] saving prediction data as CSV into file: ${outputFilePath}`);
+    csv.setPredictionData(outputFilePath, btcData);
+}
+
+var plot = async function(type, name, outputFilePath) {
+    if (type == "trader") {
+        await plotTrader(name, outputFilePath);
+    } else if (type == "model") {
+        await plotModel(name, outputFilePath);
+    }
 }
 
 module.exports = plot;

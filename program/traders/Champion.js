@@ -2,23 +2,25 @@ const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-class EMAADXTrader extends Trader {
+class ChampionTrader extends Trader {
     constructor() {
         super();
 
         // parameters
-        // this.smaPeriods = 11;
+        this.smaPeriods = 200;
         this.emaPeriods = 2;
         this.adxPeriods = 14;
-        this.emaUpTrigger = 0.4;
-        this.emaDownTrigger = 0.3;
+
+        this.smaTrigger = 0.000;
+        this.winningTreshold = 0.5;
+        this.emaUpTrigger = 0.3;
+        this.emaDownTrigger = 0.4;
         this.adxTrigger = 15;
         this.bbandTrigger = 0.014;
     }
 
     analysisIntervalLength() {
-        //return Math.max(this.emaPeriods, this.adxPeriods) + 1;
-        return 28;
+        return Math.max(this.emaPeriods, this.adxPeriods, this.smaPeriods) + 1;
     }
 
     hash() {
@@ -39,6 +41,9 @@ class EMAADXTrader extends Trader {
     }
 
     getEMA(dataPeriods) {
+        // filter out last periods
+        dataPeriods = dataPeriods.slice(dataPeriods.length - 28);
+
         let closePrices = _.map(dataPeriods, p => p.close);
         return new Promise((resolve, reject) => {
             tulind.indicators.ema.indicator([closePrices], [this.emaPeriods], function(err, results) {
@@ -52,6 +57,8 @@ class EMAADXTrader extends Trader {
     }
 
     getADX(dataPeriods) {
+        dataPeriods = dataPeriods.slice(dataPeriods.length - 28);
+
         let highPrices = _.map(dataPeriods, p => p.high);
         let lowPrices = _.map(dataPeriods, p => p.low);
         let closePrices = _.map(dataPeriods, p => p.close);
@@ -79,6 +86,28 @@ class EMAADXTrader extends Trader {
         });
     }
 
+    // the more we are winning a trade, the more we'll be encline to
+    // sell if the trend looks like it's going down
+    decideSell(currentEMA, currentBitcoinPrice) {
+        let diff = (currentBitcoinPrice / currentEMA * 100) - 100;
+        let floattingPoint = this.enterTradeValue * (1 + this.buyTax + this.sellTax);
+        let winningTrade = currentBitcoinPrice > floattingPoint;
+
+        if (winningTrade) {
+            // check by how much we are winning
+            let ratio = (currentBitcoinPrice - floattingPoint) / this.enterTradeValue;
+
+            // usually, we compare diff to emaDownTrigger, which can be choosen from 0.2 (loose trend) to 0.4 (strong trend)
+            // the more the ratio is up, the more we want to sell on loose down trend
+            let treshold = this.emaDownTrigger / Math.pow(1 + ratio, 3);
+            // console.log('treshold: ' + treshold, 'ratio: ' + ratio);
+            return diff > treshold;
+        } else {
+            // sell if it's looking nasty
+            return diff > this.emaDownTrigger;
+        }
+    }
+
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
@@ -89,49 +118,34 @@ class EMAADXTrader extends Trader {
 
         // calculate sma indicator
         try {
-            // let lastPrice = dataPeriods[dataPeriods.length - 2].close;
-
-            // let sma = await this.getSMA(dataPeriods);
-            // let currSMA = sma[sma.length - 1];
-
             // determine trend with EMA
             let ema = await this.getEMA(dataPeriods);
             let currEMA = ema[ema.length - 1];
             var diff = (currentBitcoinPrice / currEMA * 100) - 100;
             let trendUp = diff < -this.emaUpTrigger;
             let trendDown = diff > this.emaDownTrigger;
+            let smallTrendDown = diff > this.emaDownTrigger / 2;
 
-            // determine trend strengh with ADX
+            // // determine trend strengh with ADX
             let adx = await this.getADX(dataPeriods);
             let lastADX = adx[adx.length - 1];
             let trendSeemsStrong = !isNaN(lastADX) && lastADX > this.adxTrigger;
 
-            // get Bollinger bands, check if the standard deviation is increasing
-            let [lowBand, midBand, highBand] = await this.getBBands(dataPeriods);
-            let newDiff = highBand[highBand.length - 1] - currentBitcoinPrice;
-            let diffRatio = newDiff / currentBitcoinPrice;
-            let priceChannelOK = diffRatio > this.bbandTrigger;
-
-            // if (trendUp) {
-            //     console.log("DiffRatio:", diffRatio, "bbandTrigger:", this.bbandTrigger);
-            // }
-
-            //console.log(bbands);
-
             if (!this.inTrade) {
-                if (trendUp && trendSeemsStrong && priceChannelOK) {
+                if (trendUp && trendSeemsStrong) {
                     // BUY condition
                     return this.buy();
                 } else {
                     return this.hold();
                 }
             } else {
-                if (trendDown && trendSeemsStrong) {
-                    // SELL conditions are take profit and stop loss
+                if (this.decideSell(currEMA, currentBitcoinPrice)) {
+                    // SELL condition
                     return this.sell();
                 } else {
                     return this.hold();
                 }
+                this.hold();
             }
         } catch (e) {
             console.error("Err: " + e.stack);
@@ -140,4 +154,4 @@ class EMAADXTrader extends Trader {
     }
 }
 
-module.exports = EMAADXTrader;
+module.exports = ChampionTrader;

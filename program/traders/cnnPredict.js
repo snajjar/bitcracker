@@ -7,8 +7,8 @@ class TraderCNNEMAPredict extends Trader {
     constructor() {
         super();
 
-        this.buyTreshold = 0.002;
-        this.sellTreshold = 0.002;
+        this.buyTreshold = 0.01;
+        this.sellTreshold = 0.01;
     }
 
     getDescription() {
@@ -23,7 +23,8 @@ class TraderCNNEMAPredict extends Trader {
     }
 
     analysisIntervalLength() {
-        return this.model.getNbInputPeriods() + 1;
+        // let's add some period to adjust prediction on local loss
+        return this.model.getNbInputPeriods() + 5;
     }
 
     hash() {
@@ -32,7 +33,7 @@ class TraderCNNEMAPredict extends Trader {
 
     // predict next bitcoin price from period
     async predictPrice(dataPeriods) {
-        return await this.model.predict(dataPeriods);
+        return await this.model.adjustedPredict(dataPeriods);
     }
 
     // decide for an action
