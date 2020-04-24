@@ -247,9 +247,11 @@ const rangeStr = function(btcData) {
 // function that will add labels at start of significative trends
 // we define trend as such: a successive set of periods in which the close price reach
 // the target price (price + price * target) before reaching price again
-const labelTrends = function(candles, targetUp = 0.05, targetDown = 0.05) {
+const labelTrends = function(candles, targetUp = 0.01, targetDown = 0.01) {
     let currentTrend = "still";
     let trendStartIndex = 0;
+    let nbUp = 0;
+    let nbDown = 0;
 
     // label candles after the trend start, but that still have a targetUp augmentation
     //  or targetDown diminution at the end of the trend
@@ -260,10 +262,12 @@ const labelTrends = function(candles, targetUp = 0.05, targetDown = 0.05) {
             if (trend == "up") {
                 if (candle.close * (1 + targetUp) < topTrendValue) {
                     candle.trend = "up";
+                    nbUp++;
                 }
             } else if (trend == "down") {
                 if (candle.close * (1 - targetDown) > topTrendValue) {
                     candle.trend = "down";
+                    nbDown++;
                 }
             }
         }
@@ -335,6 +339,7 @@ const labelTrends = function(candles, targetUp = 0.05, targetDown = 0.05) {
         }
     });
 
+    console.log(`{*] Labelled ${nbUp} uptrends and ${nbDown} downtrends on ${candles.length} periods`)
     return candles;
 }
 

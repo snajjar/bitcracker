@@ -13,12 +13,13 @@ class CNNPricePredictionModel extends Model {
         super();
         this.trainingOptions = {
             shuffle: true,
-            epochs: 40,
-            batchsize: 10,
+            epochs: 50,
+            batchsize: 50,
+            validationSplit: 0.15
         }
 
         this.nbFeatures = 4;
-        this.settings.nbInputPeriods = 16;
+        this.settings.nbInputPeriods = 24;
 
         this.scaleMargin = 1.2; // 1.2: we can go 20% higher than the higher value
     }
@@ -225,6 +226,11 @@ class CNNPricePredictionModel extends Model {
 
         // train the model for each tensor
         let options = _.clone(this.trainingOptions);
+        options.callbacks = {
+            onEpochEnd: async (epoch, logs) => {
+                await this.save();
+            }
+        }
         await this.model.fit(inputTensor, outputTensor, options);
 
         tf.dispose(inputTensor);

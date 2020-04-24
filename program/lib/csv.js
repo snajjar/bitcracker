@@ -134,7 +134,7 @@ const setTradeData = async function(csvFilePath, data) {
     return csvWriter.writeRecords(records); // promise
 }
 
-const setPredictionData = async function(csvFilePath, data) {
+const setPricePredictionData = async function(csvFilePath, data) {
     let csvWriter = createCsvWriter({
         path: csvFilePath,
         header: [
@@ -164,12 +164,45 @@ const setPredictionData = async function(csvFilePath, data) {
     return csvWriter.writeRecords(records); // promise
 }
 
+const setTrendPredictionData = async function(csvFilePath, data) {
+    let csvWriter = createCsvWriter({
+        path: csvFilePath,
+        header: [
+            { id: 'date', title: 'Date' },
+            { id: 'open', title: 'Open' },
+            { id: 'high', title: 'High' },
+            { id: 'low', title: 'Low' },
+            { id: 'close', title: 'Close' },
+            { id: 'trend', title: 'Trend' },
+            { id: 'predictedTrend', title: 'PredictedTrend' },
+            { id: 'predictedProbability', title: 'PredictedProbability' },
+        ]
+    });
+
+    var records = [];
+    _.each(data, (period) => {
+        records.push({
+            date: moment.unix(period.timestamp).format('YYYY-MM-DD HH:mm'),
+            open: period.open.toFixed(0),
+            high: period.high.toFixed(0),
+            low: period.low.toFixed(0),
+            close: period.close.toFixed(0),
+            trend: period.trend,
+            predictedTrend: period.predictedTrend,
+            predictedProbability: (period.predictedProbability * 100).toFixed(1) + "%",
+        });
+    });
+
+    return csvWriter.writeRecords(records); // promise
+}
+
 module.exports = {
     getData,
     getFileData,
     setFileData,
     setTradeData,
-    setPredictionData,
+    setPricePredictionData,
+    setTrendPredictionData,
     getDataForInterval,
     removeBlankLines
 }
