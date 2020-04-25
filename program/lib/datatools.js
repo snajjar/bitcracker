@@ -68,7 +68,7 @@ const dataVariations = function(data, maxVariance = 0.1) {
     return variations;
 }
 
-const mergeSamples = function(intervalStart, arr) {
+const mergeCandles = function(arr, intervalStart) {
     if (!arr || !arr.length) {
         throw "mergeSamples: empty array";
     }
@@ -91,7 +91,7 @@ const mergeSamples = function(intervalStart, arr) {
     });
 
     return {
-        "timestamp": intervalStart.unix(),
+        "timestamp": intervalStart ? intervalStart.unix() : arr[0].timestamp,
         "open": arr[0].open,
         "high": high,
         "low": low,
@@ -398,7 +398,7 @@ const connectCandles = function(samples) {
 
 module.exports = {
     dataVariations,
-    mergeSamples,
+    mergeCandles,
     getMax,
     splitData,
     kSplitData,

@@ -71,10 +71,17 @@ var argv = yargs
         }).option('break', {
             describe: 'optional date to separate train data and test data. format DD/MM/YYYY',
             type: 'string',
-        })
+        }).option('lowmem', {
+            describe: 'If possible, train in a low memory mode (slower)',
+            type: 'boolean',
+        });
     }, async (argv) => {
         const train = require('./train');
-        await train(argv.model, argv.break);
+        await train({
+            model: argv.model,
+            break: argv.break,
+            lowMemory: argv.lowmem
+        });
     })
     .command('predict <model>', 'Predict next bitcoin values', (yargs) => {
         yargs.positional('model', {

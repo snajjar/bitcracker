@@ -12,13 +12,14 @@ class CNNPricePredictionModel extends Model {
         super();
         this.trainingOptions = {
             shuffle: true,
-            epochs: 100,
+            epochs: 10,
             batchsize: 20,
+            verbose: 1,
         }
 
         this.uptrendTreshold = 0.01;
         this.downtrendTreshold = 0.01;
-        this.nbFeatures = 4;
+        this.nbFeatures = 25;
         this.settings.nbInputPeriods = 8;
 
         this.scaleMargin = 1.1; // 1.2: we can go 20% higher than the higher value
@@ -31,7 +32,9 @@ class CNNPricePredictionModel extends Model {
 
     // nb candles to train/predict for this model
     getNbInputPeriods() {
-        return this.settings.nbInputPeriods; // for variations computation
+        // we want to predict trends from the last nbInputPeriods candles based on OHLC data for different intervals: 1m, 5m, 15m, 30m, 1h
+        // so we need at least nbInputPeriods * 60
+        return this.settings.nbInputPeriods * 60;
     }
 
     // asynchronous initialization can't be done in the constructor
@@ -40,7 +43,7 @@ class CNNPricePredictionModel extends Model {
     }
 
     createModel() {
-        const nbPeriods = this.getNbInputPeriods();
+        const nbPeriods = this.settings.nbInputPeriods;
 
         let model = tf.sequential();
 
@@ -48,7 +51,7 @@ class CNNPricePredictionModel extends Model {
         model.add(tf.layers.inputLayer({ inputShape: [nbPeriods, this.nbFeatures], }));
         model.add(tf.layers.conv1d({
             kernelSize: 2,
-            filters: 64,
+            filters: 256,
             strides: 1,
             use_bias: true,
             activation: 'relu',
@@ -60,7 +63,7 @@ class CNNPricePredictionModel extends Model {
         }));
         model.add(tf.layers.conv1d({
             kernelSize: 2,
-            filters: 32,
+            filters: 128,
             strides: 1,
             use_bias: true,
             activation: 'relu',
@@ -92,9 +95,9 @@ class CNNPricePredictionModel extends Model {
 
     // get scale parameters from an array of candles
     findScaleParameters(candles) {
-        let scaleParameters = {};
+        let scaleParameters = _.clone(this.settings.scaleParameters || {});
         _.each(candles[0], (v, k) => {
-            if (typeof v === 'number') {
+            if (typeof v === 'number' && !scaleParameters[k]) {
                 scaleParameters[k] = v;
             }
         });
@@ -158,22 +161,71 @@ class CNNPricePredictionModel extends Model {
         return value * this.settings.scaleParameters[name];
     }
 
+    // merge candles n by n
+    mergeCandlesBy(candles, n) {
+        if (candles.length % n !== 0) {
+            throw new Error("Error while merging candles: " + candles.length + " cant be divided by " + n);
+        }
+
+        let merged = [];
+        let chunks = _.chunk(candles, n);
+        _.each(chunks, chunk => {
+            let c = dt.mergeCandles(chunk);
+            merged.push(c);
+        });
+        return merged;
+    }
+
     // return a noramized NN-ready array of input
-    getInputArray(candles) {
-        // get scaled candles
-        let scaledCandles = this.scaleCandles(candles);
-        scaledCandles = scaledCandles.slice(scaledCandles.length - this.getNbInputPeriods());
+    getInputArray(candles, scaled = false) {
+        candles = candles.slice(candles.length - this.getNbInputPeriods());
+
+        // extract array for each time period
+        let scaledCandles1m = candles;
+        let scaledCandles5m = this.mergeCandlesBy(candles, 5);
+        let scaledCandles15m = this.mergeCandlesBy(candles, 15);
+        let scaledCandles30m = this.mergeCandlesBy(candles, 30);
+        let scaledCandles1h = this.mergeCandlesBy(candles, 60);
+
+        // now get the nbPeriods last candles for each time period
+        let input1m = scaledCandles1m.slice(scaledCandles1m.length - this.settings.nbInputPeriods);
+        let input5m = scaledCandles5m.slice(scaledCandles5m.length - this.settings.nbInputPeriods);
+        let input15m = scaledCandles15m.slice(scaledCandles15m.length - this.settings.nbInputPeriods);
+        let input30m = scaledCandles30m.slice(scaledCandles30m.length - this.settings.nbInputPeriods);
+        let input1h = scaledCandles1h.slice(scaledCandles1h.length - this.settings.nbInputPeriods);
 
         let arr = [];
-        _.each(scaledCandles, (scaledCandle, index) => {
+        for (let i = 0; i < this.settings.nbInputPeriods; i++) {
+            // push every information for every time period
+            // group them so it my be easier to detect patterns
             arr.push([
-                //candleVariation.timestamp,
-                scaledCandle.close,
-                scaledCandle.high,
-                scaledCandle.low,
-                scaledCandle.volume
-            ]);
-        });
+                input1m[i].open,
+                input5m[i].open,
+                input15m[i].open,
+                input30m[i].open,
+                input1h[i].open,
+                input1m[i].high,
+                input5m[i].high,
+                input15m[i].high,
+                input30m[i].high,
+                input1h[i].high,
+                input1m[i].low,
+                input5m[i].low,
+                input15m[i].low,
+                input30m[i].low,
+                input1h[i].low,
+                input1m[i].close,
+                input5m[i].close,
+                input15m[i].close,
+                input30m[i].close,
+                input1h[i].close,
+                input1m[i].volume,
+                input5m[i].volume,
+                input15m[i].volume,
+                input30m[i].volume,
+                input1h[i].volume,
+            ])
+        }
 
         return arr;
     }
@@ -196,8 +248,6 @@ class CNNPricePredictionModel extends Model {
     }
 
     getTrainData(candles) {
-        this.findScaleParameters(candles);
-
         // add our trend labels
         candles = dt.labelTrends(candles, this.uptrendTreshold, this.downtrendTreshold);
         let classCounts = _.countBy(candles, 'trend');
@@ -242,14 +292,24 @@ class CNNPricePredictionModel extends Model {
             }
         }
 
-        const inputTensor = tf.tensor3d(batchInputs, [batchInputs.length, nbPeriods, this.nbFeatures], 'float32');
+        const inputTensor = tf.tensor3d(batchInputs, [batchInputs.length, this.settings.nbInputPeriods, this.nbFeatures], 'float32');
         const outputTensor = tf.tensor2d(batchOutputs, [batchOutputs.length, 3], 'float32');
         return [inputTensor, outputTensor];
     }
 
     async train(trainCandles) {
+        console.log("[*] Model training starting.");
+        console.log("[*] Preparing train data...");
+
+        //  find scale parameters on the 1h period (for volumes to be right)
+        this.findScaleParameters(trainCandles);
+        // also, find scale parameters on 1h period, so because volumes are added in there
+        let candles1h = this.mergeCandlesBy(trainCandles.slice(0, trainCandles.length - trainCandles.length % 60), 60);
+        this.findScaleParameters(candles1h);
+        let scaledCandles = this.scaleCandles(trainCandles);
+
         // get price variations
-        let [inputTensor, outputTensor] = this.getTrainData(trainCandles);
+        let [inputTensor, outputTensor] = this.getTrainData(scaledCandles);
 
         if (this.trainingOptions.verbose !== 0) {
             inputTensor.print();
@@ -271,13 +331,32 @@ class CNNPricePredictionModel extends Model {
 
 
     async trainLowMemory(candles) {
-        const nbPeriods = this.getNbInputPeriods();
+        console.log("[*] Model low-memory training starting.");
+        console.log("[*] Preparing train data...");
 
         // label data with uptrends of 1% and downtrends of 1%
         dt.labelTrends(candles, this.uptrendTreshold, this.downtrendTreshold);
 
-        // find the scale parameters (for getInputArray and getOutputArray to work correctly)
+        //  find scale parameters on the 1h period (for volumes to be right)
         this.findScaleParameters(candles);
+        // also, find scale parameters on 1h period, so because volumes are added in there
+        let candles1h = this.mergeCandlesBy(candles.slice(0, candles.length - candles.length % 60), 60);
+        this.findScaleParameters(candles1h);
+
+        let scaledCandles = this.scaleCandles(candles);
+
+        const nbPeriods = this.getNbInputPeriods();
+        let classCounts = _.countBy(scaledCandles, 'trend');
+        console.log(classCounts);
+
+        // determine ratios for oversampling, we want to have ~ the same number of
+        // uptrends, downtrends and still in the training model
+        let oversamplingRatios = {
+            "up": Math.floor(classCounts.still / classCounts.up),
+            "down": Math.floor(classCounts.still / classCounts.down),
+            "still": 1
+        }
+        console.log('Oversampling: ' + JSON.stringify(oversamplingRatios, null, 2));
 
         // prepare our training options
         let options = _.clone(this.trainingOptions);
@@ -294,20 +373,20 @@ class CNNPricePredictionModel extends Model {
         // data generator (inputs)
         let self = this;
         let data = function*() {
-            for (let i = 0; i < candles.length - nbPeriods - 1; i++) {
-                let curr = candles[i + nbPeriods];
-                if (curr.volume > 0 || curr.trend !== "still") {
-                    yield self.getInputArray(candles.slice(i, i + nbPeriods));
+            for (let i = 0; i < scaledCandles.length - nbPeriods - 1; i++) {
+                let next = scaledCandles[i + nbPeriods + 1];
+                for (var j = 0; j < oversamplingRatios[next.trend]; j++) {
+                    yield self.getInputArray(scaledCandles.slice(i, i + nbPeriods));
                 }
             }
         }
 
         // label generator (outputs)
         let label = function*() {
-            for (let i = 0; i < candles.length - nbPeriods - 1; i++) {
-                let curr = candles[i + nbPeriods];
-                if (curr.volume > 0 || curr !== "still") {
-                    yield self.getOutputArray(candles[i + nbPeriods + 1]);
+            for (let i = 0; i < scaledCandles.length - nbPeriods - 1; i++) {
+                let next = scaledCandles[i + nbPeriods + 1];
+                for (var j = 0; j < oversamplingRatios[next.trend]; j++) {
+                    yield self.getOutputArray(scaledCandles[i + nbPeriods + 1]);
                 }
             }
         }
@@ -318,7 +397,10 @@ class CNNPricePredictionModel extends Model {
         // We zip the data and labels together, shuffle and batch it according to training options defined.
         let ds = tf.data.zip({ xs, ys });
         if (options.shuffle) {
-            ds = ds.shuffle(100);
+            // since we are oversamling, we NEED to shuffle.
+            // this will make tf create in advance 10k values
+            // and shuffle the array at every new sample
+            ds = ds.shuffle(1000, null, true);
         }
         ds = ds.batch(options.batchsize);
 
@@ -326,7 +408,8 @@ class CNNPricePredictionModel extends Model {
     }
 
     async predict(candles) {
-        let inputCandles = candles.slice(candles.length - this.getNbInputPeriods());
+        let scaledCandles = this.scaleCandles(candles);
+        let inputCandles = scaledCandles.slice(scaledCandles.length - this.getNbInputPeriods());
         let inputTensor = this.getInputTensor(inputCandles);
         // inputTensor.print();
 
@@ -351,9 +434,10 @@ class CNNPricePredictionModel extends Model {
         }
     }
 
-    async accuracy(periods) {
+    async accuracy(candles) {
         // label data with uptrends of 1% and downtrends of 1%
-        dt.labelTrends(periods, this.uptrendTreshold, this.downtrendTreshold);
+        dt.labelTrends(candles, this.uptrendTreshold, this.downtrendTreshold);
+        let scaledCandles = this.scaleCandles(candles);
 
         // let testPeriods = periods.slice(0, this.getNbInputPeriods());
         // let prediction = await this.predict(testPeriods);
@@ -379,15 +463,15 @@ class CNNPricePredictionModel extends Model {
         let nbMissedStillTrend = 0;
         let nbWrongStillTrend = 0;
 
-        let currPeriods = periods.slice(0, this.getNbInputPeriods() - 1); // no trades in this area
+        let currCandles = scaledCandles.slice(0, this.getNbInputPeriods() - 1); // no trades in this area
         for (var i = this.getNbInputPeriods(); i < periods.length - 1; i++) {
-            let nextPeriod = periods[i];
-            currPeriods.push(nextPeriod);
+            let nextPeriod = scaledCandles[i];
+            currCandles.push(nextPeriod);
 
-            let trend = periods[i].trend;
-            let prediction = await this.predict(currPeriods);
+            let trend = scaledCandles[i].trend;
+            let prediction = await this.predict(currCandles);
 
-            if ("up" == prediction.trend) {
+            if ("up" == trend) {
                 nbUpTrend++;
             } else if ("down" == trend) {
                 nbDownTrend++;
@@ -397,7 +481,7 @@ class CNNPricePredictionModel extends Model {
 
             if ("up" == prediction.trend) {
                 nbPredictedUpTrend++;
-            } else if ("down" == predictedTrend) {
+            } else if ("down" == prediction.trend) {
                 nbPredictedDownTrend++;
             } else {
                 nbPredictedStillTrend++;
@@ -416,7 +500,7 @@ class CNNPricePredictionModel extends Model {
                         nbMissedUpTrend++;
                         break;
                     default:
-                        throw new Error("Predicted: " + predictedTrend);
+                        throw new Error("Predicted: " + prediction.trend);
                 }
             } else if (trend == "down") {
                 switch (prediction.trend) {
@@ -431,7 +515,7 @@ class CNNPricePredictionModel extends Model {
                         nbMissedDownTrend++;
                         break;
                     default:
-                        throw new Error("Predicted: " + predictedTrend);
+                        throw new Error("Predicted: " + prediction.trend);
                 }
             } else if (trend == "still") {
                 switch (prediction.trend) {
@@ -447,11 +531,11 @@ class CNNPricePredictionModel extends Model {
                         nbWrongDownTrend++;
                         break;
                     default:
-                        throw new Error("Predicted: " + predictedTrend);
+                        throw new Error("Predicted: " + prediction.trend);
                 }
             }
 
-            currPeriods.shift();
+            currCandles.shift();
         }
 
         console.log(`Uptrends:   real=${nbUpTrend} predicted=${nbPredictedUpTrend} right=${nbRightUpTrend} wrong=${nbWrongUpTrend} missed=${nbMissedUpTrend}`);

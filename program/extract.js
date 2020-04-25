@@ -44,7 +44,7 @@ const convertToInterval = function(data, interval) {
             index++;
         } else {
             if (samplesToMerge.length) {
-                samples.push(dt.mergeSamples(lastDate, samplesToMerge));
+                samples.push(dt.mergeSamples(samplesToMerge, lastDate));
             } else {
                 // no new data during that interval, get from previous data
                 let lastSample = _.clone(samples[samples.length - 1]);
