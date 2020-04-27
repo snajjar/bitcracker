@@ -343,6 +343,80 @@ const labelTrends = function(candles, targetUp = 0.01, targetDown = 0.01) {
     return candles;
 }
 
+// function that will add labels which is the factor between this period close's value and
+// the one at the end of the current trend
+const labelTrendsValues = function(candles) {
+    let currentTrend = "still";
+    let trendStartIndex = 0;
+
+    // label candles after the trend start, but that still have a targetUp augmentation
+    //  or targetDown diminution at the end of the trend
+    let labelIntermediateCandles = function(startIndex, endIndex, trend) {
+        let endCandle = candles[endIndex];
+        for (let i = startIndex; i <= endIndex; i++) {
+            let candle = candles[i];
+            candle.trendFactor = endCandle.close / candle.close;
+        }
+    }
+
+    for (var i = 1; i < candles.length; i++) {
+        let candle = candles[i];
+
+        if (candle.close > candle.open) {
+            switch (currentTrend) {
+                case "up":
+                    // nothing to do for now
+                    break;
+                case "still":
+                    // start of a trend
+                    trendStartIndex = i - 1;
+                    currentTrend = "up";
+                    break;
+                case "down":
+                    // label the previous trends
+                    labelIntermediateCandles(trendStartIndex, i - 1);
+
+                    // start of a trend
+                    trendStartIndex = i - 1;
+                    currentTrend = "up";
+                    break;
+                default:
+                    throw new Error("unrecognized current trend: " + currentTrend);
+            }
+        } else if (candle.close < candle.open) {
+            switch (currentTrend) {
+                case "up":
+                    // label the previous trends
+                    labelIntermediateCandles(trendStartIndex, i - 1);
+
+                    // start of a trend
+                    trendStartIndex = i - 1;
+                    currentTrend = "down";
+                    break;
+                case "still":
+                    // start of a trend
+                    trendStartIndex = i - 1;
+                    currentTrend = "down";
+                    break;
+                case "down":
+                    // nothing to do for now
+                    break;
+                default:
+                    throw new Error("unrecognized current trend: " + currentTrend);
+            }
+        }
+    }
+
+    // label data with no trend labelled
+    _.each(candles, candle => {
+        if (!candle.trendFactor) {
+            candle.trendFactor = 1;
+        }
+    });
+
+    return candles;
+}
+
 // remove 1m candles where the close price grew or shrink by more than 10% of the btc value over 1 min
 removePriceAnomalies = function(candles) {
     let results = [];
@@ -408,6 +482,7 @@ module.exports = {
     breakData,
     rangeStr,
     labelTrends,
+    labelTrendsValues,
     splitByDuration,
     trend,
     variance,

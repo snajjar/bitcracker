@@ -44,7 +44,7 @@ const predict = async function(modelName) {
     let btcData = await getKrakenData(config.getInterval());
     let predicted = await model.predict(btcData);
 
-    console.log(`prediction=${predicted}`);
+    console.log(`prediction=${JSON.stringify(predicted)}`);
 }
 
 module.exports = predict;

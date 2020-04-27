@@ -17,17 +17,13 @@ class CNNTrendPredictionModel extends Model {
             verbose: 1,
         }
 
-        this.uptrendTreshold = 0;
-        this.downtrendTreshold = 0;
         this.nbFeatures = 25;
         this.settings.nbInputPeriods = 8;
-
-        this.scaleMargin = 1.1; // 1.2: we can go 20% higher than the higher value
     }
 
     // uniq model name - usefull for save & load
     getName() {
-        return "CNNTrendPrediction";
+        return "CNNGrowthPrediction";
     }
 
     // nb candles to train/predict for this model
@@ -57,7 +53,7 @@ class CNNTrendPredictionModel extends Model {
             activation: 'relu',
             kernelInitializer: 'VarianceScaling'
         }));
-        model.add(tf.layers.maxPooling1d({
+        model.add(tf.layers.averagePooling1d({
             poolSize: [2],
             strides: [1]
         }));
@@ -69,16 +65,16 @@ class CNNTrendPredictionModel extends Model {
             activation: 'relu',
             kernelInitializer: 'VarianceScaling'
         }));
-        model.add(tf.layers.maxPooling1d({
+        model.add(tf.layers.averagePooling1d({
             poolSize: [2],
             strides: [1]
         }));
         model.add(tf.layers.flatten());
         model.add(tf.layers.dense({ units: 8 }));
         model.add(tf.layers.dense({
-            units: 3,
+            units: 1,
             kernelInitializer: 'VarianceScaling',
-            activation: 'softmax'
+            activation: 'relu'
         }));
 
         this.model = model;
@@ -86,10 +82,10 @@ class CNNTrendPredictionModel extends Model {
     }
 
     compile() {
-        const optimizer = tf.train.adam(0.002);
+        const optimizer = tf.train.adam(0.01);
         this.model.compile({
             optimizer: optimizer,
-            loss: 'categoricalCrossentropy',
+            loss: 'meanSquaredError',
             metrics: ['accuracy']
         });
     }
@@ -98,23 +94,28 @@ class CNNTrendPredictionModel extends Model {
     findScaleParameters(candles) {
         let scaleParameters = _.clone(this.settings.scaleParameters || {});
         _.each(candles[0], (v, k) => {
-            if (typeof v === 'number' && !scaleParameters[k]) {
-                scaleParameters[k] = v;
+            if (typeof v === 'number' && k != "timestamp" && !scaleParameters[k]) {
+                scaleParameters[k] = {
+                    min: v,
+                    max: v,
+                }
             }
         });
 
         _.each(candles, candle => {
             _.each(candle, (v, k) => {
                 if (typeof v === 'number' && k != "timestamp") {
-                    if (v > scaleParameters[k]) {
-                        scaleParameters[k] = v;
+                    if (v > scaleParameters[k].max) {
+                        scaleParameters[k].max = v;
+                    }
+                    if (v < scaleParameters[k].min) {
+                        scaleParameters[k].min = v;
                     }
                 }
             });
         });
 
-        // apply scale margin
-        scaleParameters = _.each(scaleParameters, k => k * this.scaleMargin);
+        //scaleParameters = _.each(scaleParameters, k => k * this.scaleMargin);
         this.settings.scaleParameters = scaleParameters;
     }
 
@@ -130,11 +131,12 @@ class CNNTrendPredictionModel extends Model {
             _.each(candle, (v, k) => {
                 // if we determined the scale factor for this parameter, apply it
                 if (this.settings.scaleParameters[k]) {
-                    scaledCandle[k] = v / this.settings.scaleParameters[k];
+                    scaledCandle[k] = this.scaleValue(k, v);
                 } else {
                     scaledCandle[k] = v; // some data are not meant to be scaled (ex: trend)
                 }
             });
+            scaledCandle.normalized = true;
             scaledCandles.push(scaledCandle);
         });
         return scaledCandles;
@@ -148,7 +150,8 @@ class CNNTrendPredictionModel extends Model {
             throw new Error("scale parameters for " + name + " is not defined");
         }
 
-        return value / this.settings.scaleParameters[name];
+        let scale = this.settings.scaleParameters[name];
+        return (value - scale.min) / (scale.max - scale.min); // minmax normalisation
     }
 
     unscaleValue(name, value) {
@@ -159,7 +162,8 @@ class CNNTrendPredictionModel extends Model {
             throw new Error("scale parameters for " + name + " is not defined");
         }
 
-        return value * this.settings.scaleParameters[name];
+        let scale = this.settings.scaleParameters[name];
+        return value * (scale.max - scale.min) + scale.min;
     }
 
     // merge candles n by n
@@ -231,15 +235,12 @@ class CNNTrendPredictionModel extends Model {
         return arr;
     }
 
-    // return a noramized NN-ready array of output
     getOutputArray(candle) {
-        if (candle.trend == "down") {
-            return [1, 0, 0];
-        } else if (candle.trend == "up") {
-            return [0, 1, 0];
-        } else if (candle.trend == "still" || !candle.trend) {
-            return [0, 0, 1];
+        if (!candle.normalized) {
+            throw new Error('getOutputArray should only work with normalized candles');
         }
+
+        return [candle.trendFactor];
     }
 
     // method to get a input tensor for this model for an input, from periods of btc price
@@ -249,9 +250,6 @@ class CNNTrendPredictionModel extends Model {
     }
 
     getTrainData(candles) {
-        // add our trend labels
-        candles = dt.labelTrends(candles, this.uptrendTreshold, this.downtrendTreshold);
-
         if (this.trainingOptions.verbose !== 0) {
             console.log('[*] Training model with following settings: ' + JSON.stringify(this.settings, null, 2));
         }
@@ -261,66 +259,27 @@ class CNNTrendPredictionModel extends Model {
         let batchInputs = [];
         let batchOutputs = [];
 
-        // make sure we add the same number of data from each class (undersampling)
-        let nbUp = 0;
-        let nbDown = 0;
-        let nbStill = 0;
-
         // build input and output tensors from data
-        for (var i = 0; i < candles.length - nbPeriods - 1; i++) {
+        for (var i = 0; i < candles.length - nbPeriods; i++) {
             let currCandle = candles[i + nbPeriods];
-            let nextCandle = candles[i + nbPeriods + 1];
-
-            // filter out candles that are no volume, no movement here
-            if (currCandle.volume > 0) {
-
-                let add = false;
-                if (nextCandle.trend == "up") {
-                    nbUp++;
-                    add = true;
-                } else if (nextCandle.trend == "down") {
-                    nbDown++;
-                    add = true;
-                } else if (nextCandle.trend == "still" || !nextCandle.trend) {
-                    if (nbStill < nbUp || nbStill < nbDown) {
-                        // don't add necessary the next one, we have plenty of choice
-                        if (Math.random() < 0.01) {
-                            add = true;
-                            nbStill++;
-                        }
-                    }
-                }
-
-                // adapt training set to ratios
-                if (add) {
-                    batchInputs.push(this.getInputArray(candles.slice(i, i + nbPeriods)));
-                    batchOutputs.push(this.getOutputArray(nextCandle));
-                }
+            if (currCandle.trendFactor) {
+                batchInputs.push(this.getInputArray(candles.slice(i, i + nbPeriods)));
+                batchOutputs.push(this.getOutputArray(currCandle));
             }
         }
 
+        console.log(`[*] Training on ${batchInputs.length} samples`);
         const inputTensor = tf.tensor3d(batchInputs, [batchInputs.length, this.settings.nbInputPeriods, this.nbFeatures], 'float32');
-        const outputTensor = tf.tensor2d(batchOutputs, [batchOutputs.length, 3], 'float32');
+        const outputTensor = tf.tensor2d(batchOutputs, [batchOutputs.length, 1], 'float32');
         return [inputTensor, outputTensor];
-    }
-
-    getOversamplingRatios(candles) {
-        let classCounts = _.countBy(candles, 'trend');
-
-        // determine ratios for oversampling, we want to have ~ the same number of
-        // uptrends, downtrends and still in the training model
-        let oversamplingRatios = {
-            "up": Math.floor(classCounts.still / classCounts.up),
-            "down": Math.floor(classCounts.still / classCounts.down),
-            "still": 1
-        }
-        console.log('Oversampling: ' + JSON.stringify(oversamplingRatios, null, 2));
-        return oversamplingRatios;
     }
 
     async train(trainCandles) {
         console.log("[*] Model training starting.");
         console.log("[*] Preparing train data...");
+
+        // add our trend labels
+        trainCandles = dt.labelTrendsValues(trainCandles);
 
         //  find scale parameters on the 1h period (for volumes to be right)
         this.findScaleParameters(trainCandles);
@@ -346,8 +305,6 @@ class CNNTrendPredictionModel extends Model {
                 // }
                 await this.save();
             },
-            // Attach some class weight for our model to be more attentive to certain classes
-            //classWeight: [1, 1, 2]
         }
         await this.model.fit(inputTensor, outputTensor, options);
 
@@ -361,7 +318,7 @@ class CNNTrendPredictionModel extends Model {
         console.log("[*] Preparing train data...");
 
         // label data with uptrends of 1% and downtrends of 1%
-        dt.labelTrends(candles, this.uptrendTreshold, this.downtrendTreshold);
+        dt.labelTrendsValues(candles);
 
         //  find scale parameters on the 1h period (for volumes to be right)
         this.findScaleParameters(candles);
@@ -371,22 +328,16 @@ class CNNTrendPredictionModel extends Model {
 
         let scaledCandles = this.scaleCandles(candles);
 
-        // determine ratios for oversampling, we want to have ~ the same number of
-        // uptrends, downtrends and still in the training model
-        let oversamplingRatios = this.getOversamplingRatios(scaledCandles);
-
         // prepare our training options
         let options = _.clone(this.trainingOptions);
         options.callbacks = {
             onEpochEnd: async (epoch, logs) => {
                 console.log(`[*] Trained with: ${nbLabels.up} up, ${nbLabels.down} down, ${nbLabels.still} still`);
-                if (epoch % 10 == 0) {
-                    await this.accuracy(candles)
-                }
+                // if (epoch % 10 == 0) {
+                //     await this.accuracy(candles)
+                // }
                 await this.save();
             },
-            // Attach some class weight for our model to be more attentive to certain classes
-            classWeight: [1, 1, 0.0001]
         }
 
         if (this.trainingOptions.verbose !== 0) {
@@ -397,23 +348,22 @@ class CNNTrendPredictionModel extends Model {
         const nbPeriods = this.getNbInputPeriods();
         let self = this;
         let data = function*() {
-            for (let i = 0; i < scaledCandles.length - nbPeriods - 1; i++) {
-                let next = scaledCandles[i + nbPeriods + 1];
-                // for (var j = 0; j < oversamplingRatios[next.trend]; j++) {
-                yield self.getInputArray(scaledCandles.slice(i, i + nbPeriods));
-                // }
+            for (let i = 0; i < scaledCandles.length - nbPeriods; i++) {
+                let curr = scaledCandles[i + nbPeriods];
+                if (curr.trendFactor) {
+                    yield self.getInputArray(scaledCandles.slice(i, i + nbPeriods));
+                }
             }
         }
 
         // label generator (outputs)
         let nbLabels = { "up": 0, "still": 0, "down": 0 };
         let label = function*() {
-            for (let i = 0; i < scaledCandles.length - nbPeriods - 1; i++) {
-                let next = scaledCandles[i + nbPeriods + 1];
-                // for (var j = 0; j < oversamplingRatios[next.trend]; j++) {
-                nbLabels[next.trend]++;
-                yield self.getOutputArray(next);
-                // }
+            for (let i = 0; i < scaledCandles.length - nbPeriods; i++) {
+                let curr = scaledCandles[i + nbPeriods];
+                if (curr.trendFactor) {
+                    yield self.getOutputArray(curr);
+                }
             }
         }
 
@@ -426,7 +376,7 @@ class CNNTrendPredictionModel extends Model {
             // since we are oversamling, we NEED to shuffle.
             // this will make tf create in advance 10k values
             // and shuffle the array at every new sample
-            ds = ds.shuffle(50000, null, true);
+            ds = ds.shuffle(1000, null, true);
         }
         ds = ds.batch(options.batchsize);
 
@@ -446,25 +396,50 @@ class CNNTrendPredictionModel extends Model {
         tf.dispose(inputTensor);
         tf.dispose(outputTensor);
 
-        let max = _.max(arr);
-        let maxIndex = arr.indexOf(max);
-        switch (maxIndex) {
-            case 0:
-                return { trend: "down", probability: arr[maxIndex] };
-            case 1:
-                return { trend: "up", probability: arr[maxIndex] };
-            case 2:
-                return { trend: "still", probability: arr[maxIndex] };
-            default:
-                console.log(arr);
-                throw new Error("Unkown value for maxIndex: " + maxIndex);
+        let growthPrediction = this.unscaleValue("trendFactor", arr[0]);
+        return growthPrediction;
+    }
+
+    // if we have more data for our prediction, do a few guesses for the previous
+    // values and adjust the prediction with the average loss
+    async adjustedPredict(candles) {
+        let nbInput = this.getNbInputPeriods();
+        let nbGuesses = candles.length - nbInput - 1;
+        if (nbGuesses >= 3) {
+            nbGuesses = 3; // 3 last prediction is enough
+        }
+
+        if (nbGuesses > 0) {
+            let losses = [];
+            for (let i = 0; i < nbGuesses; i++) {
+                let endIndex = candles.length - i - 2;
+                let inputCandles = candles.slice(endIndex - nbInput, endIndex);
+                let outputCandle = candles[candles.length - i - 1];
+
+                let prediction = await this.predict(inputCandles);
+                let realValue = this.unscaleValue("trendFactor", outputCandle.trendFactor);
+
+                losses.push(realValue - prediction);
+            }
+
+            let avgLoss = _.mean(losses);
+            let prediction = await this.predict(candles);
+            let adjustedPrediction = prediction + avgLoss;
+
+            // console.log('last:', candles[candles.length - 1].close, 'losses:', JSON.stringify(losses) + ", prediction=", prediction, "adjusted=", adjustedPrediction);
+            return adjustedPrediction;
+        } else {
+            console.warn('Not enough candles to adjust prediction');
+            return await this.predict(candles);
         }
     }
 
     // display confusion matrix
-    async accuracy(candles) {
+    async accuracy(candles, adjusted = false) {
+        console.log(`[*] computing accuracy with adjusted=${adjusted}`);
+
         // label data with uptrends of 1% and downtrends of 1%
-        dt.labelTrends(candles, this.uptrendTreshold, this.downtrendTreshold);
+        dt.labelTrendsValues(candles);
 
         let matrix = {
             "predicted_up": { "up": 0, "still": 0, "down": 0 },
@@ -472,22 +447,48 @@ class CNNTrendPredictionModel extends Model {
             "predicted_down": { "up": 0, "still": 0, "down": 0 }
         };
 
-        let currCandles = candles.slice(0, this.getNbInputPeriods() - 1); // no trades in this area
+        let currCandles;
+        if (adjusted) {
+            currCandles = candles.slice(0, this.getNbInputPeriods() + 3); // no trades in this area
+        } else {
+            currCandles = candles.slice(0, this.getNbInputPeriods() - 1); // no trades in this area
+        }
         for (var i = this.getNbInputPeriods(); i < candles.length - 1; i++) {
             let nextCandle = candles[i];
             currCandles.push(nextCandle);
 
-            let trend = candles[i].trend;
-            // console.log(candles[i]);
-            let prediction = await this.predict(currCandles);
+            let trend = null;
+            let trendFactor = candles[i].trendFactor;
+            if (trendFactor) {
+                if (trendFactor == 1) {
+                    trend = "still";
+                } else if (trendFactor < 1) {
+                    trend = "down";
+                } else if (trendFactor > 1) {
+                    trend = "up";
+                }
 
-            // if (trend == "up") {
-            //     console.log(`trend=up, prediction=${prediction.trend}, p=${prediction.probability}`);
-            // }
+                let prediction;
+                if (adjusted) {
+                    prediction = await this.adjustedPredict(currCandles);
+                } else {
+                    prediction = await this.predict(currCandles);
+                }
 
-            matrix["predicted_" + prediction.trend][trend]++;
+                let predictedTrend = null;
+                if (prediction == 1) {
+                    predictedTrend = "still";
+                } else if (prediction < 1) {
+                    predictedTrend = "down";
+                } else if (prediction > 1) {
+                    predictedTrend = "up";
+                } else {
+                    console.log('prediction: ' + prediction);
+                }
 
-            currCandles.shift();
+                matrix["predicted_" + predictedTrend][trend]++;
+                currCandles.shift();
+            }
         }
 
         console.log('[*] Confusion matrix');

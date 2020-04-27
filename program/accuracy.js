@@ -5,7 +5,7 @@ const csv = require('./lib/csv');
 const dt = require('./lib/datatools');
 const moment = require('moment');
 
-const accuracy = async function(model) {
+const accuracy = async function(model, adjusted) {
     // load model class
     let Model = require('./models/prediction/' + model);
     let m = new Model();
@@ -15,7 +15,7 @@ const accuracy = async function(model) {
     let btcData = await csv.getData();
 
     // accuracy fonction should print results
-    let acc = await m.accuracy(btcData);
+    let acc = await m.accuracy(btcData, adjusted);
 }
 
 module.exports = accuracy;

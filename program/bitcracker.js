@@ -140,13 +140,13 @@ var argv = yargs
     .command('accuracy <name>', 'Evaluate a model accuracy on a price interval', (yargs) => {
         yargs.positional('model', {
             describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
-        }).positional('interval', {
-            describe: 'time interval for data: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
+        }).option('adjusted', {
+            describe: 'Adjust each prediction according to the last errors',
+            type: 'boolean',
         })
     }, async (argv) => {
         const accuracy = require('./accuracy');
-        let interval = utils.strToInterval(argv.interval);
-        await accuracy(argv.name, interval);
+        await accuracy(argv.name, argv.adjusted);
     })
     .command('benchmark', 'Evaluate all traders on a data interval', (yargs) => {
         yargs.option('stoploss', {
