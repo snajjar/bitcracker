@@ -116,7 +116,6 @@ class ChampionTrader extends Trader {
         // stopped = this.takeProfit(this.takeProfitRatio);
         // if (stopped) return;
 
-        // calculate sma indicator
         try {
             // determine trend with EMA
             let ema = await this.getEMA(dataPeriods);

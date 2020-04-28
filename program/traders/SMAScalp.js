@@ -8,7 +8,7 @@ class SMAScalpTrader extends Trader {
 
         // parameters
         this.smaPeriods = 250;
-        this.diffTrigger = 0.025;
+        this.diffTrigger = 0.01;
     }
 
     analysisIntervalLength() {
@@ -34,10 +34,10 @@ class SMAScalpTrader extends Trader {
 
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
-        // let stopped = this.stopLoss(this.stopLossRatio);
+        // let stopped = this.stopLoss(0.05);
         // if (stopped) return;
 
-        // stopped = this.takeProfit(this.takeProfitRatio);
+        // stopped = this.takeProfit(0.02);
         // if (stopped) return;
 
         // calculate sma indicator
@@ -50,6 +50,7 @@ class SMAScalpTrader extends Trader {
                 let delta = (currSMA - currentBitcoinPrice) / currSMA;
                 if (delta > this.diffTrigger) {
                     // BUY condition
+                    // console.log(`BUYING at ${currentBitcoinPrice.toFixed(0)}€`);
                     return this.buy();
                 } else {
                     return this.hold();

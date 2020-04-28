@@ -50,6 +50,7 @@ const evaluateTrader = async function(trader, duration) {
             // trader.resetTrading();
         }
         console.table(results);
+        utils.displayTrader(trader);
     } else {
         await trader.trade(btcData);
         utils.displayTrader(trader);
