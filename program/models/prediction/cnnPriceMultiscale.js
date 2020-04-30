@@ -17,7 +17,8 @@ class CNNPriceMultiscaleModel extends Model {
             verbose: 1,
         }
 
-        this.nbFeatures = 25;
+        this.nbFeatures = 5;
+        this.nbWindows = 5;
         this.settings.nbInputPeriods = 5;
     }
 
@@ -44,20 +45,8 @@ class CNNPriceMultiscaleModel extends Model {
         let model = tf.sequential();
 
         // add a conv2d layer  with 4 features, high, low, close and volume
-        model.add(tf.layers.inputLayer({ inputShape: [nbPeriods, this.nbFeatures], }));
-        model.add(tf.layers.conv1d({
-            kernelSize: 2,
-            filters: 32,
-            strides: 1,
-            use_bias: true,
-            activation: 'relu',
-            kernelInitializer: 'VarianceScaling'
-        }));
-        model.add(tf.layers.maxPooling1d({
-            poolSize: [2],
-            strides: [1]
-        }));
-        model.add(tf.layers.conv1d({
+        model.add(tf.layers.inputLayer({ inputShape: [nbPeriods, this.nbFeatures, this.nbWindows], }));
+        model.add(tf.layers.conv2d({
             kernelSize: 2,
             filters: 8,
             strides: 1,
@@ -65,11 +54,36 @@ class CNNPriceMultiscaleModel extends Model {
             activation: 'relu',
             kernelInitializer: 'VarianceScaling'
         }));
-        model.add(tf.layers.maxPooling1d({
-            poolSize: [2],
-            strides: [1]
+        // model.add(tf.layers.maxPooling2d({
+        //     poolSize: [1, 2],
+        //     strides: [1, 1]
+        // }));
+        model.add(tf.layers.conv2d({
+            kernelSize: 2,
+            filters: 16,
+            strides: 1,
+            use_bias: true,
+            activation: 'relu',
+            kernelInitializer: 'VarianceScaling'
+        }));
+        // model.add(tf.layers.maxPooling2d({
+        //     poolSize: [1, 2],
+        //     strides: [1, 1]
+        // }));
+        model.add(tf.layers.conv2d({
+            kernelSize: 2,
+            filters: 32,
+            strides: 1,
+            use_bias: true,
+            activation: 'relu',
+            kernelInitializer: 'VarianceScaling'
         }));
         model.add(tf.layers.flatten());
+        model.add(tf.layers.dense({
+            units: 32,
+            kernelInitializer: 'VarianceScaling',
+            activation: 'relu'
+        }));
         model.add(tf.layers.dense({
             units: 1,
             kernelInitializer: 'VarianceScaling',
@@ -81,13 +95,14 @@ class CNNPriceMultiscaleModel extends Model {
     }
 
     compile() {
-        const optimizer = tf.train.adam(0.003);
+        const optimizer = tf.train.adam(0.001);
         this.model.compile({
             optimizer: optimizer,
             loss: 'meanSquaredError',
-            metrics: ['accuracy']
+            metrics: ['mse']
         });
     }
+
 
     // get scale parameters from an array of candles
     findScaleParameters(candles) {
@@ -126,21 +141,21 @@ class CNNPriceMultiscaleModel extends Model {
 
         let scaledCandles = [];
         _.each(candles, candle => {
-            if (candle.normalized) {
-                throw new Error("Error: scaling a candle that has already been normalized");
+            if (!candle.normalized) {
+                let scaledCandle = _.clone(candle);
+                _.each(candle, (v, k) => {
+                    // if we determined the scale factor for this parameter, apply it
+                    if (this.settings.scaleParameters[k]) {
+                        scaledCandle[k] = this.scaleValue(k, v);
+                    } else {
+                        scaledCandle[k] = v; // some data are not meant to be scaled (ex: trend)
+                    }
+                });
+                scaledCandle.normalized = true;
+                scaledCandles.push(scaledCandle);
+            } else {
+                scaledCandles.push(_.clone(candle));
             }
-
-            let scaledCandle = _.clone(candle);
-            _.each(candle, (v, k) => {
-                // if we determined the scale factor for this parameter, apply it
-                if (this.settings.scaleParameters[k]) {
-                    scaledCandle[k] = this.scaleValue(k, v);
-                } else {
-                    scaledCandle[k] = v; // some data are not meant to be scaled (ex: trend)
-                }
-            });
-            scaledCandle.normalized = true;
-            scaledCandles.push(scaledCandle);
         });
         return scaledCandles;
     }
@@ -187,13 +202,14 @@ class CNNPriceMultiscaleModel extends Model {
     // return a noramized NN-ready array of input
     getInputArray(candles, scaled = false) {
         candles = candles.slice(candles.length - this.getNbInputPeriods());
+        let scaledCandles = this.scaleCandles(candles);
 
         // extract array for each time period
-        let scaledCandles1m = candles;
-        let scaledCandles5m = this.mergeCandlesBy(candles, 5);
-        let scaledCandles15m = this.mergeCandlesBy(candles, 15);
-        let scaledCandles30m = this.mergeCandlesBy(candles, 30);
-        let scaledCandles1h = this.mergeCandlesBy(candles, 60);
+        let scaledCandles1m = scaledCandles;
+        let scaledCandles5m = this.mergeCandlesBy(scaledCandles, 5);
+        let scaledCandles15m = this.mergeCandlesBy(scaledCandles, 15);
+        let scaledCandles30m = this.mergeCandlesBy(scaledCandles, 30);
+        let scaledCandles1h = this.mergeCandlesBy(scaledCandles, 60);
 
         // now get the nbPeriods last candles for each time period
         let input1m = scaledCandles1m.slice(scaledCandles1m.length - this.settings.nbInputPeriods);
@@ -207,31 +223,41 @@ class CNNPriceMultiscaleModel extends Model {
             // push every information for every time period
             // group them so it my be easier to detect patterns
             arr.push([
-                input1m[i].open,
-                input5m[i].open,
-                input15m[i].open,
-                input30m[i].open,
-                input1h[i].open,
-                input1m[i].high,
-                input5m[i].high,
-                input15m[i].high,
-                input30m[i].high,
-                input1h[i].high,
-                input1m[i].low,
-                input5m[i].low,
-                input15m[i].low,
-                input30m[i].low,
-                input1h[i].low,
-                input1m[i].close,
-                input5m[i].close,
-                input15m[i].close,
-                input30m[i].close,
-                input1h[i].close,
-                input1m[i].volume,
-                input5m[i].volume,
-                input15m[i].volume,
-                input30m[i].volume,
-                input1h[i].volume,
+                [
+                    input1m[i].open,
+                    input5m[i].open,
+                    input15m[i].open,
+                    input30m[i].open,
+                    input1h[i].open,
+                ],
+                [
+                    input1m[i].high,
+                    input5m[i].high,
+                    input15m[i].high,
+                    input30m[i].high,
+                    input1h[i].high,
+                ],
+                [
+                    input1m[i].low,
+                    input5m[i].low,
+                    input15m[i].low,
+                    input30m[i].low,
+                    input1h[i].low,
+                ],
+                [
+                    input1m[i].close,
+                    input5m[i].close,
+                    input15m[i].close,
+                    input30m[i].close,
+                    input1h[i].close,
+                ],
+                [
+                    input1m[i].volume,
+                    input5m[i].volume,
+                    input15m[i].volume,
+                    input30m[i].volume,
+                    input1h[i].volume,
+                ]
             ])
         }
 
@@ -240,17 +266,17 @@ class CNNPriceMultiscaleModel extends Model {
 
     // should be done on a already normalized candle
     getOutputArray(candle) {
-        if (!candle.normalized) {
-            throw new Error('getOutputArray should only work with normalized candles');
+        if (candle.normalized) {
+            return [candle.close]
+        } else {
+            return [this.scaleValue("close", candle.close)];
         }
-
-        return [candle.close];
     }
 
     // method to get a input tensor for this model for an input, from periods of btc price
     getInputTensor(candles) {
         let inputs = this.getInputArray(candles);
-        return tf.tensor3d([inputs]);
+        return tf.tensor4d([inputs]);
     }
 
     getTrainData(candles) {
@@ -271,7 +297,7 @@ class CNNPriceMultiscaleModel extends Model {
         }
 
         console.log(`[*] Training on ${batchInputs.length} samples`);
-        const inputTensor = tf.tensor3d(batchInputs, [batchInputs.length, this.settings.nbInputPeriods, this.nbFeatures], 'float32');
+        const inputTensor = tf.tensor4d(batchInputs, [batchInputs.length, this.settings.nbInputPeriods, this.nbFeatures, this.nbWindows], 'float32');
         const outputTensor = tf.tensor2d(batchOutputs, [batchOutputs.length, 1], 'float32');
         return [inputTensor, outputTensor];
     }
@@ -297,6 +323,7 @@ class CNNPriceMultiscaleModel extends Model {
 
         // train the model for each tensor
         let options = _.clone(this.trainingOptions);
+        options.validationSplit = 0.15;
         options.callbacks = {
             onEpochEnd: async (epoch, logs) => {
                 // if (epoch % 10 == 0) {
@@ -365,7 +392,7 @@ class CNNPriceMultiscaleModel extends Model {
             // since we are oversamling, we NEED to shuffle.
             // this will make tf create in advance 10k values
             // and shuffle the array at every new sample
-            ds = ds.shuffle(1000, null, true);
+            ds = ds.shuffle(10000, null, true);
         }
         ds = ds.batch(options.batchsize);
 
@@ -377,13 +404,15 @@ class CNNPriceMultiscaleModel extends Model {
         dt.connectCandles(candles);
         let scaledCandles = this.scaleCandles(candles);
         let inputCandles = scaledCandles.slice(scaledCandles.length - this.getNbInputPeriods());
+
+
         let inputTensor = this.getInputTensor(inputCandles);
         // inputTensor.print();
 
         let outputTensor = this.model.predict(inputTensor);
+        // outputTensor.print();
         let arr = await outputTensor.data();
 
-        // outputTensor.print();
         tf.dispose(inputTensor);
         tf.dispose(outputTensor);
 

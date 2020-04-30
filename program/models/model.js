@@ -85,6 +85,87 @@ class Model {
     async accuracy(periods) {
         throw "to be redefined";
     }
+
+    // get scale parameters from an array of candles
+    findScaleParameters(candles) {
+        let scaleParameters = _.clone(this.settings.scaleParameters || {});
+        _.each(candles[0], (v, k) => {
+            if (typeof v === 'number' && k != "timestamp" && !scaleParameters[k]) {
+                scaleParameters[k] = {
+                    min: v,
+                    max: v,
+                }
+            }
+        });
+
+        _.each(candles, candle => {
+            _.each(candle, (v, k) => {
+                if (typeof v === 'number' && k != "timestamp") {
+                    if (v > scaleParameters[k].max) {
+                        scaleParameters[k].max = v;
+                    }
+                    if (v < scaleParameters[k].min) {
+                        scaleParameters[k].min = v;
+                    }
+                }
+            });
+        });
+
+        //scaleParameters = _.each(scaleParameters, k => k * this.scaleMargin);
+        this.settings.scaleParameters = scaleParameters;
+    }
+
+    // return an array of scaled candles, according to previously determined scale factors
+    scaleCandles(candles) {
+        if (!this.settings.scaleParameters) {
+            throw new Error("scale parameters were not loaded");
+        }
+
+        let scaledCandles = [];
+        _.each(candles, candle => {
+            if (!candle.normalized) {
+                let scaledCandle = _.clone(candle);
+                _.each(candle, (v, k) => {
+                    // if we determined the scale factor for this parameter, apply it
+                    if (this.settings.scaleParameters[k]) {
+                        scaledCandle[k] = this.scaleValue(k, v);
+                    } else {
+                        scaledCandle[k] = v; // some data are not meant to be scaled (ex: trend)
+                    }
+                });
+                scaledCandle.normalized = true;
+                scaledCandles.push(scaledCandle);
+            } else {
+                scaledCandles.push(_.clone(candle));
+            }
+        });
+        return scaledCandles;
+    }
+
+    // normalize utils
+    scaleValue(name, value) {
+        if (!this.settings.scaleParameters) {
+            throw new Error("scale parameters were not loaded");
+        }
+        if (!this.settings.scaleParameters[name]) {
+            throw new Error("scale parameters for " + name + " is not defined");
+        }
+
+        let scale = this.settings.scaleParameters[name];
+        return (value - scale.min) / (scale.max - scale.min); // minmax normalisation
+    }
+
+    unscaleValue(name, value) {
+        if (!this.settings.scaleParameters) {
+            throw new Error("scale parameters were not loaded");
+        }
+        if (!this.settings.scaleParameters[name]) {
+            throw new Error("scale parameters for " + name + " is not defined");
+        }
+
+        let scale = this.settings.scaleParameters[name];
+        return value * (scale.max - scale.min) + scale.min;
+    }
 }
 
 module.exports = Model;

@@ -34,7 +34,7 @@ const getKrakenData = async function(interval) {
     return _.sortBy(periods, p => p.timestamp);
 }
 
-const predict = async function(modelName) {
+const predict = async function(modelName, adjusted) {
     // load model class
     let Model = require('./models/prediction/' + modelName);
     let model = new Model();
@@ -43,7 +43,12 @@ const predict = async function(modelName) {
     // get btcdata
     let btcData = await getKrakenData(config.getInterval());
 
-    let predicted = await model.predict(btcData);
+    let predicted;
+    if (adjusted) {
+        predicted = await model.adjustedPredict(btcData);
+    } else {
+        predicted = await model.predict(btcData);
+    }
 
     console.log(`prediction=${JSON.stringify(predicted)}`);
 }

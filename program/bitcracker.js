@@ -86,10 +86,13 @@ var argv = yargs
     .command('predict <model>', 'Predict next bitcoin values', (yargs) => {
         yargs.positional('model', {
             describe: 'model to be used. "dense" or "denseVar"'
+        }).option('adjusted', {
+            describe: 'Adjust each prediction according to the last errors',
+            type: 'boolean',
         })
     }, async (argv) => {
         const predict = require('./predict');
-        await predict(argv.model);
+        await predict(argv.model, argv.adjusted);
     })
     .command('evolve', 'Evolve trader AIs to work on a market', (yargs) => {}, async (argv) => {
         const evolve = require('./evolve');

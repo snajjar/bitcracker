@@ -14,14 +14,11 @@ class CNNPricePredictionModel extends Model {
         this.trainingOptions = {
             shuffle: true,
             epochs: 50,
-            batchsize: 50,
-            validationSplit: 0.15
+            batchsize: 200,
         }
 
         this.nbFeatures = 4;
-        this.settings.nbInputPeriods = 24;
-
-        this.scaleMargin = 1.2; // 1.2: we can go 20% higher than the higher value
+        this.settings.nbInputPeriods = 500;
     }
 
     // uniq model name - usefull for save & load
@@ -48,7 +45,7 @@ class CNNPricePredictionModel extends Model {
         model.add(tf.layers.inputLayer({ inputShape: [nbPeriods, this.nbFeatures], }));
         model.add(tf.layers.conv1d({
             kernelSize: 2,
-            filters: 128,
+            filters: 8,
             strides: 1,
             use_bias: true,
             activation: 'relu',
@@ -60,7 +57,7 @@ class CNNPricePredictionModel extends Model {
         }));
         model.add(tf.layers.conv1d({
             kernelSize: 2,
-            filters: 64,
+            filters: 32,
             strides: 1,
             use_bias: true,
             activation: 'relu',
@@ -86,31 +83,36 @@ class CNNPricePredictionModel extends Model {
         this.model.compile({
             optimizer: optimizer,
             loss: 'meanSquaredError',
-            metrics: ['accuracy']
+            metrics: ['mse']
         });
     }
 
     // get scale parameters from an array of candles
     findScaleParameters(candles) {
-        let scaleParameters = {};
+        let scaleParameters = _.clone(this.settings.scaleParameters || {});
         _.each(candles[0], (v, k) => {
-            if (typeof v === 'number') {
-                scaleParameters[k] = v;
+            if (typeof v === 'number' && k != "timestamp" && !scaleParameters[k]) {
+                scaleParameters[k] = {
+                    min: v,
+                    max: v,
+                }
             }
         });
 
         _.each(candles, candle => {
             _.each(candle, (v, k) => {
                 if (typeof v === 'number' && k != "timestamp") {
-                    if (v > scaleParameters[k]) {
-                        scaleParameters[k] = v;
+                    if (v > scaleParameters[k].max) {
+                        scaleParameters[k].max = v;
+                    }
+                    if (v < scaleParameters[k].min) {
+                        scaleParameters[k].min = v;
                     }
                 }
             });
         });
 
-        // apply scale margin
-        scaleParameters = _.each(scaleParameters, k => k * this.scaleMargin);
+        //scaleParameters = _.each(scaleParameters, k => k * this.scaleMargin);
         this.settings.scaleParameters = scaleParameters;
     }
 
@@ -122,15 +124,20 @@ class CNNPricePredictionModel extends Model {
 
         let scaledCandles = [];
         _.each(candles, candle => {
+            if (candle.normalized) {
+                throw new Error("Error: scaling a candle that has already been normalized");
+            }
+
             let scaledCandle = _.clone(candle);
             _.each(candle, (v, k) => {
                 // if we determined the scale factor for this parameter, apply it
                 if (this.settings.scaleParameters[k]) {
-                    scaledCandle[k] = v / this.settings.scaleParameters[k];
+                    scaledCandle[k] = this.scaleValue(k, v);
                 } else {
                     scaledCandle[k] = v; // some data are not meant to be scaled (ex: trend)
                 }
             });
+            scaledCandle.normalized = true;
             scaledCandles.push(scaledCandle);
         });
         return scaledCandles;
@@ -144,7 +151,8 @@ class CNNPricePredictionModel extends Model {
             throw new Error("scale parameters for " + name + " is not defined");
         }
 
-        return value / this.settings.scaleParameters[name];
+        let scale = this.settings.scaleParameters[name];
+        return (value - scale.min) / (scale.max - scale.min); // minmax normalisation
     }
 
     unscaleValue(name, value) {
@@ -155,7 +163,8 @@ class CNNPricePredictionModel extends Model {
             throw new Error("scale parameters for " + name + " is not defined");
         }
 
-        return value * this.settings.scaleParameters[name];
+        let scale = this.settings.scaleParameters[name];
+        return value * (scale.max - scale.min) + scale.min;
     }
 
     // return a noramized NN-ready array of input
@@ -180,6 +189,10 @@ class CNNPricePredictionModel extends Model {
 
     // return a noramized NN-ready array of output
     getOutputArray(candle) {
+        if (candle.normalized) {
+            throw new Error('getOutputArray should only work with un-normalized candles');
+        }
+
         return [this.scaleValue("close", candle.close)];
     }
 
@@ -235,6 +248,61 @@ class CNNPricePredictionModel extends Model {
 
         tf.dispose(inputTensor);
         tf.dispose(outputTensor);
+    }
+
+    async trainLowMemory(candles) {
+        console.log("[*] Model low-memory training starting.");
+        console.log("[*] Preparing train data...");
+
+        //  find scale parameters on the 1h period (for volumes to be right)
+        this.findScaleParameters(candles);
+
+        // prepare our training options
+        let options = _.clone(this.trainingOptions);
+        options.callbacks = {
+            onEpochEnd: async (epoch, logs) => {
+                // if (epoch % 10 == 0) {
+                //     await this.accuracy(candles.splice(0, 21000)); // show acc on 2 first weeks
+                // }
+                await this.save();
+            },
+        }
+
+        if (this.trainingOptions.verbose !== 0) {
+            console.log('[*] Training model with following settings: ' + JSON.stringify(this.settings, null, 2));
+        }
+
+        // data generator (inputs)
+        const nbPeriods = this.getNbInputPeriods();
+        let self = this;
+        let data = function*() {
+            for (let i = 0; i < candles.length - nbPeriods; i++) {
+                yield self.getInputArray(candles.slice(i, i + nbPeriods));
+            }
+        }
+
+        // label generator (outputs)
+        let label = function*() {
+            for (let i = 0; i < candles.length - nbPeriods; i++) {
+                let curr = candles[i + nbPeriods];
+                yield self.getOutputArray(curr);
+            }
+        }
+
+        const xs = tf.data.generator(data);
+        const ys = tf.data.generator(label);
+
+        // We zip the data and labels together, shuffle and batch it according to training options defined.
+        let ds = tf.data.zip({ xs, ys });
+        if (options.shuffle) {
+            // since we are oversamling, we NEED to shuffle.
+            // this will make tf create in advance 10k values
+            // and shuffle the array at every new sample
+            ds = ds.shuffle(1000, null, true);
+        }
+        ds = ds.batch(options.batchsize);
+
+        await this.model.fitDataset(ds, options);
     }
 
     async predict(candles) {

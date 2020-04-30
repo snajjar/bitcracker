@@ -17,9 +17,10 @@ class CNNTrendPredictionModel extends Model {
             verbose: 1,
         }
 
-        this.uptrendTreshold = 0;
-        this.downtrendTreshold = 0;
-        this.nbFeatures = 25;
+        this.uptrendTreshold = 0.01;
+        this.downtrendTreshold = 0.01;
+        this.nbWindows = 5;
+        this.nbFeatures = 5;
         this.settings.nbInputPeriods = 8;
 
         this.scaleMargin = 1.1; // 1.2: we can go 20% higher than the higher value
@@ -48,20 +49,20 @@ class CNNTrendPredictionModel extends Model {
         let model = tf.sequential();
 
         // add a conv2d layer  with 4 features, high, low, close and volume
-        model.add(tf.layers.inputLayer({ inputShape: [nbPeriods, this.nbFeatures], }));
-        model.add(tf.layers.conv1d({
+        model.add(tf.layers.inputLayer({ inputShape: [nbPeriods, this.nbFeatures, this.nbWindows], }));
+        model.add(tf.layers.conv2d({
             kernelSize: 2,
-            filters: 128,
+            filters: 8,
             strides: 1,
             use_bias: true,
             activation: 'relu',
             kernelInitializer: 'VarianceScaling'
         }));
-        model.add(tf.layers.maxPooling1d({
-            poolSize: [2],
-            strides: [1]
-        }));
-        model.add(tf.layers.conv1d({
+        // model.add(tf.layers.maxPooling2d({
+        //     poolSize: [1, 2],
+        //     strides: [1, 1]
+        // }));
+        model.add(tf.layers.conv2d({
             kernelSize: 2,
             filters: 32,
             strides: 1,
@@ -69,12 +70,24 @@ class CNNTrendPredictionModel extends Model {
             activation: 'relu',
             kernelInitializer: 'VarianceScaling'
         }));
-        model.add(tf.layers.maxPooling1d({
-            poolSize: [2],
-            strides: [1]
+        // model.add(tf.layers.maxPooling2d({
+        //     poolSize: [1, 2],
+        //     strides: [1, 1]
+        // }));
+        model.add(tf.layers.conv2d({
+            kernelSize: 2,
+            filters: 128,
+            strides: 1,
+            use_bias: true,
+            activation: 'relu',
+            kernelInitializer: 'VarianceScaling'
         }));
         model.add(tf.layers.flatten());
-        model.add(tf.layers.dense({ units: 8 }));
+        // model.add(tf.layers.dense({
+        //     units: 32,
+        //     kernelInitializer: 'VarianceScaling',
+        //     activation: 'relu'
+        // }));
         model.add(tf.layers.dense({
             units: 3,
             kernelInitializer: 'VarianceScaling',
@@ -86,80 +99,12 @@ class CNNTrendPredictionModel extends Model {
     }
 
     compile() {
-        const optimizer = tf.train.adam(0.002);
+        const optimizer = tf.train.adam(0.01);
         this.model.compile({
             optimizer: optimizer,
             loss: 'categoricalCrossentropy',
             metrics: ['accuracy']
         });
-    }
-
-    // get scale parameters from an array of candles
-    findScaleParameters(candles) {
-        let scaleParameters = _.clone(this.settings.scaleParameters || {});
-        _.each(candles[0], (v, k) => {
-            if (typeof v === 'number' && !scaleParameters[k]) {
-                scaleParameters[k] = v;
-            }
-        });
-
-        _.each(candles, candle => {
-            _.each(candle, (v, k) => {
-                if (typeof v === 'number' && k != "timestamp") {
-                    if (v > scaleParameters[k]) {
-                        scaleParameters[k] = v;
-                    }
-                }
-            });
-        });
-
-        // apply scale margin
-        scaleParameters = _.each(scaleParameters, k => k * this.scaleMargin);
-        this.settings.scaleParameters = scaleParameters;
-    }
-
-    // return an array of scaled candles, according to previously determined scale factors
-    scaleCandles(candles) {
-        if (!this.settings.scaleParameters) {
-            throw new Error("scale parameters were not loaded");
-        }
-
-        let scaledCandles = [];
-        _.each(candles, candle => {
-            let scaledCandle = _.clone(candle);
-            _.each(candle, (v, k) => {
-                // if we determined the scale factor for this parameter, apply it
-                if (this.settings.scaleParameters[k]) {
-                    scaledCandle[k] = v / this.settings.scaleParameters[k];
-                } else {
-                    scaledCandle[k] = v; // some data are not meant to be scaled (ex: trend)
-                }
-            });
-            scaledCandles.push(scaledCandle);
-        });
-        return scaledCandles;
-    }
-
-    scaleValue(name, value) {
-        if (!this.settings.scaleParameters) {
-            throw new Error("scale parameters were not loaded");
-        }
-        if (!this.settings.scaleParameters[name]) {
-            throw new Error("scale parameters for " + name + " is not defined");
-        }
-
-        return value / this.settings.scaleParameters[name];
-    }
-
-    unscaleValue(name, value) {
-        if (!this.settings.scaleParameters) {
-            throw new Error("scale parameters were not loaded");
-        }
-        if (!this.settings.scaleParameters[name]) {
-            throw new Error("scale parameters for " + name + " is not defined");
-        }
-
-        return value * this.settings.scaleParameters[name];
     }
 
     // merge candles n by n
@@ -180,13 +125,14 @@ class CNNTrendPredictionModel extends Model {
     // return a noramized NN-ready array of input
     getInputArray(candles, scaled = false) {
         candles = candles.slice(candles.length - this.getNbInputPeriods());
+        let scaledCandles = this.scaleCandles(candles);
 
         // extract array for each time period
-        let scaledCandles1m = candles;
-        let scaledCandles5m = this.mergeCandlesBy(candles, 5);
-        let scaledCandles15m = this.mergeCandlesBy(candles, 15);
-        let scaledCandles30m = this.mergeCandlesBy(candles, 30);
-        let scaledCandles1h = this.mergeCandlesBy(candles, 60);
+        let scaledCandles1m = scaledCandles;
+        let scaledCandles5m = this.mergeCandlesBy(scaledCandles, 5);
+        let scaledCandles15m = this.mergeCandlesBy(scaledCandles, 15);
+        let scaledCandles30m = this.mergeCandlesBy(scaledCandles, 30);
+        let scaledCandles1h = this.mergeCandlesBy(scaledCandles, 60);
 
         // now get the nbPeriods last candles for each time period
         let input1m = scaledCandles1m.slice(scaledCandles1m.length - this.settings.nbInputPeriods);
@@ -200,31 +146,41 @@ class CNNTrendPredictionModel extends Model {
             // push every information for every time period
             // group them so it my be easier to detect patterns
             arr.push([
-                input1m[i].open,
-                input5m[i].open,
-                input15m[i].open,
-                input30m[i].open,
-                input1h[i].open,
-                input1m[i].high,
-                input5m[i].high,
-                input15m[i].high,
-                input30m[i].high,
-                input1h[i].high,
-                input1m[i].low,
-                input5m[i].low,
-                input15m[i].low,
-                input30m[i].low,
-                input1h[i].low,
-                input1m[i].close,
-                input5m[i].close,
-                input15m[i].close,
-                input30m[i].close,
-                input1h[i].close,
-                input1m[i].volume,
-                input5m[i].volume,
-                input15m[i].volume,
-                input30m[i].volume,
-                input1h[i].volume,
+                [
+                    input1m[i].open,
+                    input5m[i].open,
+                    input15m[i].open,
+                    input30m[i].open,
+                    input1h[i].open,
+                ],
+                [
+                    input1m[i].high,
+                    input5m[i].high,
+                    input15m[i].high,
+                    input30m[i].high,
+                    input1h[i].high,
+                ],
+                [
+                    input1m[i].low,
+                    input5m[i].low,
+                    input15m[i].low,
+                    input30m[i].low,
+                    input1h[i].low,
+                ],
+                [
+                    input1m[i].close,
+                    input5m[i].close,
+                    input15m[i].close,
+                    input30m[i].close,
+                    input1h[i].close,
+                ],
+                [
+                    input1m[i].volume,
+                    input5m[i].volume,
+                    input15m[i].volume,
+                    input30m[i].volume,
+                    input1h[i].volume,
+                ]
             ])
         }
 
@@ -245,7 +201,7 @@ class CNNTrendPredictionModel extends Model {
     // method to get a input tensor for this model for an input, from periods of btc price
     getInputTensor(candles) {
         let inputs = this.getInputArray(candles);
-        return tf.tensor3d([inputs]);
+        return tf.tensor4d([inputs]);
     }
 
     getTrainData(candles) {
@@ -299,7 +255,7 @@ class CNNTrendPredictionModel extends Model {
             }
         }
 
-        const inputTensor = tf.tensor3d(batchInputs, [batchInputs.length, this.settings.nbInputPeriods, this.nbFeatures], 'float32');
+        const inputTensor = tf.tensor4d(batchInputs, [batchInputs.length, this.settings.nbInputPeriods, this.nbFeatures], 'float32');
         const outputTensor = tf.tensor2d(batchOutputs, [batchOutputs.length, 3], 'float32');
         return [inputTensor, outputTensor];
     }
@@ -386,7 +342,7 @@ class CNNTrendPredictionModel extends Model {
                 await this.save();
             },
             // Attach some class weight for our model to be more attentive to certain classes
-            classWeight: [1, 1, 0.0001]
+            classWeight: [oversamplingRatios["down"], oversamplingRatios["up"], 1]
         }
 
         if (this.trainingOptions.verbose !== 0) {
@@ -397,23 +353,18 @@ class CNNTrendPredictionModel extends Model {
         const nbPeriods = this.getNbInputPeriods();
         let self = this;
         let data = function*() {
-            for (let i = 0; i < scaledCandles.length - nbPeriods - 1; i++) {
-                let next = scaledCandles[i + nbPeriods + 1];
-                // for (var j = 0; j < oversamplingRatios[next.trend]; j++) {
+            for (let i = 0; i < scaledCandles.length - nbPeriods; i++) {
                 yield self.getInputArray(scaledCandles.slice(i, i + nbPeriods));
-                // }
             }
         }
 
         // label generator (outputs)
         let nbLabels = { "up": 0, "still": 0, "down": 0 };
         let label = function*() {
-            for (let i = 0; i < scaledCandles.length - nbPeriods - 1; i++) {
-                let next = scaledCandles[i + nbPeriods + 1];
-                // for (var j = 0; j < oversamplingRatios[next.trend]; j++) {
-                nbLabels[next.trend]++;
-                yield self.getOutputArray(next);
-                // }
+            for (let i = 0; i < scaledCandles.length - nbPeriods; i++) {
+                let curr = scaledCandles[i + nbPeriods];
+                nbLabels[curr.trend]++;
+                yield self.getOutputArray(curr);
             }
         }
 

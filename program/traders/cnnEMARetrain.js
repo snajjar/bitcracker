@@ -4,7 +4,8 @@ const tulind = require('tulind');
 const tf = require('@tensorflow/tfjs-node');
 const datatools = require('../lib/datatools');
 const config = require('../config');
-const CNNPricePredictionModel = require('../models/prediction/cnnPricePrediction');
+//const CNNPricePredictionModel = require('../models/prediction/cnnPricePrediction');
+const CNNPriceMultiscale = require('../models/prediction/cnnPriceMultiscale');
 
 class TraderCNNEMAPredict extends Trader {
     constructor() {
@@ -20,7 +21,7 @@ class TraderCNNEMAPredict extends Trader {
         this.retrainEvery = 1440 * 7; // 1 week
         this.newCandlesSinceRetrain = 0;
         this.minTrainPeriods = this.retrainEvery; // should be at least this.retrainEvery
-        this.maxTrainPeriods = 1440 * 30 * 3; // 3 month
+        this.maxTrainPeriods = 1440 * 30; // 1 month
 
         this.history = [];
     }
@@ -30,13 +31,13 @@ class TraderCNNEMAPredict extends Trader {
     }
 
     async initialize() {
-        this.model = new CNNPricePredictionModel();
+        this.model = new CNNPriceMultiscale();
         this.model.settings.nbInputPeriods = 16;
         this.model.createModel();
         await this.model.compile();
         await this.model.initialize();
         this.model.trainingOptions.verbose = 0; // silent plz
-        this.model.trainingOptions.epochs = 3;
+        this.model.trainingOptions.epochs = 1;
     }
 
     analysisIntervalLength() {
