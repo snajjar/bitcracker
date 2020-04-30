@@ -336,8 +336,8 @@ class CNNTrendPredictionModel extends Model {
         options.callbacks = {
             onEpochEnd: async (epoch, logs) => {
                 console.log(`[*] Trained with: ${nbLabels.up} up, ${nbLabels.down} down, ${nbLabels.still} still`);
-                if (epoch % 10 == 0) {
-                    await this.accuracy(candles)
+                if (epoch % 5 == 0) {
+                    await this.accuracy(candles.splice(0, 1440 * 7))
                 }
                 await this.save();
             },
