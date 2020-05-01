@@ -13,9 +13,19 @@ class CNNTrendPredictionModel extends Model {
         this.trainingOptions = {
             shuffle: true,
             epochs: 10000,
-            batchsize: 1440,
+            batchsize: 288,
             verbose: 1,
+            learningRate: 0.1,
         }
+
+        // adaptatively change the learning rate during training, if we're stuck
+
+        this.learningRateCycle = [];
+
+        this.learningRateIndex = 0;
+        this.bestAcc = -1;
+        this.bestLoss = +Infinity;
+        this.optimizer = null;
 
         this.uptrendTreshold = 0.01;
         this.downtrendTreshold = 0.01;
@@ -24,6 +34,18 @@ class CNNTrendPredictionModel extends Model {
         this.settings.nbInputPeriods = 8;
 
         this.scaleMargin = 1.1; // 1.2: we can go 20% higher than the higher value
+    }
+
+    generateLearningCycle(start, end, step) {
+        this.learningRateCycle = [];
+        for (var i = start; i < end; i += step) {
+            let val = i > 0 ? Math.round(i * 1000) / 1000 : 0.001; // avoid 0
+            this.learningRateCycle.push(val);
+        }
+        for (var i = end; i >= start; i -= step) {
+            let val = i > 0 ? Math.round(i * 1000) / 1000 : 0.001; // avoid 0
+            this.learningRateCycle.push(val);
+        }
     }
 
     // uniq model name - usefull for save & load
@@ -48,8 +70,9 @@ class CNNTrendPredictionModel extends Model {
 
         let model = tf.sequential();
 
-        // add a conv2d layer  with 4 features, high, low, close and volume
+
         model.add(tf.layers.inputLayer({ inputShape: [nbPeriods, this.nbFeatures, this.nbWindows], }));
+        model.add(tf.layers.batchNormalization({}));
         model.add(tf.layers.conv2d({
             kernelSize: 2,
             filters: 8,
@@ -58,10 +81,11 @@ class CNNTrendPredictionModel extends Model {
             activation: 'relu',
             kernelInitializer: 'VarianceScaling'
         }));
-        // model.add(tf.layers.maxPooling2d({
-        //     poolSize: [1, 2],
-        //     strides: [1, 1]
-        // }));
+        model.add(tf.layers.averagePooling2d({
+            poolSize: [1, 2],
+            strides: [1, 1]
+        }));
+        model.add(tf.layers.batchNormalization({}));
         model.add(tf.layers.conv2d({
             kernelSize: 2,
             filters: 32,
@@ -70,24 +94,20 @@ class CNNTrendPredictionModel extends Model {
             activation: 'relu',
             kernelInitializer: 'VarianceScaling'
         }));
-        // model.add(tf.layers.maxPooling2d({
-        //     poolSize: [1, 2],
-        //     strides: [1, 1]
-        // }));
+        model.add(tf.layers.averagePooling2d({
+            poolSize: [1, 2],
+            strides: [1, 1]
+        }));
+        model.add(tf.layers.batchNormalization({}));
         model.add(tf.layers.conv2d({
             kernelSize: 2,
-            filters: 128,
+            filters: 512,
             strides: 1,
             use_bias: true,
             activation: 'relu',
             kernelInitializer: 'VarianceScaling'
         }));
         model.add(tf.layers.flatten());
-        // model.add(tf.layers.dense({
-        //     units: 32,
-        //     kernelInitializer: 'VarianceScaling',
-        //     activation: 'relu'
-        // }));
         model.add(tf.layers.dense({
             units: 3,
             kernelInitializer: 'VarianceScaling',
@@ -99,9 +119,13 @@ class CNNTrendPredictionModel extends Model {
     }
 
     compile() {
-        const optimizer = tf.train.adam(0.01);
+        // 0, 1, 0.01 for adam, 0, 2, 0.1 for SGD
+        //this.generateLearningCycle(0, 2, 0.2);
+        // this.optimizer = tf.train.sgd(this.trainingOptions.learningRate);
+        //this.optimizer = tf.train.adadelta(0.01);
+        this.optimizer = tf.train.momentum(0.01, 0.01);
         this.model.compile({
-            optimizer: optimizer,
+            optimizer: this.optimizer,
             loss: 'categoricalCrossentropy',
             metrics: ['accuracy']
         });
@@ -285,6 +309,10 @@ class CNNTrendPredictionModel extends Model {
         this.findScaleParameters(candles1h);
         let scaledCandles = this.scaleCandles(trainCandles);
 
+        // determine ratios for oversampling, we want to have ~ the same number of
+        // uptrends, downtrends and still in the training model
+        let oversamplingRatios = this.getOversamplingRatios(scaledCandles);
+
         // get price variations
         let [inputTensor, outputTensor] = this.getTrainData(scaledCandles);
 
@@ -303,7 +331,7 @@ class CNNTrendPredictionModel extends Model {
                 await this.save();
             },
             // Attach some class weight for our model to be more attentive to certain classes
-            //classWeight: [1, 1, 2]
+            classWeight: [oversamplingRatios["down"], oversamplingRatios["up"], 1]
         }
         await this.model.fit(inputTensor, outputTensor, options);
 
@@ -311,6 +339,30 @@ class CNNTrendPredictionModel extends Model {
         tf.dispose(outputTensor);
     }
 
+    setLearningRate(v) {
+        // only developped for SGD for now
+        if (this.optimizer.setLearningRate) {
+            this.optimizer.setLearningRate(v);
+            return true;
+        } else {
+            this.optimizer.learningRate = v;
+            return false;
+        }
+    }
+
+    randomizeLearningRate() {
+        this.learningRateIndex = (this.learningRateIndex + Math.floor(Math.random() * 10)) % this.learningRateCycle.length;
+        let newLR = this.learningRateCycle[this.learningRateIndex];
+        this.setLearningRate(newLR);
+    }
+
+    // change the learning rate according to the Cyclical Learning Rate method (for super convergence)
+    cycleLearningRate() {
+        this.learningRateIndex = (this.learningRateIndex + 1) % this.learningRateCycle.length;
+        let newLR = this.learningRateCycle[this.learningRateIndex];
+        console.log("[*] Setting learning rate to: ", newLR);
+        this.setLearningRate(newLR);
+    }
 
     async trainLowMemory(candles) {
         console.log("[*] Model low-memory training starting.");
@@ -335,12 +387,22 @@ class CNNTrendPredictionModel extends Model {
         let options = _.clone(this.trainingOptions);
         options.callbacks = {
             onEpochEnd: async (epoch, logs) => {
-                console.log(`[*] Trained with: ${nbLabels.up} up, ${nbLabels.down} down, ${nbLabels.still} still`);
                 if (epoch % 5 == 0) {
-                    await this.accuracy(candles.splice(0, 1440 * 7))
+                    await this.accuracy(candles.slice(0, 1440 * 7))
                 }
-                await this.save();
+
+                let acc = logs.acc;
+                if (acc > this.bestAcc) {
+                    this.bestAcc = acc;
+                    console.log(`[*] Best accuracy so far: ${(this.bestAcc*100).toFixed(3)}%`);
+                    console.log('[*] saving model');
+                    await this.save();
+                }
+
+                // ensure it's not always the same batches that get the same learning rate
+                //this.cycleLearningRate();
             },
+            onBatchEnd: async (batch, logs) => {},
             // Attach some class weight for our model to be more attentive to certain classes
             classWeight: [oversamplingRatios["down"], oversamplingRatios["up"], 1]
         }
@@ -349,21 +411,29 @@ class CNNTrendPredictionModel extends Model {
             console.log('[*] Training model with following settings: ' + JSON.stringify(this.settings, null, 2));
         }
 
+        let splitIndex = Math.floor(scaledCandles.length * 0.80); // 80-20 train/test data split
+        let trainingDataset = this.getDataset(scaledCandles, 0, splitIndex, options);
+        let testingDataset = this.getDataset(scaledCandles, splitIndex, scaledCandles.length, options);
+        options.validationData = testingDataset;
+        await this.model.fitDataset(trainingDataset, options);
+    }
+
+    getDataset(scaledCandles, startIndex, stopIndex, options) {
+        let trainingCandles = scaledCandles.slice(startIndex, stopIndex);
+
         // data generator (inputs)
         const nbPeriods = this.getNbInputPeriods();
         let self = this;
         let data = function*() {
-            for (let i = 0; i < scaledCandles.length - nbPeriods; i++) {
-                yield self.getInputArray(scaledCandles.slice(i, i + nbPeriods));
+            for (let i = 0; i < trainingCandles.length - nbPeriods; i++) {
+                yield self.getInputArray(trainingCandles.slice(i, i + nbPeriods));
             }
         }
 
         // label generator (outputs)
-        let nbLabels = { "up": 0, "still": 0, "down": 0 };
         let label = function*() {
-            for (let i = 0; i < scaledCandles.length - nbPeriods; i++) {
-                let curr = scaledCandles[i + nbPeriods];
-                nbLabels[curr.trend]++;
+            for (let i = 0; i < trainingCandles.length - nbPeriods; i++) {
+                let curr = trainingCandles[i + nbPeriods];
                 yield self.getOutputArray(curr);
             }
         }
@@ -380,9 +450,10 @@ class CNNTrendPredictionModel extends Model {
             ds = ds.shuffle(50000, null, true);
         }
         ds = ds.batch(options.batchsize);
-
-        await this.model.fitDataset(ds, options);
+        return ds;
     }
+
+
 
     async predict(candles) {
         let scaledCandles = this.scaleCandles(candles);
