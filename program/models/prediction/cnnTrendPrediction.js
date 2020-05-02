@@ -15,7 +15,7 @@ class CNNTrendPredictionModel extends Model {
             epochs: 10000,
             batchsize: 288,
             verbose: 1,
-            learningRate: 0.1,
+            learningRate: 0.01,
         }
 
         // adaptatively change the learning rate during training, if we're stuck
@@ -27,8 +27,8 @@ class CNNTrendPredictionModel extends Model {
         this.bestLoss = +Infinity;
         this.optimizer = null;
 
-        this.uptrendTreshold = 0.01;
-        this.downtrendTreshold = 0.01;
+        this.uptrendTreshold = 0.002;
+        this.downtrendTreshold = 0.002;
         this.nbWindows = 5;
         this.nbFeatures = 5;
         this.settings.nbInputPeriods = 8;
@@ -38,11 +38,11 @@ class CNNTrendPredictionModel extends Model {
 
     generateLearningCycle(start, end, step) {
         this.learningRateCycle = [];
-        for (var i = start; i < end; i += step) {
+        for (var i = end; i >= start; i -= step) {
             let val = i > 0 ? Math.round(i * 1000) / 1000 : 0.001; // avoid 0
             this.learningRateCycle.push(val);
         }
-        for (var i = end; i >= start; i -= step) {
+        for (var i = start; i < end; i += step) {
             let val = i > 0 ? Math.round(i * 1000) / 1000 : 0.001; // avoid 0
             this.learningRateCycle.push(val);
         }
@@ -75,39 +75,39 @@ class CNNTrendPredictionModel extends Model {
         model.add(tf.layers.batchNormalization({}));
         model.add(tf.layers.conv2d({
             kernelSize: 2,
-            filters: 8,
+            filters: 16,
             strides: 1,
             use_bias: true,
             activation: 'relu',
             kernelInitializer: 'VarianceScaling'
         }));
-        model.add(tf.layers.averagePooling2d({
-            poolSize: [1, 2],
-            strides: [1, 1]
-        }));
+        // model.add(tf.layers.averagePooling2d({
+        //     poolSize: [1, 2],
+        //     strides: [1, 1]
+        // }));
         model.add(tf.layers.batchNormalization({}));
         model.add(tf.layers.conv2d({
             kernelSize: 2,
-            filters: 32,
+            filters: 256,
             strides: 1,
             use_bias: true,
             activation: 'relu',
             kernelInitializer: 'VarianceScaling'
         }));
-        model.add(tf.layers.averagePooling2d({
-            poolSize: [1, 2],
-            strides: [1, 1]
-        }));
-        model.add(tf.layers.batchNormalization({}));
-        model.add(tf.layers.conv2d({
-            kernelSize: 2,
-            filters: 512,
-            strides: 1,
-            use_bias: true,
-            activation: 'relu',
-            kernelInitializer: 'VarianceScaling'
-        }));
+        // model.add(tf.layers.averagePooling2d({
+        //     poolSize: [1, 2],
+        //     strides: [1, 1]
+        // }));
+        // model.add(tf.layers.conv2d({
+        //     kernelSize: 2,
+        //     filters: 256,
+        //     strides: 1,
+        //     use_bias: true,
+        //     activation: 'relu',
+        //     kernelInitializer: 'VarianceScaling'
+        // }));
         model.add(tf.layers.flatten());
+        model.add(tf.layers.batchNormalization({}));
         model.add(tf.layers.dense({
             units: 3,
             kernelInitializer: 'VarianceScaling',
@@ -120,10 +120,11 @@ class CNNTrendPredictionModel extends Model {
 
     compile() {
         // 0, 1, 0.01 for adam, 0, 2, 0.1 for SGD
-        //this.generateLearningCycle(0, 2, 0.2);
-        // this.optimizer = tf.train.sgd(this.trainingOptions.learningRate);
-        //this.optimizer = tf.train.adadelta(0.01);
-        this.optimizer = tf.train.momentum(0.01, 0.01);
+        this.generateLearningCycle(0, 2, 0.2);
+        //this.optimizer = tf.train.sgd(this.trainingOptions.learningRate);
+        //this.optimizer = tf.train.adam(this.trainingOptions.learningRate);
+        this.optimizer = tf.train.adadelta(0.01);
+        //this.optimizer = tf.train.momentum(0.01, 0.01);
         this.model.compile({
             optimizer: this.optimizer,
             loss: 'categoricalCrossentropy',
