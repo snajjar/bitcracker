@@ -11,11 +11,11 @@ class EMAProfitTrader extends Trader {
         this.emaUpTrigger = 0.25;
         this.emaDownTrigger = 0.2;
         this.maxTimeInTrade = 1440 * 1.5; // 1 day
-        this.objective = 0.12;
+        this.objective = 0.15;
         // this.adxPeriods = 14;
         // this.adxMinTrigger = 7;
         // this.adxMaxTrigger = 90;
-        this.bbandTrigger = 0.0035;
+        this.bbandTrigger = 0.004;
         this.volatilityTrigger = 0.0042;
 
         // trade decision making
@@ -95,7 +95,7 @@ class EMAProfitTrader extends Trader {
 
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
-        // let stopped = this.stopLoss(this.stopLossRatio);
+        // let stopped = this.stopLoss(0.1);
         // if (stopped) return;
 
         // stopped = this.takeProfit(this.takeProfitRatio);
