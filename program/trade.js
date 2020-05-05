@@ -166,7 +166,6 @@ class Kraken {
         } catch (e) {
             console.error('It appears that you are not logged in correctly'.red);
             throw e;
-            process.exit(-1);
         }
     }
 
@@ -181,8 +180,11 @@ class Kraken {
             let errorMsg = _.get(r, ['data', 'error', 0]);
             if (errorMsg) {
                 console.error('Error retrieving account balance: ' + errorMsg.red);
+                console.error(e);
             } else {
                 console.error('Error retrieving account balance');
+                console.error(e);
+                console.log(JSON.stringify(r));
             }
         }
     }
@@ -199,6 +201,8 @@ class Kraken {
                 console.error('Error retrieving account orders: ' + errorMsg.red);
             } else {
                 console.error('Error retrieving account orders');
+                console.error(e);
+                console.log(JSON.stringify(r));
             }
         }
     }
@@ -232,6 +236,8 @@ class Kraken {
                 console.error('Error while buying: ' + errorMsg.red);
             } else {
                 console.error('Error while buying'.red);
+                console.error(e);
+                console.log(JSON.stringify(r));
             }
             process.exit(-1);
         }
@@ -266,6 +272,8 @@ class Kraken {
                 console.error('Error while selling: ' + errorMsg.red);
             } else {
                 console.error('Error while selling'.red);
+                console.error(e);
+                console.log(JSON.stringify(r));
             }
             process.exit(-1);
         }
