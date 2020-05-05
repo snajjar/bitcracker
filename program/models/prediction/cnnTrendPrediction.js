@@ -27,8 +27,8 @@ class CNNTrendPredictionModel extends Model {
         this.bestLoss = +Infinity;
         this.optimizer = null;
 
-        this.uptrendTreshold = 0.002;
-        this.downtrendTreshold = 0.002;
+        this.uptrendTreshold = 0.005;
+        this.downtrendTreshold = 0.005;
         this.nbWindows = 5;
         this.nbFeatures = 5;
         this.settings.nbInputPeriods = 8;
@@ -405,7 +405,7 @@ class CNNTrendPredictionModel extends Model {
             },
             onBatchEnd: async (batch, logs) => {},
             // Attach some class weight for our model to be more attentive to certain classes
-            classWeight: [oversamplingRatios["down"], oversamplingRatios["up"], 1]
+            classWeight: [oversamplingRatios["down"] * 10, oversamplingRatios["up"] * 10, 1]
         }
 
         if (this.trainingOptions.verbose !== 0) {

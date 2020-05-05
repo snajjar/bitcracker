@@ -2,22 +2,22 @@ const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-class ScalpingTrader extends Trader {
+class EMAProfitTrader extends Trader {
     constructor() {
         super();
 
         // parameters
         this.emaPeriods = 2;
-        this.emaUpTrigger = 0.4;
+        this.emaUpTrigger = 0.25;
         this.emaDownTrigger = 0.2;
+        this.maxTimeInTrade = 1440 * 1.5; // 1 day
+        this.objective = 0.12;
 
         // trade decision making
         this.inTrade = false;
         this.enterTradeValue = 0;
         this.timeInTrade = 0;
-        this.maxTimeInTrade = 1440 * 3; // 1 day
-        this.objective = 0.15;
-        this.step = (0.1 - this.buyTax - this.sellTax) / this.maxTimeInTrade;
+        this.step = (this.objective - this.buyTax - this.sellTax) / this.maxTimeInTrade;
     }
 
     analysisIntervalLength() {
@@ -26,7 +26,7 @@ class ScalpingTrader extends Trader {
     }
 
     hash() {
-        return "Algo_scalping";
+        return "Algo_EMAProfit";
     }
 
     getAVG(dataPeriods) {
@@ -66,7 +66,6 @@ class ScalpingTrader extends Trader {
             if (bigDown) {
                 // BUY condition
                 this.timeInTrade = 0;
-                this.objective = 0.1;
                 return this.buy();
             } else {
                 return this.hold();
@@ -83,4 +82,4 @@ class ScalpingTrader extends Trader {
     }
 }
 
-module.exports = ScalpingTrader;
+module.exports = EMAProfitTrader;

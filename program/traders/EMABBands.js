@@ -82,9 +82,9 @@ class EMAADXTrader extends Trader {
             let trendDown = diff > this.emaTrigger;
 
             // determine trend strengh with ADX
-            let adx = await this.getADX(dataPeriods);
-            let lastADX = adx[adx.length - 1];
-            let trendSeemsStrong = !isNaN(lastADX) && lastADX > this.adxTrigger;
+            // let adx = await this.getADX(dataPeriods);
+            // let lastADX = adx[adx.length - 1];
+            // let trendSeemsStrong = !isNaN(lastADX) && lastADX > this.adxTrigger;
 
             // get Bollinger bands, check if the standard deviation is increasing
             let [lowBand, midBand, highBand] = await this.getBBands(dataPeriods);
@@ -99,7 +99,7 @@ class EMAADXTrader extends Trader {
             //console.log(bbands);
 
             if (!this.inTrade) {
-                if (trendUp && trendSeemsStrong && priceChannelOK) {
+                if (trendUp && priceChannelOK) {
                     // BUY condition
                     return this.buy();
                 } else {
