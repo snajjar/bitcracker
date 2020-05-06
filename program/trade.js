@@ -161,8 +161,8 @@ class Kraken {
         try {
             // get balance info
             let r = await this.kraken.api('Balance');
-            this.eurWallet = parseInt(r.result["ZEUR"]);
-            this.btcWallet = parseInt(r.result["XXBT"]);
+            this.eurWallet = parseFloat(r.result["ZEUR"]);
+            this.btcWallet = parseFloat(r.result["XXBT"]);
         } catch (e) {
             console.error('It appears that you are not logged in correctly'.red);
             throw e;
@@ -174,8 +174,8 @@ class Kraken {
         try {
             // get balance info
             r = await this.kraken.api('Balance');
-            this.eurWallet = parseInt(r.result["ZEUR"]);
-            this.btcWallet = parseInt(r.result["XXBT"]);
+            this.eurWallet = parseFloat(r.result["ZEUR"]);
+            this.btcWallet = parseFloat(r.result["XXBT"]);
         } catch (e) {
             let errorMsg = _.get(r, ['data', 'error', 0]);
             if (errorMsg) {
