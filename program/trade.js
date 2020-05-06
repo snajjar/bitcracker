@@ -103,6 +103,7 @@ class Kraken {
         this.placedOrders = []; // history of orders we made
 
         this.openOrders = {};
+        this.closedOrders = {};
     }
 
     // get the max BTC volume we can buy with our current EUR wallet
@@ -207,6 +208,25 @@ class Kraken {
         }
     }
 
+    async refreshClosedOrders() {
+        let r = null;
+        try {
+            // get balance info
+            r = await this.kraken.api('ClosedOrders');
+            //console.log(JSON.stringify(r));
+            this.closedOrders = r.result.closed;
+        } catch (e) {
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error retrieving account orders: ' + errorMsg.red);
+            } else {
+                console.error('Error retrieving account orders');
+                console.error(e);
+                console.log(JSON.stringify(r));
+            }
+        }
+    }
+
     async buyAll(currentBitcoinPrice) {
         let r = null;
 
@@ -285,6 +305,9 @@ class Kraken {
 
         await sleep(1);
         await this.refreshOpenOrders();
+
+        await sleep(1);
+        await this.refreshClosedOrders();
     }
 
     displayBalance() {
@@ -298,11 +321,36 @@ class Kraken {
         });
     }
 
+    displayClosedOrders() {
+        console.log(`- ${_.keys(this.closedOrders).length.toString().cyan} closed orders (last 10):`);
+        let sortedClosedOrders = _.sortBy(this.closedOrders, o => o.closetm);
+        let lastOrders = _.slice(sortedClosedOrders, sortedClosedOrders.length - 10);
+        _.each(_.reverse(lastOrders), (o, key) => {
+            if (o.price > 0) {
+                console.log(`   - ${key}: ${o.descr.order} (price: ${o.price})`);
+            } else {
+                console.log(`   - ${key}: ${o.descr.order}`);
+            }
+        });
+    }
+
+    lastBuyPrice() {
+        let buys = _.sortBy(this.closedOrders, o => o.descr.type == "buy");
+        let sortedBuys = _.sortBy(buys, o => o.closetm);
+        let lastBuy = _.last(sortedBuys);
+        return lastBuy.price;
+    }
+
+    isInTrade() {
+
+    }
+
     displayAccount() {
         console.log('-----------------------------------------------------------------------------');
         console.log(' Current account status: ');
         this.displayBalance();
         this.displayOpenOrders();
+        this.displayClosedOrders();
         console.log('-----------------------------------------------------------------------------');
     }
 }
@@ -362,13 +410,14 @@ const trade = async function(name, fake) {
 
             // get trading infos to set up our trader correctly
             await k.refreshBalance();
-            trader.setBalance(k.eurWallet, k.btcWallet, currentBitcoinPrice);
+            trader.setBalance(k.eurWallet, k.btcWallet, currentBitcoinPrice, k.lastBuyPrice());
 
             // time for trader action
             let candlesToAnalyse = btcData.slice(btcData.length - trader.analysisIntervalLength());
             dt.connectCandles(candlesToAnalyse);
             let action = await trader.decideAction(candlesToAnalyse);
-            console.log(`[*] ${k.fake ? "(FAKE)" : ""} Trader (${trader.hash()}): ${action.yellow}. Expected status: ${traderStatusStr(trader, currentBitcoinPrice)}`);
+            let lastTradeStr = trader.inTrade ? ` lastBuy=${k.lastBuyPrice()}` : ""
+            console.log(`[*] ${k.fake ? "(FAKE)" : ""} Trader (${trader.hash()}): ${action.yellow}. Status: inTrade=${trader.inTrade.toString().cyan}${lastTradeStr}, Expected status: ${traderStatusStr(trader, currentBitcoinPrice)}`);
 
             switch (action) {
                 case "HOLD":

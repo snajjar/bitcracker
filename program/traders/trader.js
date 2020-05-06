@@ -147,7 +147,7 @@ class Trader {
         return this.btcWallet > 0 ? 1 : 0;
     }
 
-    setBalance(eurWallet, btcWallet, currentBitcoinPrice) {
+    setBalance(eurWallet, btcWallet, currentBitcoinPrice, lastEnterTrade) {
         this.eurWallet = eurWallet;
         this.btcWallet = btcWallet;
         if (this.eurWallet > this.btcWallet * currentBitcoinPrice) {
@@ -155,7 +155,7 @@ class Trader {
         } else {
             // set up trading position
             this.inTrade = true;
-            this.enterTradeValue = currentBitcoinPrice;
+            this.enterTradeValue = lastEnterTrade;
         }
     }
 
