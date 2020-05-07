@@ -74,6 +74,7 @@ class Trader {
         this.nbHold = 0;
         this.nbHoldOut = 0;
         this.nbHoldIn = 0;
+        this.stats = [];
 
         // config settings
         this.stopLossRatio = config.getStopLossRatio();
@@ -140,7 +141,6 @@ class Trader {
 
     resetStatistics() {
         this.nbPenalties = 0;
-        this.enterTradeValue = 0;
         this.trades = [];
         this.nbBuy = 0;
         this.nbSell = 0;
@@ -149,6 +149,39 @@ class Trader {
         this.nbHoldIn = 0;
         this.nbStopLoss = 0;
         this.nbTakeProfit = 0;
+    }
+
+    // saveStatistics() allow to save current stats to display
+    // only period-relevant statistics. Apply mergeStatistics()
+    // to restore all-time stats
+    saveStatistics() {
+        this.stats.push({
+            nbPenalties: this.nbPenalties,
+            trades: this.trades,
+            nbBuy: this.nbBuy,
+            nbSell: this.nbSell,
+            nbHold: this.nbHold,
+            nbHoldOut: this.nbHoldOut,
+            nbHoldIn: this.nbHoldIn,
+            nbStopLoss: this.nbStopLoss,
+            nbTakeProfit: this.nbTakeProfit,
+        });
+        this.resetStatistics();
+    }
+
+    mergeStatistics() {
+        this.resetStatistics();
+        _.each(this.stats, s => {
+            this.nbPenalties += s.nbPenalties;
+            this.trades = this.trades.concat(s.trades);
+            this.nbBuy += s.nbBuy;
+            this.nbSell += s.nbSell;
+            this.nbHold += s.nbHold;
+            this.nbHoldOut += s.nbHoldOut;
+            this.nbHoldIn += s.nbHoldIn;
+            this.nbStopLoss += s.nbStopLoss;
+            this.nbTakeProfit += s.nbTakeProfit;
+        });
     }
 
     statistics() {
