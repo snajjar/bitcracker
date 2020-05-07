@@ -7,11 +7,11 @@ class EMAProfitTrader extends Trader {
         super();
 
         // parameters
-        this.emaPeriods = 2;
-        this.emaUpTrigger = 0.25;
+        this.emaPeriods = 5;
+        this.emaUpTrigger = 0.333;
         this.emaDownTrigger = 0.2;
-        this.maxTimeInTrade = 1440 * 1.5; // 1 day
-        this.objective = 0.15;
+        this.maxTimeInTrade = 1440 * 0.5; // 1 day
+        this.objective = 0.03;
         // this.adxPeriods = 14;
         // this.adxMinTrigger = 7;
         // this.adxMaxTrigger = 90;

@@ -46,10 +46,10 @@ const evaluateTrader = async function(trader, duration) {
                 'variance': btcVar,
             });
 
-            // trader.resetStatistics();
-            // trader.resetTrading();
+            trader.saveStatistics();
         }
         console.table(results);
+        trader.mergeStatistics();
         utils.displayTrader(trader);
     } else {
         await trader.trade(btcData);
