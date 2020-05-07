@@ -421,7 +421,9 @@ const trade = async function(name, fake) {
 
             switch (action) {
                 case "HOLD":
-                    await k.refreshBalance();
+                    // refresh
+                    await k.refreshAccount();
+                    trader.setBalance(k.eurWallet, k.btcWallet, currentBitcoinPrice, k.lastBuyPrice());
                     break;
                 case "SELL":
                     console.log(`  - SELLING ${btc(k.btcWallet)} at expected price ${price(currentBitcoinPrice * k.btcWallet)}`);
