@@ -44,6 +44,13 @@ const tradingFees = {
     },
 }
 
+// const tradingFees = {
+//     0: {
+//         "maker": -0.00025, // 0.025% for making trades
+//         "taker": 0.00075
+//     }
+// }
+
 class Trader {
     static count = 0;
 
