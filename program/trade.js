@@ -272,7 +272,7 @@ class Kraken {
             pair: 'XBTEUR',
             type: 'sell',
             ordertype: 'market',
-            volume: this._getMaxEURVolume(currentBitcoinPrice),
+            volume: this.btcWallet,
             expiretm: "+60", // expire in 60s,
             userref: userref, // reference for order, to be used internally
         }
