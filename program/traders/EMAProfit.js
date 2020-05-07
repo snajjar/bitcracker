@@ -142,7 +142,7 @@ class EMAProfitTrader extends Trader {
             this.timeInTrade++;
             let objectivePrice = this.enterTradeValue * (1 + this.objective - this.timeInTrade * this.step);
             if (currentBitcoinPrice > objectivePrice || bigUp) {
-                this.sell();
+                return this.sell();
             } else {
                 return this.hold();
             }
