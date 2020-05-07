@@ -90,7 +90,7 @@ class ChampionTrader extends Trader {
     // sell if the trend looks like it's going down
     decideSell(currentEMA, currentBitcoinPrice) {
         let diff = (currentBitcoinPrice / currentEMA * 100) - 100;
-        let floattingPoint = this.enterTradeValue * (1 + this.buyTax + this.sellTax);
+        let floattingPoint = this.enterTradeValue * (1 + this.getBuyTax() + this.getSellTax());
         let winningTrade = currentBitcoinPrice > floattingPoint;
 
         if (winningTrade) {

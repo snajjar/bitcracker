@@ -82,7 +82,7 @@ class VariableEMAADXTrader extends Trader {
                 if (trendUp && trendSeemsStrong) {
                     // BUY condition
 
-                    this.objective = currentBitcoinPrice * (1 + this.buyTax + this.sellTax);
+                    this.objective = currentBitcoinPrice * (1 + this.getBuyTax() + this.getSellTax());
 
                     return this.buy();
                 } else {

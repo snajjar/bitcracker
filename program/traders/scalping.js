@@ -17,7 +17,7 @@ class ScalpingTrader extends Trader {
         this.timeInTrade = 0;
         this.maxTimeInTrade = 1440 * 3; // 1 day
         this.objective = 0.15;
-        this.step = (0.1 - this.buyTax - this.sellTax) / this.maxTimeInTrade;
+        this.step = (0.1 - this.getBuyTax() + this.getSellTax()) / this.maxTimeInTrade;
     }
 
     analysisIntervalLength() {

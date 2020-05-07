@@ -1,19 +1,54 @@
 const _ = require('lodash');
 const config = require('../config');
 const colors = require('colors');
+const moment = require('moment');
 
 const startingFunding = 1000;
-const buyTax = 0.0026;
-const sellTax = 0.0016;
+
+const tradingFees = {
+    0: {
+        "maker": 0.0016,
+        "taker": 0.0026,
+    },
+    50000: {
+        "maker": 0.0014,
+        "taker": 0.0024,
+    },
+    100000: {
+        "maker": 0.0012,
+        "taker": 0.0022,
+    },
+    250000: {
+        "maker": 0.0010,
+        "taker": 0.0020,
+    },
+    500000: {
+        "maker": 0.0008,
+        "taker": 0.0018,
+    },
+    1000000: {
+        "maker": 0.0006,
+        "taker": 0.0016,
+    },
+    2500000: {
+        "maker": 0.0004,
+        "taker": 0.0014,
+    },
+    5000000: {
+        "maker": 0.0002,
+        "taker": 0.0012,
+    },
+    10000000: {
+        "maker": 0,
+        "taker": 0.0010,
+    },
+}
 
 class Trader {
     static count = 0;
 
     constructor() {
         this.number = Trader.count++;
-
-        this.buyTax = buyTax;
-        this.sellTax = sellTax;
 
         // wallet and score values
         this.btcWallet = 0;
@@ -38,6 +73,9 @@ class Trader {
         this.takeProfitRatio = config.getTakeProfitRatio();
         this.nbStopLoss = 0;
         this.nbTakeProfit = 0;
+
+        // actions record (compute 30 days trading volume, and stuff)
+        this.actions = [];
     }
 
     hash() {
@@ -46,6 +84,39 @@ class Trader {
 
     getDescription() {
         return "this trader has no description";
+    }
+
+    get30DaysTradingVolume() {
+        let startWindow = moment.unix(this.lastTimestamp).subtract(30, "days");
+        let last30DaysActions = _.filter(this.actions, a => moment.unix(a.timestamp).isAfter(startWindow));
+
+        let volume = 0;
+        _.each(last30DaysActions, a => volume += a.volumeDollar);
+        return volume;
+    }
+
+    getTaxes() {
+        let tradingVolume = this.get30DaysTradingVolume();
+
+        let keys = _.keys(tradingFees);
+        let keysNumbers = _.map(keys, k => parseInt(k)).sort((a, b) => a - b);
+
+        let volumeStep = 0;
+        for (let i = 0; i < keysNumbers.length; i++) {
+            if (tradingVolume > keysNumbers[i]) {
+                volumeStep = keysNumbers[i];
+            }
+        }
+
+        return tradingFees[volumeStep];
+    }
+
+    getBuyTax() {
+        return this.getTaxes().taker;
+    }
+
+    getSellTax() {
+        return this.getTaxes().maker;
     }
 
     // to be redefined if needed
@@ -57,6 +128,7 @@ class Trader {
         this.lastBitcoinPrice = 0;
         this.inTrade = false;
         this.enterTradeValue = 0;
+        this.actions = [];
     }
 
     resetStatistics() {
@@ -166,11 +238,10 @@ class Trader {
         }
 
         // save this for trade count and the action methods buy/sell/hold
-        let currentBitcoinPrice = dataPeriods[dataPeriods.length - 1].close;
-        this.lastBitcoinPrice = currentBitcoinPrice;
-        // console.log("lastBitcoinPrice", this.lastBitcoinPrice);
+        this.lastBitcoinPrice = _.last(dataPeriods).close;
+        this.lastTimestamp = _.last(dataPeriods).timestamp;
 
-        return await this.action(dataPeriods, currentBitcoinPrice);
+        return await this.action(dataPeriods, this.lastBitcoinPrice);
     }
 
     async action(dataPeriods, currentBitcoinPrice) {
@@ -204,20 +275,21 @@ class Trader {
         //return this.gain();
     }
 
-    addTrade(oldBitcoinPrice, newBitcoinPrice) {
-        this.trades.push(newBitcoinPrice / oldBitcoinPrice - buyTax - sellTax);
-    }
-
     buy() {
         let price = this.lastBitcoinPrice;
 
         this.nbBuy++;
         if (this.eurWallet > 0) {
+            let buyTax = this.getBuyTax();
+
+            this.addAction("BUY"); // do this before recording action
+
             this.btcWallet += (this.eurWallet * (1 - buyTax)) / price;
             this.eurWallet = 0;
 
             this.inTrade = true;
             this.enterTradeValue = price;
+
             return "BUY";
         } else {
             this.nbPenalties++; // cant buy, have no money
@@ -230,18 +302,56 @@ class Trader {
 
         this.nbSell++;
         if (this.btcWallet > 0) {
+            let sellTax = this.getSellTax(); // do this before recording action
+
+            this.addAction("SELL"); // record the action
+
             this.eurWallet += (this.btcWallet * (1 - sellTax)) * price;
             this.btcWallet = 0;
 
             this.inTrade = false;
 
-            // add last trade statistics
-            this.addTrade(this.enterTradeValue, price);
             return "SELL";
         } else {
             this.nbPenalties++;
             return "";
         }
+    }
+
+
+    addAction(actionStr) {
+        let price = this.lastBitcoinPrice;
+
+        let totalVolume, actionTax, volumeEUR;
+        if (actionStr == "BUY") {
+            totalVolume = this.eurWallet;
+            actionTax = this.getBuyTax();
+            volumeEUR = totalVolume;
+        } else if (actionStr == "SELL") {
+            totalVolume = this.btcWallet;
+            actionTax = this.getSellTax();
+            volumeEUR = totalVolume * price;
+
+            // add last trade statistics
+            this.addTrade(this.enterTradeValue, price);
+        }
+        let volumeTF = totalVolume * (1 - actionTax);
+
+        this.actions.push({
+            type: actionStr,
+            timestamp: this.lastTimestamp,
+            btcPrice: this.lastBitcoinPrice,
+            volume: actionStr,
+            volumeTF: volumeTF,
+            volumeEUR: volumeEUR,
+            volumeDollar: volumeEUR * 1.08,
+            tradingVolume30: this.get30DaysTradingVolume(),
+            tax: actionTax,
+        });
+    }
+
+    addTrade(oldBitcoinPrice, newBitcoinPrice) {
+        this.trades.push(newBitcoinPrice / oldBitcoinPrice - this.getBuyTax() - this.getSellTax());
     }
 
     hold() {

@@ -22,7 +22,7 @@ class EMAProfitTrader extends Trader {
         this.inTrade = false;
         this.enterTradeValue = 0;
         this.timeInTrade = 0;
-        this.step = (this.objective - this.buyTax - this.sellTax) / this.maxTimeInTrade;
+        this.step = (this.objective - this.getBuyTax() + this.getSellTax()) / this.maxTimeInTrade;
     }
 
     analysisIntervalLength() {

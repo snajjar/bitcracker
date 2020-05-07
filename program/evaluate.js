@@ -54,6 +54,7 @@ const evaluateTrader = async function(trader, duration) {
     } else {
         await trader.trade(btcData);
         utils.displayTrader(trader);
+        // console.log(JSON.stringify(trader.actions, null, 2));
     }
 }
 

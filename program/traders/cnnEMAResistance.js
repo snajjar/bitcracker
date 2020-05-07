@@ -105,7 +105,7 @@ class TraderCNNEMAPredictVar extends Trader {
                         // find the last resistance
                         let lastResistancePrice = this.getNextResistancePrice(dataPeriods, currentBitcoinPrice);
                         if (lastResistancePrice) {
-                            if (currentBitcoinPrice * (1 + this.buyTax + this.sellTax) < lastResistancePrice) {
+                            if (currentBitcoinPrice * (1 + this.getBuyTax() + this.getSellTax()) < lastResistancePrice) {
                                 // BUY condition
                                 return this.buy();
                             } else {
