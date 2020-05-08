@@ -2,14 +2,14 @@ const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-class EMAProfitTrader extends Trader {
+class EMAProfitFullPowerTrader extends Trader {
     constructor() {
         super();
 
         // parameters
         this.emaPeriods = 5;
-        this.emaUpTrigger = 0.25;
-        this.emaDownTrigger = 0.20;
+        this.emaUpTrigger = 0.3;
+        this.emaDownTrigger = 0.3;
         this.maxTimeInTrade = 60 * 9; // 9h
         this.objective = 0.03;
 
@@ -26,7 +26,7 @@ class EMAProfitTrader extends Trader {
     }
 
     hash() {
-        return "Algo_EMAProfit";
+        return "Algo_EMAProfitFullPower";
     }
 
     getAVG(dataPeriods) {
@@ -100,11 +100,10 @@ class EMAProfitTrader extends Trader {
         let currEMA = ema[ema.length - 1];
 
         var diff = (currentBitcoinPrice / currEMA * 100) - 100;
-
-
+        let bigDown = diff < -this.emaDownTrigger;
+        let bigUp = diff > this.emaUpTrigger;
 
         if (!this.inTrade) {
-            let bigDown = diff < -this.emaDownTrigger - this.getBuyTax() * 50;
             if (bigDown) {
                 // BUY condition
                 this.timeInTrade = 0;
@@ -115,7 +114,6 @@ class EMAProfitTrader extends Trader {
         } else {
             this.timeInTrade++;
             let objectivePrice = this.enterTradeValue * (1 + this.objective - this.timeInTrade * this.step);
-            let bigUp = diff > this.emaUpTrigger + this.getSellTax() * 50;
             if (currentBitcoinPrice > objectivePrice || bigUp) {
                 return this.sell();
             } else {
@@ -125,4 +123,4 @@ class EMAProfitTrader extends Trader {
     }
 }
 
-module.exports = EMAProfitTrader;
+module.exports = EMAProfitFullPowerTrader;

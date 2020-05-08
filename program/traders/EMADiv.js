@@ -8,7 +8,7 @@ class EMADivTrader extends Trader {
 
         // parameters
         this.emaPeriods = 5;
-        this.emaTrigger = 0.333;
+        this.emaTrigger = 0.25;
     }
 
     analysisIntervalLength() {

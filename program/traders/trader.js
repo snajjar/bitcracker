@@ -51,6 +51,13 @@ const tradingFees = {
 //     }
 // }
 
+// const tradingFees = {
+//     0: {
+//         "maker": 0.0014,
+//         "taker": 0.0024
+//     }
+// }
+
 class Trader {
     static count = 0;
 
@@ -84,6 +91,7 @@ class Trader {
 
         // actions record (compute 30 days trading volume, and stuff)
         this.actions = [];
+        this.recomputeTaxes();
     }
 
     hash() {
@@ -120,11 +128,11 @@ class Trader {
     }
 
     getBuyTax() {
-        return this.getTaxes().taker;
+        return this.buyTax;
     }
 
     getSellTax() {
-        return this.getTaxes().maker;
+        return this.sellTax;
     }
 
     // to be redefined if needed
@@ -271,6 +279,13 @@ class Trader {
         }
     }
 
+    recomputeTaxes() {
+        // recompute 30-days volume and taxes
+        let taxes = this.getTaxes();
+        this.buyTax = taxes.taker;
+        this.sellTax = taxes.maker;
+    }
+
     // called on each new period, will call the action() method
     async decideAction(dataPeriods) {
         if (dataPeriods.length !== this.analysisIntervalLength()) {
@@ -358,7 +373,6 @@ class Trader {
         }
     }
 
-
     addAction(actionStr) {
         let price = this.lastBitcoinPrice;
 
@@ -388,6 +402,7 @@ class Trader {
             tradingVolume30: this.get30DaysTradingVolume(),
             tax: actionTax,
         });
+        this.recomputeTaxes();
     }
 
     addTrade(oldBitcoinPrice, newBitcoinPrice) {
