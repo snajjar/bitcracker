@@ -440,7 +440,7 @@ const trade = async function(name, fake) {
             dt.connectCandles(candlesToAnalyse);
             let action = await trader.decideAction(candlesToAnalyse);
             let lastTradeStr = trader.inTrade ? ` lastBuy=${k.lastBuyPrice()}` : ""
-            let objectiveStr = trader.objective ? `objective=${trader.objective}€ ` : "";
+            let objectiveStr = trader.getObjective ? ` objective=${trader.getObjective().toFixed(0)}€` : "";
             if (trader.objective) {
 
             }

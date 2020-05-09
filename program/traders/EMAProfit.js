@@ -62,6 +62,10 @@ class EMAProfitTrader extends Trader {
         return this.emaDownTrigger.min + emaDownRange * curr / sellTaxRange;
     }
 
+    getObjective() {
+        return this.enterTradeValue * (1 + this.objective - this.timeInTrade * this.step);
+    }
+
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(0.1);
@@ -86,7 +90,7 @@ class EMAProfitTrader extends Trader {
             }
         } else {
             this.timeInTrade++;
-            let objectivePrice = this.enterTradeValue * (1 + this.objective - this.timeInTrade * this.step);
+            let objectivePrice = this.getObjective();
             let bigUp = diff > this.adaptativeUpTrigger();
             if (currentBitcoinPrice > objectivePrice || bigUp) {
                 return this.sell();
