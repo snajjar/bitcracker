@@ -14,6 +14,7 @@ const dotenv = require('dotenv');
 const prompts = require('prompts');
 const encryption = require('./lib/encryption');
 const KrakenClient = require('kraken-api');
+const HRNumbers = require('human-readable-numbers');
 
 const extractFieldsFromKrakenData = function(arr) {
     return {
@@ -235,7 +236,6 @@ class Kraken {
             // get balance info
             r = await this.kraken.api('TradeVolume');
             this.tradeVolume = parseFloat(r.result.volume);
-            console.log(JSON.stringify(r, null, 2));
         } catch (e) {
             let errorMsg = _.get(r, ['data', 'error', 0]);
             if (errorMsg) {
@@ -440,7 +440,11 @@ const trade = async function(name, fake) {
             dt.connectCandles(candlesToAnalyse);
             let action = await trader.decideAction(candlesToAnalyse);
             let lastTradeStr = trader.inTrade ? ` lastBuy=${k.lastBuyPrice()}` : ""
-            console.log(`[*] ${k.fake ? "(FAKE)" : ""} Trader (${trader.hash()}): ${action.yellow}. Status: inTrade=${trader.inTrade.toString().cyan}${lastTradeStr}, Expected status: ${traderStatusStr(trader, currentBitcoinPrice)}`);
+            let objectiveStr = trader.objective ? `objective=${trader.objective}€ ` : "";
+            if (trader.objective) {
+
+            }
+            console.log(`[*] ${k.fake ? "(FAKE)" : ""} Trader (${trader.hash()}): ${action.yellow}. Status: inTrade=${trader.inTrade.toString().cyan}${lastTradeStr}€${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader, currentBitcoinPrice)}`);
 
             switch (action) {
                 case "HOLD":
