@@ -8,7 +8,9 @@ class EMADivTrader extends Trader {
 
         // parameters
         this.emaPeriods = 5;
-        this.emaTrigger = 0.333;
+
+        this.emaDownTrigger = { 'max': 0.333, 'min': 0.2 };
+        this.emaUpTrigger = { 'max': 0.333, 'min': 0.2 };
     }
 
     analysisIntervalLength() {
@@ -16,7 +18,24 @@ class EMADivTrader extends Trader {
     }
 
     hash() {
-        return "Algo_EMADiv";
+        return "Algo_EMADiv_Tax_Adapted";
+    }
+
+
+    // vary from 0.4 (when highest tax: 0.26%) to 0.25 (when lowest buy tax: 0.10%)
+    adaptativeDownTrigger() {
+        let emaDownRange = this.emaDownTrigger.max - this.emaDownTrigger.min;
+        let buyTaxRange = 0.0026 - 0.001;
+        let curr = this.getBuyTax() - 0.001;
+        return this.emaDownTrigger.min + emaDownRange * curr / buyTaxRange;
+    }
+
+    // vary from 0.4 (when highest tax: 0.26%) to 0.20 (when lowest sell tax: 0%)
+    adaptativeUpTrigger() {
+        let emaDownRange = this.emaDownTrigger.max - this.emaDownTrigger.min;
+        let sellTaxRange = 0.0016;
+        let curr = this.getSellTax();
+        return this.emaDownTrigger.min + emaDownRange * curr / sellTaxRange;
     }
 
     getEMA(dataPeriods) {
@@ -46,10 +65,9 @@ class EMADivTrader extends Trader {
             let currEMA = ema[ema.length - 1];
 
             var diff = (currentBitcoinPrice / currEMA * 100) - 100;
-            let bigDown = diff < -this.emaTrigger;
-            let bigUp = diff > this.emaTrigger;
 
             if (!this.inTrade) {
+                let bigDown = diff < -this.adaptativeDownTrigger();
                 if (bigDown) {
                     // BUY condition
                     return this.buy();
@@ -57,6 +75,7 @@ class EMADivTrader extends Trader {
                     return this.hold();
                 }
             } else {
+                let bigUp = diff > this.adaptativeUpTrigger();
                 if (bigUp) {
                     // SELL conditions are take profit and stop loss
                     return this.sell();

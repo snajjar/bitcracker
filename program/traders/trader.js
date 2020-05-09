@@ -53,8 +53,8 @@ const tradingFees = {
 
 // const tradingFees = {
 //     0: {
-//         "maker": 0.0014,
-//         "taker": 0.0024
+//         "maker": 0.0010,
+//         "taker": 0.0020
 //     }
 // }
 
@@ -82,6 +82,7 @@ class Trader {
         this.nbHoldOut = 0;
         this.nbHoldIn = 0;
         this.stats = [];
+        this.lowestBalance = startingFunding;
 
         // config settings
         this.stopLossRatio = config.getStopLossRatio();
@@ -91,6 +92,8 @@ class Trader {
 
         // actions record (compute 30 days trading volume, and stuff)
         this.actions = [];
+        this.tradeVolume30 = null; // trade volume on 30 days. to be set with setTradingVolume()
+        this.calculatedTradeVolume30 = null; // used if setTradingVolume() is not used
         this.recomputeTaxes();
     }
 
@@ -102,13 +105,26 @@ class Trader {
         return "this trader has no description";
     }
 
-    get30DaysTradingVolume() {
-        let startWindow = moment.unix(this.lastTimestamp).subtract(30, "days");
-        let last30DaysActions = _.filter(this.actions, a => moment.unix(a.timestamp).isAfter(startWindow));
+    setTradeVolume(v) {
+        this.tradeVolume30 = v;
+    }
 
-        let volume = 0;
-        _.each(last30DaysActions, a => volume += a.volumeDollar);
-        return volume;
+    get30DaysTradingVolume() {
+        // if it's set from outside source, use that value
+        if (this.tradeVolume30) {
+            return this.tradeVolume30;
+        } else {
+            if (!this.calculatedTradeVolume30) {
+                let startWindow = moment.unix(this.lastTimestamp).subtract(30, "days");
+                let last30DaysActions = _.filter(this.actions, a => moment.unix(a.timestamp).isAfter(startWindow));
+
+                let volume = 0;
+                _.each(last30DaysActions, a => volume += a.volumeDollar);
+                this.calculatedTradeVolume30 = volume;
+            }
+
+            return this.calculatedTradeVolume30;
+        }
     }
 
     getTaxes() {
@@ -203,6 +219,7 @@ class Trader {
             cumulatedGain: assets - startingFunding,
             avgROI: _.mean(this.trades) || 0,
             winLossRatio: (nbPositiveTrades / this.trades.length) || 0,
+            lowestBalance: this.lowestBalance,
             trades: {
                 nbTrades: this.trades.length,
                 nbPositiveTrades: nbPositiveTrades,
@@ -237,6 +254,9 @@ class Trader {
         stats.avgROI = avgROIStr;
         // stats.avgROI = stats.avgROI > 1 ? avgROIStr.green : avgROIStr.red;
 
+        let lowestBalance = `${(stats.lowestBalance).toFixed(0)}€`;
+        stats.lowestBalance = lowestBalance;
+
         return stats;
     }
 
@@ -251,6 +271,9 @@ class Trader {
 
         let avgROIStr = (stats.avgROI * 100).toFixed(2) + "%";
         stats.avgROI = stats.avgROI > 1 ? avgROIStr.green : avgROIStr.red;
+
+        let lowestBalance = `${(stats.lowestBalance).toFixed(0)}€`;
+        stats.lowestBalance = lowestBalance.cyan;
 
         return stats;
     }
@@ -280,10 +303,14 @@ class Trader {
     }
 
     recomputeTaxes() {
-        // recompute 30-days volume and taxes
-        let taxes = this.getTaxes();
-        this.buyTax = taxes.taker;
-        this.sellTax = taxes.maker;
+        // in case trading volume isn't externally set, compute it
+        if (!this.tradeVolume30) {
+            // recompute 30-days volume and taxes
+            this.calculatedTradeVolume30 = null; // erase previous value
+            let taxes = this.getTaxes();
+            this.buyTax = taxes.taker;
+            this.sellTax = taxes.maker;
+        }
     }
 
     // called on each new period, will call the action() method
@@ -385,6 +412,9 @@ class Trader {
             totalVolume = this.btcWallet;
             actionTax = this.getSellTax();
             volumeEUR = totalVolume * price;
+            if (volumeEUR < this.lowestBalance) {
+                this.lowestBalance = volumeEUR;
+            }
 
             // add last trade statistics
             this.addTrade(this.enterTradeValue, price);
@@ -399,9 +429,10 @@ class Trader {
             volumeTF: volumeTF,
             volumeEUR: volumeEUR,
             volumeDollar: volumeEUR * 1.08,
-            tradingVolume30: this.get30DaysTradingVolume(),
+            tradeVolume30: this.get30DaysTradingVolume(),
             tax: actionTax,
         });
+
         this.recomputeTaxes();
     }
 

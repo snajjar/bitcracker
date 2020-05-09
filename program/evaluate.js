@@ -8,6 +8,7 @@ const utils = require('./lib/utils');
 const config = require('./config');
 const dt = require('./lib/datatools');
 const moment = require('moment');
+const HRNumbers = require('human-readable-numbers');
 
 const evaluateTrader = async function(trader, duration) {
     let btcData = await csv.getData();
@@ -16,6 +17,7 @@ const evaluateTrader = async function(trader, duration) {
         console.log(`[*] splitted into ${btcDataSets.length} sets of ${btcDataSets[0].length} candles`);
 
         let results = {};
+        let lastGain = 0;
         for (let i = 0; i < btcDataSets.length; i++) {
             let dataset = btcDataSets[i];
             let start = moment.unix(dataset[0].timestamp);
@@ -32,19 +34,22 @@ const evaluateTrader = async function(trader, duration) {
             }
 
             await trader.trade(dataset);
-            let stats = trader.statisticsStr();
+            let s = trader.statistics(); // as numbers
+            let stats = trader.statisticsStr(); // as displayable strings
 
             // console.log(JSON.stringify(stats, null, 2));
             let period = `${start.format('YYYY-MM-DD hh:mm')}`;
             results[period] = ({
-                'gain': stats.cumulatedGain,
+                'gain': (s.cumulatedGain - lastGain).toFixed(0) + '€',
                 'w/l': stats.winLossRatio,
                 'avgROI': stats.avgROI,
                 'pos': stats.trades.nbPositiveTrades,
                 'neg': stats.trades.nbNegativeTrades,
                 'btc trend': btcTrend,
-                'variance': btcVar,
+                'variance': HRNumbers.toHumanString(btcVar),
+                'tv': HRNumbers.toHumanString(trader.calculatedTradeVolume30),
             });
+            lastGain = s.cumulatedGain;
 
             trader.saveStatistics();
         }

@@ -8,9 +8,9 @@ class EMAProfitTrader extends Trader {
 
         // parameters
         this.emaPeriods = 5;
-        this.emaUpTrigger = 0.25;
-        this.emaDownTrigger = 0.20;
-        this.maxTimeInTrade = 60 * 9; // 9h
+        this.emaDownTrigger = { 'max': 0.333, 'min': 0.15 };
+        this.emaUpTrigger = { 'max': 0.333, 'min': 0.15 };
+        this.maxTimeInTrade = 60 * 3; // 6h
         this.objective = 0.03;
 
         // trade decision making
@@ -33,7 +33,6 @@ class EMAProfitTrader extends Trader {
         return _.meanBy(dataPeriods, 'close')
     }
 
-
     getEMA(dataPeriods) {
         let closePrices = _.map(dataPeriods, p => p.close);
         return new Promise((resolve, reject) => {
@@ -47,45 +46,20 @@ class EMAProfitTrader extends Trader {
         });
     }
 
-    getADX(dataPeriods) {
-        let highPrices = _.map(dataPeriods, p => p.high);
-        let lowPrices = _.map(dataPeriods, p => p.low);
-        let closePrices = _.map(dataPeriods, p => p.close);
-        return new Promise((resolve, reject) => {
-            tulind.indicators.adx.indicator([highPrices, lowPrices, closePrices], [this.adxPeriods], function(err, results) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(results[0]);
-                }
-            });
-        });
+    // vary from 0.4 (when highest tax: 0.26%) to 0.25 (when lowest buy tax: 0.10%)
+    adaptativeDownTrigger() {
+        let emaDownRange = this.emaDownTrigger.max - this.emaDownTrigger.min;
+        let buyTaxRange = 0.0026 - 0.001;
+        let curr = this.getBuyTax() - 0.001;
+        return this.emaDownTrigger.min + emaDownRange * curr / buyTaxRange;
     }
 
-    getRSI(dataPeriods) {
-        let closePrices = _.map(dataPeriods, p => p.close);
-        return new Promise((resolve, reject) => {
-            tulind.indicators.rsi.indicator([closePrices], [14], function(err, results) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(results);
-                }
-            });
-        });
-    }
-
-    getBBands(dataPeriods) {
-        let closePrices = _.map(dataPeriods, p => p.close);
-        return new Promise((resolve, reject) => {
-            tulind.indicators.bbands.indicator([closePrices], [40, 2], function(err, results) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve([results[0], results[1], results[2]]);
-                }
-            });
-        });
+    // vary from 0.4 (when highest tax: 0.26%) to 0.20 (when lowest sell tax: 0%)
+    adaptativeUpTrigger() {
+        let emaDownRange = this.emaDownTrigger.max - this.emaDownTrigger.min;
+        let sellTaxRange = 0.0016;
+        let curr = this.getSellTax();
+        return this.emaDownTrigger.min + emaDownRange * curr / sellTaxRange;
     }
 
     // decide for an action
@@ -101,10 +75,8 @@ class EMAProfitTrader extends Trader {
 
         var diff = (currentBitcoinPrice / currEMA * 100) - 100;
 
-
-
         if (!this.inTrade) {
-            let bigDown = diff < -this.emaDownTrigger - this.getBuyTax() * 50;
+            let bigDown = diff < -this.adaptativeDownTrigger();
             if (bigDown) {
                 // BUY condition
                 this.timeInTrade = 0;
@@ -115,7 +87,7 @@ class EMAProfitTrader extends Trader {
         } else {
             this.timeInTrade++;
             let objectivePrice = this.enterTradeValue * (1 + this.objective - this.timeInTrade * this.step);
-            let bigUp = diff > this.emaUpTrigger + this.getSellTax() * 50;
+            let bigUp = diff > this.adaptativeUpTrigger();
             if (currentBitcoinPrice > objectivePrice || bigUp) {
                 return this.sell();
             } else {

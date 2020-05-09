@@ -104,6 +104,8 @@ class Kraken {
 
         this.openOrders = {};
         this.closedOrders = {};
+
+        this.tradeVolume = 0;
     }
 
     // get the max BTC volume we can buy with our current EUR wallet
@@ -227,6 +229,25 @@ class Kraken {
         }
     }
 
+    async refreshTradeVolume() {
+        let r = null;
+        try {
+            // get balance info
+            r = await this.kraken.api('TradeVolume');
+            this.tradeVolume = parseFloat(r.result.volume);
+            console.log(JSON.stringify(r, null, 2));
+        } catch (e) {
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error retrieving account orders: ' + errorMsg.red);
+            } else {
+                console.error('Error retrieving account orders');
+                console.error(e);
+                console.log(JSON.stringify(r));
+            }
+        }
+    }
+
     async buyAll(currentBitcoinPrice) {
         let r = null;
 
@@ -300,13 +321,16 @@ class Kraken {
     }
 
     async refreshAccount() {
-        await sleep(1);
+        await sleep(2);
+        this.refreshTradeVolume();
+
+        await sleep(2);
         await this.refreshBalance();
 
-        await sleep(1);
+        await sleep(2);
         await this.refreshOpenOrders();
 
-        await sleep(1);
+        await sleep(2);
         await this.refreshClosedOrders();
     }
 
@@ -384,7 +408,6 @@ const trade = async function(name, fake) {
 
     // every 30 sec: fetch BTC price and trade
     let lastCandle = null;
-    let currentCandle = null;
     setInterval(async () => {
         let since = lastCandle ? lastCandle.close + 1 : undefined; // add 1 sec to last candle
         let remoteData = await getKrakenData(1, since);
@@ -424,6 +447,7 @@ const trade = async function(name, fake) {
                     // refresh
                     await k.refreshAccount();
                     trader.setBalance(k.eurWallet, k.btcWallet, currentBitcoinPrice, k.lastBuyPrice());
+                    trader.setTradeVolume(k.tradeVolume);
                     break;
                 case "SELL":
                     console.log(`  - SELLING ${btc(k.btcWallet)} at expected price ${price(currentBitcoinPrice * k.btcWallet)}`);
@@ -443,7 +467,6 @@ const trade = async function(name, fake) {
 
     // every 5 min: refresh the private infos
     setInterval(async () => {
-        await k.refreshAccount();
         k.displayAccount();
     }, 60000 * 5);
 }
