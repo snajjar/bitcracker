@@ -401,7 +401,7 @@ const trade = async function(name, fake) {
         }
     }
 
-    let refreshTrader = async function() {
+    let refreshTrader = async function(currentBitcoinPrice) {
         await k.refreshAccount();
         trader.setBalance(k.eurWallet, k.btcWallet, currentBitcoinPrice, k.lastBuyPrice());
         trader.setTradeVolume(k.tradeVolume);
@@ -409,11 +409,15 @@ const trade = async function(name, fake) {
 
     // login and display account infos
     await k.login();
-    await refreshTrader();
+    let remoteData = await getKrakenData(1);
+    await sleep(1);
+    let currentBitcoinPrice = _.last(remoteData).close;
+    await refreshTrader(currentBitcoinPrice);
     k.displayAccount();
 
-    // every 30 sec: fetch BTC price and trade
+    // every 5 sec: fetch BTC price and trade
     let lastCandle = null;
+    let traderRefreshed = false;
     setInterval(async () => {
         let since = lastCandle ? lastCandle.close + 1 : undefined; // add 1 sec to last candle
         let remoteData = await getKrakenData(1, since);
@@ -428,7 +432,7 @@ const trade = async function(name, fake) {
                 btcData = btcData.slice(btcData.length - 1000);
             }
 
-            lastCandle = btcData[btcData.length - 1];
+            lastCandle = _.last(btcData);
             let currentBitcoinPrice = lastCandle.close;
             console.log(`[*] Received data: ${candleStr(lastCandle)}`);
             console.log(`[*] Last prices: ${price(btcData[btcData.length-4].close)} -> ` +
@@ -443,35 +447,37 @@ const trade = async function(name, fake) {
             let candlesToAnalyse = btcData.slice(btcData.length - trader.analysisIntervalLength());
             dt.connectCandles(candlesToAnalyse);
             let action = await trader.decideAction(candlesToAnalyse);
-            let lastTradeStr = trader.inTrade ? ` lastBuy=${k.lastBuyPrice()}` : ""
-            let objectiveStr = trader.getObjective ? ` objective=${trader.getObjective().toFixed(0)}€` : "";
-            console.log(`[*] ${k.fake ? "(FAKE)" : ""} Trader (${trader.hash()}): ${action.yellow}. Status: inTrade=${trader.inTrade.toString().cyan}${lastTradeStr}€${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader, currentBitcoinPrice)}`);
 
             switch (action) {
                 case "HOLD":
                     // refresh
-                    await refreshTrader();
-                    await sleep(1);
+                    if (!traderRefreshed) {
+                        await refreshTrader(currentBitcoinPrice);
+                        traderRefreshed = true;
+                        await sleep(1);
+                    }
                     break;
                 case "SELL":
                     console.log(`  - SELLING ${btc(k.btcWallet)} at expected price ${price(currentBitcoinPrice * k.btcWallet)}`);
                     await k.sellAll(currentBitcoinPrice);
                     await sleep(1);
-                    await refreshTrader();
-                    await sleep(1);
+                    traderRefreshed = false;
                     break;
                 case "BUY":
                     console.log(`  - BUYING for ${price(k.eurWallet)} of bitcoin at expected price ${price(currentBitcoinPrice)}: ${btc(k.eurWallet/currentBitcoinPrice)}`);
                     await k.buyAll(currentBitcoinPrice);
                     await sleep(1);
-                    await refreshTrader();
-                    await sleep(1);
+                    traderRefreshed = false;
                     break;
                 default:
                     console.error('Trader returned no action !');
             }
+
+            let lastTradeStr = trader.inTrade ? ` lastBuy=${k.lastBuyPrice()}` : ""
+            let objectiveStr = trader.getObjective ? ` objective=${trader.getObjective().toFixed(0)}€` : "";
+            console.log(`[*] ${k.fake ? "(FAKE)" : ""} Trader (${trader.hash()}): ${action.yellow}. Status: inTrade=${trader.inTrade.toString().cyan}${lastTradeStr}€${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader, currentBitcoinPrice)}`);
         }
-    }, 5000);
+    }, 8000);
 
     await sleep(4); // desynchronize both setInterval
 
