@@ -10,8 +10,8 @@ class EMAProfitTrader extends Trader {
         this.emaPeriods = 5;
         this.emaDownTrigger = { 'max': 0.5, 'min': 0.10 };
         this.emaUpTrigger = { 'max': 0.4, 'min': 0.2 };
-        this.maxTimeInTrade = 60 * 5; // 5h
-        this.objective = 0.015;
+        this.maxTimeInTrade = 60 * 2; // 2h, can't sell without profit
+        this.objective = 0.02;
 
         // trade decision making
         this.inTrade = false;
@@ -66,6 +66,10 @@ class EMAProfitTrader extends Trader {
         return this.enterTradeValue * (1 + this.objective - this.timeInTrade * this.step);
     }
 
+    getWinningPrice() {
+        return this.enterTradeValue * (1 + this.getBuyTax() + this.getSellTax());
+    }
+
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(0.1);
@@ -75,9 +79,8 @@ class EMAProfitTrader extends Trader {
         // if (stopped) return;
 
         let ema = await this.getEMA(dataPeriods);
-        let currEMA = ema[ema.length - 1];
-
-        var diff = (currentBitcoinPrice / currEMA * 100) - 100;
+        let currEMA = _.last(ema);
+        let diff = (currentBitcoinPrice / currEMA * 100) - 100;
 
         if (!this.inTrade) {
             let bigDown = diff < -this.adaptativeDownTrigger();
@@ -90,12 +93,32 @@ class EMAProfitTrader extends Trader {
             }
         } else {
             this.timeInTrade++;
-            let objectivePrice = this.getObjective();
             let bigUp = diff > this.adaptativeUpTrigger();
-            if (currentBitcoinPrice > objectivePrice || bigUp) {
-                return this.sell();
+            let objectivePrice = this.getObjective();
+            let winningPrice = this.getWinningPrice(); // price at which the trade is positive
+
+            if (objectivePrice > winningPrice) {
+                // we are in the time period shortly after trade, we only sell positive here
+                if (currentBitcoinPrice > winningPrice) {
+                    if (currentBitcoinPrice > objectivePrice) {
+                        // objective reached
+                        return this.sell();
+                    } else if (bigUp) {
+                        // big up price, sell here
+                        return this.sell();
+                    } else {
+                        return this.hold();
+                    }
+                } else {
+                    return this.hold();
+                }
             } else {
-                return this.hold();
+                // the no-loosing-trade period has expired. Sell if bigUp detected
+                if (bigUp) {
+                    return this.sell();
+                } else {
+                    return this.hold();
+                }
             }
         }
     }
