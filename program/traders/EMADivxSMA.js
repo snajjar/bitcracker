@@ -7,12 +7,9 @@ class EMAxSMATrader extends Trader {
         super();
 
         // parameters
-        this.smaPeriods = 11;
-        this.emaPeriods = 2;
-        this.emaTrigger = 0.4;
-
-        this.prevSMA = null;
-        this.prevEMA = null;
+        this.smaPeriods = 1000;
+        this.emaPeriods = 5;
+        this.emaTrigger = 0.333;
     }
 
     analysisIntervalLength() {
@@ -67,23 +64,25 @@ class EMAxSMATrader extends Trader {
             let prevSMA = sma[sma.length - 2];
             let prevEMA = ema[ema.length - 2];
 
-            // BUY condition
-            let EMACrossedSMA = prevEMA < prevSMA && currEMA >= currSMA;
-
-            // sell condition
+            // compute EMA diff
             var diff = (currentBitcoinPrice / currEMA * 100) - 100;
-            let trendUp = diff < -this.emaTrigger;
-            let trendDown = diff > this.emaTrigger;
+            let bigDown = diff < -this.emaTrigger;
+            let bigUp = diff > this.emaTrigger;
+
+            let priceUnderSMA = currentBitcoinPrice < currSMA;
+
+            let prevBitcoinPrice = dataPeriods[dataPeriods.length - 2].close;
+            let priceDownCrossingSMA = currentBitcoinPrice < currSMA && prevBitcoinPrice >= prevSMA;
 
             if (!this.inTrade) {
-                if (currentBitcoinPrice < currSMA || trendUp) {
+                if (bigDown && priceUnderSMA) {
                     // BUY condition
                     return this.buy();
                 } else {
                     return this.hold();
                 }
             } else {
-                if (trendDown) {
+                if (priceDownCrossingSMA) {
                     return this.sell();
                 } else {
                     // SELL conditions are take profit and stop loss
