@@ -11,7 +11,7 @@ class EMADivTrader extends Trader {
         this.smaPeriods = 20;
 
         this.emaDownTrigger = { 'max': 0.38, 'min': 0.10 };
-        this.emaUpTrigger = { 'max': 0.38, 'min': 0.20 };
+        this.emaUpTrigger = { 'max': 0.35, 'min': 0.10 };
     }
 
     analysisIntervalLength() {

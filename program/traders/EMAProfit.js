@@ -8,10 +8,10 @@ class EMAProfitTrader extends Trader {
 
         // parameters
         this.emaPeriods = 5;
-        this.emaDownTrigger = { 'max': 0.38, 'min': 0.10 };
-        this.emaUpTrigger = { 'max': 0.38, 'min': 0.15 };
-        this.maxTimeInTrade = 60 * 12; // 6h
-        this.objective = 0.09;
+        this.emaDownTrigger = { 'max': 0.4, 'min': 0.10 };
+        this.emaUpTrigger = { 'max': 0.4, 'min': 0.10 };
+        this.maxTimeInTrade = 60 * 24; // 6h
+        this.objective = 0.07;
 
         // trade decision making
         this.inTrade = false;
@@ -46,20 +46,22 @@ class EMAProfitTrader extends Trader {
         });
     }
 
+    getTaxRatio() {
+        let taxRange = 0.0016 + 0.0026 - 0.001;
+        let curr = this.getBuyTax() - 0.001 + this.getSellTax();
+        return curr / taxRange;
+    }
+
     // vary from 0.4 (when highest tax: 0.26%) to 0.25 (when lowest buy tax: 0.10%)
     adaptativeDownTrigger() {
         let emaDownRange = this.emaDownTrigger.max - this.emaDownTrigger.min;
-        let buyTaxRange = 0.0026 - 0.001;
-        let curr = this.getBuyTax() - 0.001;
-        return this.emaDownTrigger.min + emaDownRange * curr / buyTaxRange;
+        return this.emaDownTrigger.min + emaDownRange * this.getTaxRatio();
     }
 
     // vary from 0.4 (when highest tax: 0.26%) to 0.20 (when lowest sell tax: 0%)
     adaptativeUpTrigger() {
-        let emaDownRange = this.emaDownTrigger.max - this.emaDownTrigger.min;
-        let sellTaxRange = 0.0016;
-        let curr = this.getSellTax();
-        return this.emaDownTrigger.min + emaDownRange * curr / sellTaxRange;
+        let emaUpRange = this.emaUpTrigger.max - this.emaUpTrigger.min;
+        return this.emaUpTrigger.min + emaUpRange * this.getTaxRatio();
     }
 
     getObjective() {

@@ -2,7 +2,7 @@ const _ = require('lodash');
 const config = require('../config');
 const colors = require('colors');
 const moment = require('moment');
-
+const HRNumbers = require('human-readable-numbers');
 const startingFunding = 1000;
 
 const tradingFees = {
@@ -263,7 +263,7 @@ class Trader {
     statisticsColoredStr() {
         let stats = this.statistics();
 
-        let gainStr = `${stats.cumulatedGain.toFixed(0)}€`;
+        let gainStr = `${HRNumbers.toHumanString(stats.cumulatedGain.toFixed(0))}€`;
         stats.cumulatedGain = stats.cumulatedGain > 0 ? gainStr.green : gainStr.red;
 
         let winLossRatioStr = `${(stats.winLossRatio*100).toFixed(2)}%`;
