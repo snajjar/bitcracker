@@ -53,8 +53,8 @@ const tradingFees = {
 
 // const tradingFees = {
 //     0: {
-//         "maker": 0.0010,
-//         "taker": 0.0020
+//         "maker": 0.0016,
+//         "taker": 0.0026
 //     }
 // }
 
@@ -308,8 +308,8 @@ class Trader {
             // recompute 30-days volume and taxes
             this.calculatedTradeVolume30 = null; // erase previous value
             let taxes = this.getTaxes();
-            this.buyTax = taxes.taker;
-            this.sellTax = taxes.maker;
+            this.buyTax = taxes.taker; // all market orders are provided the taker fee
+            this.sellTax = taxes.taker; // all market orders are provided the taker fee, even for sell
         }
     }
 

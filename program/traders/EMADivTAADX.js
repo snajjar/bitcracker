@@ -8,8 +8,10 @@ class EMADivTrader extends Trader {
 
         // parameters
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'max': 0.36, 'min': 0.15 };
+        this.emaDownTrigger = { 'max': 0.35, 'min': 0.15 };
         this.emaUpTrigger = { 'max': 0.4, 'min': 0.2 };
+        this.adxPeriods = 14;
+        this.adxTrigger = 13;
     }
 
     analysisIntervalLength() {
@@ -51,6 +53,21 @@ class EMADivTrader extends Trader {
         });
     }
 
+    getADX(dataPeriods) {
+        let highPrices = _.map(dataPeriods, p => p.high);
+        let lowPrices = _.map(dataPeriods, p => p.low);
+        let closePrices = _.map(dataPeriods, p => p.close);
+        return new Promise((resolve, reject) => {
+            tulind.indicators.adx.indicator([highPrices, lowPrices, closePrices], [this.adxPeriods], function(err, results) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(results[0]);
+                }
+            });
+        });
+    }
+
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
@@ -68,7 +85,13 @@ class EMADivTrader extends Trader {
 
             if (!this.inTrade) {
                 let bigDown = diff < -this.adaptativeDownTrigger();
-                if (bigDown) {
+
+                // determine trend strengh with ADX
+                let adx = await this.getADX(dataPeriods);
+                let lastADX = adx[adx.length - 1];
+                let trendSeemsStrong = !isNaN(lastADX) && lastADX > this.adxTrigger;
+
+                if (bigDown && trendSeemsStrong) {
                     // BUY condition
                     return this.buy();
                 } else {
