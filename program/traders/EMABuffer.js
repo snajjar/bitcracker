@@ -8,15 +8,17 @@ class EMAProfitTrader extends Trader {
 
         // parameters
         this.emaPeriods = 5;
-        this.emaDownTrigger = { 'max': 0.5, 'min': 0.10 };
+        this.emaDownTrigger = { 'max': 0.4, 'min': 0.10 };
         this.emaUpTrigger = { 'max': 0.4, 'min': 0.2 };
-        this.maxTimeInTrade = 60 * 2; // 2h, can't sell without profit
-        this.objective = 0.02;
+        this.maxTimeInTrade = 60 * 5; // 5h
+        this.objective = 0.015;
+        this.bbandStdDev = 0.5;
 
         // trade decision making
         this.inTrade = false;
         this.enterTradeValue = 0;
         this.timeInTrade = 0;
+        this.sellTreshold = null;
         this.step = (this.objective - this.getBuyTax() + this.getSellTax()) / this.maxTimeInTrade;
     }
 
@@ -70,6 +72,19 @@ class EMAProfitTrader extends Trader {
         return this.enterTradeValue * (1 + this.getBuyTax() + this.getSellTax());
     }
 
+    getBBands(dataPeriods) {
+        let closePrices = _.map(dataPeriods, p => p.close);
+        return new Promise((resolve, reject) => {
+            tulind.indicators.bbands.indicator([closePrices], [20, 2], function(err, results) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve([results[0], results[1], results[2]]);
+                }
+            });
+        });
+    }
+
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(0.1);
@@ -87,6 +102,7 @@ class EMAProfitTrader extends Trader {
             if (bigDown) {
                 // BUY condition
                 this.timeInTrade = 0;
+                this.sellTreshold = null;
                 return this.buy();
             } else {
                 return this.hold();
@@ -94,30 +110,41 @@ class EMAProfitTrader extends Trader {
         } else {
             this.timeInTrade++;
             let bigUp = diff > this.adaptativeUpTrigger();
-            let objectivePrice = this.getObjective();
-            let winningPrice = this.getWinningPrice(); // price at which the trade is positive
+            if (bigUp) {
+                return this.sell();
+            } else {
+                // if we are in a winning position, set a minimum according to bollinger's bands (variability).
+                // if price goes under that treshold we set, we sell.
+                if (this.sellTreshold !== null && currentBitcoinPrice < this.sellTreshold) {
+                    //console.log(`FORCED SELLING AT: ${this.sellTreshold.toFixed(0)}€ when entered at ${this.enterTradeValue.toFixed(0)}€`);
+                    this.sellTreshold = null;
+                    return this.sell();
+                } else {
+                    let objectivePrice = this.getObjective();
+                    let winningPrice = this.getWinningPrice();
 
-            if (objectivePrice > winningPrice) {
-                // we are in the time period shortly after trade, we only sell positive here
-                if (currentBitcoinPrice > winningPrice) {
-                    if (currentBitcoinPrice > objectivePrice) {
-                        // objective reached
-                        return this.sell();
-                    } else if (bigUp) {
-                        // big up price, sell here
+                    // check if we need to set/increase our treshold
+                    let [lowBand, midBand, highBand] = await this.getBBands(dataPeriods);
+                    let lbPrice = _.last(lowBand);
+                    let mbPrice = _.last(midBand);
+
+                    // the closer we are to objective, the more we push the treshold close the the actual price
+                    let newSellTreshold = currentBitcoinPrice - (mbPrice - lbPrice) * this.bbandStdDev * (1 - currentBitcoinPrice / objectivePrice);
+                    if (newSellTreshold > winningPrice) {
+                        // we should have a treshold here
+                        if (!this.sellTreshold || newSellTreshold > this.sellTreshold) {
+                            this.sellTreshold = newSellTreshold;
+                        }
+                    }
+
+                    // check if we reached objective or if EMA diff is strong and makes us sell
+                    let bigUp = diff > this.adaptativeUpTrigger();
+                    if (currentBitcoinPrice > objectivePrice || bigUp) {
+                        this.sellTreshold = null;
                         return this.sell();
                     } else {
                         return this.hold();
                     }
-                } else {
-                    return this.hold();
-                }
-            } else {
-                // the no-loosing-trade period has expired. Sell if bigUp detected
-                if (bigUp) {
-                    return this.sell();
-                } else {
-                    return this.hold();
                 }
             }
         }

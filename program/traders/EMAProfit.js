@@ -8,10 +8,10 @@ class EMAProfitTrader extends Trader {
 
         // parameters
         this.emaPeriods = 5;
-        this.emaDownTrigger = { 'max': 0.5, 'min': 0.10 };
-        this.emaUpTrigger = { 'max': 0.4, 'min': 0.2 };
-        this.maxTimeInTrade = 60 * 5; // 5h
-        this.objective = 0.015;
+        this.emaDownTrigger = { 'max': 0.38, 'min': 0.10 };
+        this.emaUpTrigger = { 'max': 0.38, 'min': 0.15 };
+        this.maxTimeInTrade = 60 * 12; // 6h
+        this.objective = 0.09;
 
         // trade decision making
         this.inTrade = false;

@@ -10,12 +10,12 @@ class EMADivTrader extends Trader {
         this.emaPeriods = 5;
         this.smaPeriods = 20;
 
-        this.emaDownTrigger = { 'max': 0.333, 'min': 0.15 };
-        this.emaUpTrigger = { 'max': 0.333, 'min': 0.15 };
+        this.emaDownTrigger = { 'max': 0.38, 'min': 0.10 };
+        this.emaUpTrigger = { 'max': 0.38, 'min': 0.20 };
     }
 
     analysisIntervalLength() {
-        return 200;
+        return 50;
     }
 
     hash() {
@@ -33,10 +33,10 @@ class EMADivTrader extends Trader {
 
     // vary from 0.4 (when highest tax: 0.26%) to 0.20 (when lowest sell tax: 0%)
     adaptativeUpTrigger() {
-        let emaDownRange = this.emaDownTrigger.max - this.emaDownTrigger.min;
+        let emaUpRange = this.emaUpTrigger.max - this.emaUpTrigger.min;
         let sellTaxRange = 0.0016;
         let curr = this.getSellTax();
-        return this.emaDownTrigger.min + emaDownRange * curr / sellTaxRange;
+        return this.emaUpTrigger.min + emaUpRange * curr / sellTaxRange;
     }
 
     getEMA(dataPeriods) {
