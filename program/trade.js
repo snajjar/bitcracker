@@ -483,9 +483,9 @@ const trade = async function(name, fake) {
                     console.error('Trader returned no action !'.red);
             }
 
-            let lastTradeStr = trader.inTrade ? ` lastBuy=${k.lastBuyPrice()}` : ""
+            let lastTradeStr = trader.inTrade ? ` lastBuy=${k.lastBuyPrice()}€` : ""
             let objectiveStr = trader.getObjective ? ` objective=${trader.getObjective().toFixed(0)}€` : "";
-            console.log(`[*] ${k.fake ? "(FAKE)" : ""} Trader (${trader.hash()}): ${action.yellow}. Status: inTrade=${trader.inTrade.toString().cyan}${lastTradeStr}€${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader, currentBitcoinPrice)}`);
+            console.log(`[*] ${k.fake ? "(FAKE)" : ""} Trader (${trader.hash()}): ${action.yellow}. Status: inTrade=${trader.inTrade.toString().cyan}${lastTradeStr}${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader, currentBitcoinPrice)}`);
         } else {
             // no new data, rest API rate for a while
             await sleep(3);

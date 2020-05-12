@@ -2,19 +2,14 @@ const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-class EMADivTrader extends Trader {
+class SMADivTrader extends Trader {
     constructor() {
         super();
 
         // parameters
-        // this.emaPeriods = 5;
-        // this.emaDownTrigger = { 'min': 0.31, 'max': 0.75 };
-        // this.emaUpTrigger = { 'min': 0.31, 'max': 0.75 };
-
-        // parameters
-        this.emaPeriods = 2;
-        this.emaDownTrigger = { 'max': 0.38, 'min': 0.14 };
-        this.emaUpTrigger = { 'max': 0.42, 'min': 0.21 };
+        this.smaPeriods = 5;
+        this.smaDownTrigger = { 'min': 0.33, 'max': 1.2 };
+        this.smaUpTrigger = { 'min': 0.33, 'max': 1.2 };
     }
 
     analysisIntervalLength() {
@@ -22,7 +17,7 @@ class EMADivTrader extends Trader {
     }
 
     hash() {
-        return "Algo_EMADiv_Tax_Adjusted";
+        return "Algo_SMADiv_Tax_Adjusted";
     }
 
     // return the current value for position (between 0 and 1), on a logarithmic scale from min to max
@@ -48,18 +43,18 @@ class EMADivTrader extends Trader {
 
     // vary from 0.4 (when highest tax: 0.26%) to 0.25 (when lowest buy tax: 0.10%)
     adaptativeDownTrigger() {
-        return this.adaptativeTrigger(this.emaDownTrigger.min, this.emaDownTrigger.max, this.getTaxRatio());
+        return this.adaptativeTrigger(this.smaDownTrigger.min, this.smaDownTrigger.max, this.getTaxRatio());
     }
 
     // vary from 0.4 (when highest tax: 0.26%) to 0.20 (when lowest sell tax: 0%)
     adaptativeUpTrigger() {
-        return this.adaptativeTrigger(this.emaUpTrigger.min, this.emaUpTrigger.max, this.getTaxRatio());
+        return this.adaptativeTrigger(this.smaUpTrigger.min, this.smaUpTrigger.max, this.getTaxRatio());
     }
 
-    getEMA(dataPeriods) {
+    getSMA(dataPeriods) {
         let closePrices = _.map(dataPeriods, p => p.close);
         return new Promise((resolve, reject) => {
-            tulind.indicators.ema.indicator([closePrices], [this.emaPeriods], function(err, results) {
+            tulind.indicators.sma.indicator([closePrices], [this.smaPeriods], function(err, results) {
                 if (err) {
                     reject(err);
                 } else {
@@ -79,9 +74,10 @@ class EMADivTrader extends Trader {
 
         // calculate sma indicator
         try {
-            let ema = await this.getEMA(dataPeriods);
-            let currEMA = _.last(ema);
-            var diff = (currentBitcoinPrice / currEMA * 100) - 100;
+            let sma = await this.getSMA(dataPeriods);
+            let currSMA = _.last(sma);
+
+            var diff = (currentBitcoinPrice / currSMA * 100) - 100;
 
             if (!this.inTrade) {
                 let bigDown = diff < -this.adaptativeDownTrigger();
@@ -107,4 +103,4 @@ class EMADivTrader extends Trader {
     }
 }
 
-module.exports = EMADivTrader;
+module.exports = SMADivTrader;

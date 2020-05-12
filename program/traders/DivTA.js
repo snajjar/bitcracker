@@ -2,19 +2,20 @@ const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-class EMADivTrader extends Trader {
+class DivTrader extends Trader {
     constructor() {
         super();
 
         // parameters
-        // this.emaPeriods = 5;
-        // this.emaDownTrigger = { 'min': 0.31, 'max': 0.75 };
-        // this.emaUpTrigger = { 'min': 0.31, 'max': 0.75 };
+        this.smaPeriods = 5;
+        this.smaDownTrigger = { 'min': 0.33, 'max': 1.2 };
+        this.smaUpTrigger = { 'min': 0.33, 'max': 1.2 };
 
-        // parameters
         this.emaPeriods = 2;
         this.emaDownTrigger = { 'max': 0.38, 'min': 0.14 };
         this.emaUpTrigger = { 'max': 0.42, 'min': 0.21 };
+
+        this.lastBuy = null;
     }
 
     analysisIntervalLength() {
@@ -22,7 +23,7 @@ class EMADivTrader extends Trader {
     }
 
     hash() {
-        return "Algo_EMADiv_Tax_Adjusted";
+        return "Algo_Div_Tax_Adjusted";
     }
 
     // return the current value for position (between 0 and 1), on a logarithmic scale from min to max
@@ -46,14 +47,33 @@ class EMADivTrader extends Trader {
         return positionOnLogScale;
     }
 
-    // vary from 0.4 (when highest tax: 0.26%) to 0.25 (when lowest buy tax: 0.10%)
-    adaptativeDownTrigger() {
+    adaptativeSMADownTrigger() {
+        return this.adaptativeTrigger(this.smaDownTrigger.min, this.smaDownTrigger.max, this.getTaxRatio());
+    }
+
+    adaptativeSMAUpTrigger() {
+        return this.adaptativeTrigger(this.smaUpTrigger.min, this.smaUpTrigger.max, this.getTaxRatio());
+    }
+
+    adaptativeEMADownTrigger() {
         return this.adaptativeTrigger(this.emaDownTrigger.min, this.emaDownTrigger.max, this.getTaxRatio());
     }
 
-    // vary from 0.4 (when highest tax: 0.26%) to 0.20 (when lowest sell tax: 0%)
-    adaptativeUpTrigger() {
+    adaptativeEMAUpTrigger() {
         return this.adaptativeTrigger(this.emaUpTrigger.min, this.emaUpTrigger.max, this.getTaxRatio());
+    }
+
+    getSMA(dataPeriods) {
+        let closePrices = _.map(dataPeriods, p => p.close);
+        return new Promise((resolve, reject) => {
+            tulind.indicators.sma.indicator([closePrices], [this.smaPeriods], function(err, results) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(results[0]);
+                }
+            });
+        });
     }
 
     getEMA(dataPeriods) {
@@ -79,22 +99,36 @@ class EMADivTrader extends Trader {
 
         // calculate sma indicator
         try {
+            let sma = await this.getSMA(dataPeriods);
+            let currSMA = _.last(sma);
+            var smadiff = (currentBitcoinPrice / currSMA * 100) - 100;
+
             let ema = await this.getEMA(dataPeriods);
             let currEMA = _.last(ema);
-            var diff = (currentBitcoinPrice / currEMA * 100) - 100;
+            var emadiff = (currentBitcoinPrice / currEMA * 100) - 100;
 
             if (!this.inTrade) {
-                let bigDown = diff < -this.adaptativeDownTrigger();
-                if (bigDown) {
+                let smaBigDown = smadiff < -this.adaptativeSMADownTrigger();
+                let emaBigDown = emadiff < -this.adaptativeEMADownTrigger();
+                if (smaBigDown || emaBigDown) {
                     // BUY condition
+                    this.lastBuy = smaBigDown ? "ema" : "sma";
                     return this.buy();
                 } else {
                     return this.hold();
                 }
             } else {
-                let bigUp = diff > this.adaptativeUpTrigger();
-                if (bigUp) {
-                    // SELL conditions are take profit and stop loss
+                // let bigUp;
+                // if (this.lastBuy == "ema") {
+                //     bigUp = emadiff > this.adaptativeEMAUpTrigger();
+                // } else {
+                //     bigUp = smadiff > this.adaptativeSMAUpTrigger();
+                // }
+                // if (bigUp) {
+                let smaBigUp = smadiff > this.adaptativeSMAUpTrigger();
+                let emaBigUp = emadiff > this.adaptativeEMAUpTrigger();
+                if (smaBigUp || emaBigUp) {
+                    // SELL condition
                     return this.sell();
                 } else {
                     return this.hold();
@@ -107,4 +141,4 @@ class EMADivTrader extends Trader {
     }
 }
 
-module.exports = EMADivTrader;
+module.exports = DivTrader;

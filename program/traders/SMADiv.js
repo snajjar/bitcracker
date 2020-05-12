@@ -7,8 +7,8 @@ class EMADivTrader extends Trader {
         super();
 
         // parameters
-        this.emaPeriods = 5;
-        this.emaTrigger = 0.8;
+        this.smaPeriods = 5;
+        this.smaTrigger = 0.5; // best settings: 1.3 for max fees, 0.22 for min fees
     }
 
     analysisIntervalLength() {
@@ -16,13 +16,13 @@ class EMADivTrader extends Trader {
     }
 
     hash() {
-        return "Algo_EMADiv";
+        return "Algo_SMADiv";
     }
 
-    getEMA(dataPeriods) {
+    getSMA(dataPeriods) {
         let closePrices = _.map(dataPeriods, p => p.close);
         return new Promise((resolve, reject) => {
-            tulind.indicators.ema.indicator([closePrices], [this.emaPeriods], function(err, results) {
+            tulind.indicators.sma.indicator([closePrices], [this.smaPeriods], function(err, results) {
                 if (err) {
                     reject(err);
                 } else {
@@ -42,12 +42,12 @@ class EMADivTrader extends Trader {
 
         // calculate sma indicator
         try {
-            let ema = await this.getEMA(dataPeriods);
-            let currEMA = ema[ema.length - 1];
+            let sma = await this.getSMA(dataPeriods);
+            let currSMA = _.last(sma);
 
-            var diff = (currentBitcoinPrice / currEMA * 100) - 100;
-            let bigDown = diff < -this.emaTrigger;
-            let bigUp = diff > this.emaTrigger;
+            var diff = (currentBitcoinPrice / currSMA * 100) - 100;
+            let bigDown = diff < -this.smaTrigger;
+            let bigUp = diff > this.smaTrigger;
 
             if (!this.inTrade) {
                 if (bigDown) {

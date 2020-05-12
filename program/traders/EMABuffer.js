@@ -8,11 +8,11 @@ class EMAProfitTrader extends Trader {
 
         // parameters
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'max': 0.35, 'min': 0.15 };
+        this.emaDownTrigger = { 'max': 0.36, 'min': 0.15 };
         this.emaUpTrigger = { 'max': 0.4, 'min': 0.2 };
         this.maxTimeInTrade = 60 * 5; // 5h
-        this.objective = 0.02;
-        this.bbandStdDev = 1;
+        this.objective = 0.2;
+        this.bbandStdDev = 3;
 
         // trade decision making
         this.inTrade = false;
@@ -28,7 +28,7 @@ class EMAProfitTrader extends Trader {
     }
 
     hash() {
-        return "Algo_EMAProfit";
+        return "Algo_EMABuffer";
     }
 
     getAVG(dataPeriods) {
@@ -49,8 +49,8 @@ class EMAProfitTrader extends Trader {
     }
 
     getTaxRatio() {
-        let taxRange = 0.0026 - 0.001;
-        let curr = this.getBuyTax() - 0.001 + this.getSellTax();
+        let taxRange = 0.0016 * 2;
+        let curr = this.getBuyTax() - 0.001 + this.getSellTax() - 0.001;
         return curr / taxRange;
     }
 
