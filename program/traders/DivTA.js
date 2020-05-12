@@ -127,7 +127,7 @@ class DivTrader extends Trader {
                 // if (bigUp) {
                 let smaBigUp = smadiff > this.adaptativeSMAUpTrigger();
                 let emaBigUp = emadiff > this.adaptativeEMAUpTrigger();
-                if (smaBigUp || emaBigUp) {
+                if (emaBigUp) {
                     // SELL condition
                     return this.sell();
                 } else {
