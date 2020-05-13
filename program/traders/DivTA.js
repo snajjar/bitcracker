@@ -15,7 +15,7 @@ class DivTrader extends Trader {
         this.emaDownTrigger = { 'max': 0.38, 'min': 0.14 };
         this.emaUpTrigger = { 'max': 0.42, 'min': 0.21 };
 
-        this.lastBuy = null;
+        this.timeInTrade = null;
     }
 
     analysisIntervalLength() {
@@ -112,22 +112,21 @@ class DivTrader extends Trader {
                 let emaBigDown = emadiff < -this.adaptativeEMADownTrigger();
                 if (smaBigDown || emaBigDown) {
                     // BUY condition
-                    this.lastBuy = smaBigDown ? "ema" : "sma";
+                    this.timeInTrade = 0;
                     return this.buy();
                 } else {
                     return this.hold();
                 }
             } else {
-                // let bigUp;
-                // if (this.lastBuy == "ema") {
-                //     bigUp = emadiff > this.adaptativeEMAUpTrigger();
-                // } else {
-                //     bigUp = smadiff > this.adaptativeSMAUpTrigger();
-                // }
-                // if (bigUp) {
-                let smaBigUp = smadiff > this.adaptativeSMAUpTrigger();
+                this.timeInTrade++;
                 let emaBigUp = emadiff > this.adaptativeEMAUpTrigger();
-                if (emaBigUp) {
+                let sellCondition = emaBigUp;
+                if (this.timeInTrade <= 5) {
+                    // if shortly after the buy, we ensure we sell at a winning price
+                    let winningPrice = this.getWinningPrice();
+                    sellCondition &= currentBitcoinPrice > winningPrice;
+                }
+                if (sellCondition) {
                     // SELL condition
                     return this.sell();
                 } else {

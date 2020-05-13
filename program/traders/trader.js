@@ -158,6 +158,10 @@ class Trader {
         return this.sellTax;
     }
 
+    getWinningPrice() {
+        return this.enterTradeValue * (1 + this.getBuyTax() + this.getSellTax());
+    }
+
     // to be redefined if needed
     initialize() {}
 

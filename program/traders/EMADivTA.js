@@ -87,17 +87,30 @@ class EMADivTrader extends Trader {
                 let bigDown = diff < -this.adaptativeDownTrigger();
                 if (bigDown) {
                     // BUY condition
+                    this.timeInTrade = 0;
                     return this.buy();
                 } else {
                     return this.hold();
                 }
             } else {
-                let bigUp = diff > this.adaptativeUpTrigger();
-                if (bigUp) {
-                    // SELL conditions are take profit and stop loss
-                    return this.sell();
+                this.timeInTrade++;
+                if (this.timeInTrade <= 5) {
+                    // in the next 10 min, only sell if it's positive
+                    let bigUp = diff > this.adaptativeUpTrigger();
+                    let winningPrice = this.getWinningPrice();
+                    if (bigUp && currentBitcoinPrice > winningPrice) {
+                        return this.sell();
+                    } else {
+                        return this.hold();
+                    }
                 } else {
-                    return this.hold();
+                    let bigUp = diff > this.adaptativeUpTrigger();
+                    if (bigUp) {
+                        // SELL conditions are take profit and stop loss
+                        return this.sell();
+                    } else {
+                        return this.hold();
+                    }
                 }
             }
         } catch (e) {
