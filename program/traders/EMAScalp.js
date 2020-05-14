@@ -14,7 +14,7 @@ class DivTrader extends Trader {
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
         this.winTradePeriod = 20;
-        this.shortScalpProfit = { 'min': 0.0002, 'max': 0.0012 };
+        this.shortScalpProfit = { 'min': 0.00012, 'max': 0.0013 };
     }
 
     analysisIntervalLength() {
@@ -26,11 +26,17 @@ class DivTrader extends Trader {
     }
 
     // return the current value for position (between 0 and 1), on a logarithmic scale from min to max
-    logSlider(min, max, position) {
+    logSlider(min, max, ratio) {
         let minv = Math.log(min);
         let maxv = Math.log(max);
-        var scale = (maxv - minv) / (max - min);
+        let scale = (maxv - minv) / (max - min);
+        let position = this.linearSlider(min, max, ratio);
         return Math.exp(minv + scale * (position - min));
+    }
+
+    linearSlider(min, max, ratio) {
+        let range = max - min;
+        return min + range * ratio;
     }
 
     getTaxRatio() {
@@ -39,23 +45,16 @@ class DivTrader extends Trader {
         return curr / taxRange;
     }
 
-    adaptativeTrigger(min, max, ratio) {
-        let range = max - min;
-        let positionOnLinearScale = min + range * ratio;
-        let positionOnLogScale = this.logSlider(min, max, positionOnLinearScale);
-        return positionOnLogScale;
-    }
-
     adaptativeEMADownTrigger() {
-        return this.adaptativeTrigger(this.emaDownTrigger.min, this.emaDownTrigger.max, this.getTaxRatio());
+        return this.logSlider(this.emaDownTrigger.min, this.emaDownTrigger.max, this.getTaxRatio());
     }
 
     adaptativeEMAUpTrigger() {
-        return this.adaptativeTrigger(this.emaUpTrigger.min, this.emaUpTrigger.max, this.getTaxRatio());
+        return this.logSlider(this.emaUpTrigger.min, this.emaUpTrigger.max, this.getTaxRatio());
     }
 
     adaptativeScalp() {
-        return this.adaptativeTrigger(this.shortScalpProfit.min, this.shortScalpProfit.max, this.getTaxRatio());
+        return this.logSlider(this.shortScalpProfit.min, this.shortScalpProfit.max, this.getTaxRatio());
     }
 
     getEMA(dataPeriods) {
