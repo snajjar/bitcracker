@@ -4,7 +4,7 @@ const tulind = require('tulind');
 const tf = require('@tensorflow/tfjs-node');
 const datatools = require('../lib/datatools');
 const config = require('../config');
-const CNNPricePredictionModel = require('../models/prediction/cnnPricePrediction');
+const CNNPriceMultiScaleModel = require('../models/prediction/cnnPriceMultiscale');
 
 class TraderCNNEMAPredict extends Trader {
     constructor() {
@@ -22,7 +22,7 @@ class TraderCNNEMAPredict extends Trader {
     }
 
     async initialize() {
-        this.model = new CNNPricePredictionModel();
+        this.model = new CNNPriceMultiScaleModel();
         let interval = config.getInterval();
         await this.model.load(interval);
         await this.model.initialize();

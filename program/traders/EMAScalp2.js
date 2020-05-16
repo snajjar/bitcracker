@@ -2,14 +2,14 @@ const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 
-class DivTrader extends Trader {
+class EMAScalp2Trader extends Trader {
     constructor() {
         super();
 
         // EMA triggers we react to
-        this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.1, 'max': 0.38 };
-        this.emaUpTrigger = { 'min': 0.12, 'max': 0.38 };
+        this.emaPeriods = 5;
+        this.emaDownTrigger = { 'min': 0.3, 'max': 0.7 };
+        this.emaUpTrigger = { 'min': 0.3, 'max': 0.7 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
@@ -129,4 +129,4 @@ class DivTrader extends Trader {
     }
 }
 
-module.exports = DivTrader;
+module.exports = EMAScalp2Trader;

@@ -467,7 +467,6 @@ class Trader {
             if (this.lastBitcoinPrice < this.enterTradeValue * (1 - ratio)) {
                 //console.log('stopped loss !');
                 this.nbStopLoss++;
-                this.sell();
                 return true;
             }
         }
@@ -479,7 +478,6 @@ class Trader {
             if (this.lastBitcoinPrice > this.enterTradeValue * (1 + ratio)) {
                 //console.log('took profit !');
                 this.nbTakeProfit++;
-                this.sell();
                 return true;
             }
         }
