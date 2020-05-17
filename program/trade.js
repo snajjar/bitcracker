@@ -70,8 +70,12 @@ const getTrader = async function(name) {
     return trader;
 }
 
+const sleepms = function(s) {
+    return new Promise(resolve => setTimeout(resolve, s));
+}
+
 const sleep = function(s) {
-    return new Promise(resolve => setTimeout(resolve, s * 1000));
+    return sleepms(s * 1000);
 }
 
 const price = function(p) {
@@ -102,12 +106,101 @@ class Kraken {
         this.eurWallet = 0;
         this.btcWallet = 0;
 
+        // last prices
+        this.candles = [];
+        this.currCandle = null;
+        this.since = 0;
+
         this.placedOrders = []; // history of orders we made
 
         this.openOrders = {};
         this.closedOrders = {};
 
         this.tradeVolume = 0;
+        this.serverTimeDelay = 0; // number of ms diff between srv and client
+    }
+
+    // get OHLC data since "since"
+    // return true if there is new data, false otherwise
+    async refreshOHLC() {
+        const isNewData = (candles) => {
+            if (!this.candles || this.candles.length == 0) {
+                return true;
+            } else {
+                let lastKnownData = _.last(this.candles);
+                let lastNewData = _.last(candles);
+                return !lastKnownData || lastKnownData.timestamp !== lastNewData.timestamp;
+            }
+        }
+
+        let r = null;
+        try {
+            // get last prices
+            let options = {
+                pair: 'BTCEUR',
+                interval: 1,
+                since: this.since,
+            }
+            r = await this.kraken.api('OHLC', options);
+
+            // format data into candles
+            let results = r.result["XXBTZEUR"];
+            let periods = [];
+            _.each(results, r => {
+                periods.push(extractFieldsFromKrakenData(r));
+            });
+
+            let candles = _.sortBy(periods, p => p.timestamp);
+            this.currCandle = candles.pop();
+            let lastCandle = _.last(candles);
+            this.since = lastCandle ? lastCandle.timestamp + 1 : 0; // set the new "since" period
+
+            if (!_.isEmpty(candles) && isNewData(candles)) {
+                // there is new data
+                // concat new periods to old ones
+                this.candles = this.candles.concat(candles);
+                if (this.candles.length > 1000) {
+                    this.candles = this.candles.slice(this.candles.length - 1000);
+                }
+                return true;
+            } else {
+                return false;
+            }
+        } catch (e) {
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error refreshing prices: ' + errorMsg.red);
+                console.error(e);
+            } else {
+                console.error('Error refreshing prices');
+                console.error(e);
+                //console.log(JSON.stringify(r));
+            }
+        }
+    }
+
+    getCurrentBitcoinPrice() {
+        if (!this.currCandle) {
+            throw new Error("You should first refresh OHLC data before getting bitcoin price");
+        }
+        return this.currCandle.close;
+    }
+
+    getPriceCandles() {
+        if (!this.candles) {
+            throw new Error("You should first refresh OHLC data before getting bitcoin price");
+        }
+        return _.clone(this.candles);
+    }
+
+    displayLastPrices() {
+        let time = moment.unix(this.currCandle.timestamp);
+        let candles = this.candles;
+        console.log(`[*] ${moment().format('DD/MM/YY hh:mm:ss')} Prices: ${price(candles[candles.length-4].close)} -> ` +
+            `${price(candles[candles.length-3].close)} -> ` +
+            `${price(candles[candles.length-2].close)} -> ` +
+            `${price(candles[candles.length-1].close)} -> ` +
+            `${priceYellow(this.getCurrentBitcoinPrice())} (current candle ${time.format('hh:mm:ss')})`);
     }
 
     // get the max BTC volume we can buy with our current EUR wallet
@@ -171,6 +264,57 @@ class Kraken {
         } catch (e) {
             console.error('It appears that you are not logged in correctly'.red);
             throw e;
+        }
+    }
+
+    async getServerTime() {
+        let r = null;
+        try {
+            // get balance info
+            r = await this.kraken.api('Time');
+            let time = parseInt(r.result["unixtime"]);
+            return time;
+        } catch (e) {
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error retrieving account balance: ' + errorMsg.red);
+                console.error(e);
+            } else {
+                console.error('Error retrieving account balance');
+                console.error(e);
+                console.log(JSON.stringify(r));
+            }
+        }
+    }
+
+    // save difference between local time and server time
+    async synchronize() {
+        // server time synchronisation
+        let serverTime = await this.getServerTime();
+        let diff = moment() - moment.unix(serverTime);
+        this.serverTimeDelay = diff % 60000 - 200; // remove 200ms for ping delay
+        console.log(`[*] Time synchronisation: ${this.serverTimeDelay}ms`);
+    }
+
+    // required synchronisation
+    async nextMinute() {
+        let now = moment();
+        let nextMinute = moment().add(1, "minute").startOf("minute");
+        if (this.serverTimeDelay > 0) {
+            nextMinute.add(this.serverTimeDelay, "milliseconds");
+        }
+        let diff = moment.duration(nextMinute - now).asMilliseconds();
+        await sleepms(diff);
+    }
+
+    // return when there is a new price data available
+    async nextData() {
+        await this.nextMinute();
+        let newDataAvailable = await this.refreshOHLC();
+        while (!newDataAvailable) {
+            console.log('[*] Retrying refresh...');
+            await sleep(1);
+            newDataAvailable = await this.refreshOHLC();
         }
     }
 
@@ -398,17 +542,6 @@ const trade = async function(name, fake) {
     let k = new Kraken(fake);
     let btcData = [];
 
-    // check if we have some new data in in theses candles
-    const isNewData = function(candles) {
-        if (!btcData || btcData.length == 0) {
-            return true;
-        } else {
-            let lastKnownData = btcData[btcData.length - 1];
-            let lastNewData = candles[candles.length - 1];
-            return !lastKnownData || lastKnownData.timestamp !== lastNewData.timestamp;
-        }
-    }
-
     let traderRefreshed = false;
     let refreshTrader = async function(currentBitcoinPrice) {
         console.log('[*] Refreshing trader data');
@@ -426,89 +559,44 @@ const trade = async function(name, fake) {
 
     // login and display account infos
     await k.login();
-    let remoteData = await getKrakenData(1);
-    await sleep(1);
-    let currentBitcoinPrice = _.last(remoteData).close;
+    await k.synchronize(); // get server time delay
+    await k.refreshOHLC();
+    let currentBitcoinPrice = k.getCurrentBitcoinPrice();
     await refreshTrader(currentBitcoinPrice);
     k.displayAccount();
+    k.displayLastPrices();
 
-    // every 5 sec: fetch BTC price and trade
     let count = 0;
-    let currCandle = null;
-    let lastCandle = null;
-
-    let displayPriceChange = function() {
-        let time = moment.unix(currCandle.timestamp);
-        console.log(`[*] ${time.format('DD/MM/YY hh:mm:ss')} Prices: ${price(btcData[btcData.length-4].close)} -> ` +
-            `${price(btcData[btcData.length-3].close)} -> ` +
-            `${price(btcData[btcData.length-2].close)} -> ` +
-            `${price(btcData[btcData.length-1].close)} -> ` +
-            `${priceYellow(currCandle.close)} (current candle)`);
-    }
-
     while (1) {
-        count++;
-        let since = lastCandle ? lastCandle.close + 1 : undefined; // add 1 sec to last candle
-        let remoteData = await getKrakenData(1, since);
-        if (!remoteData) {
-            //probably reached API speed limit
-            console.log('[*] waiting 10 seconds for API rate to go down');
-            await sleep(10);
-            continue;
-        }
+        // wait for the next minute
+        await k.nextData();
+        k.displayLastPrices();
 
-        // the last candle is the "current" minute, unfinished and subject to changes. Remove it.
-        currCandle = remoteData.pop();
-
-        if (!_.isEmpty(remoteData) && isNewData(remoteData)) {
-            // there is new data
-            // concat new periods to old ones
-            btcData = btcData.concat(remoteData);
-            if (btcData.length > 1000) {
-                btcData = btcData.slice(btcData.length - 1000);
-            }
-            lastCandle = _.last(btcData);
-        }
-
-        let currentBitcoinPrice = currCandle.close;
+        currentBitcoinPrice = k.getCurrentBitcoinPrice();
 
         // time for trader action
-        let candlesToAnalyse = btcData.slice(btcData.length - trader.analysisIntervalLength() + 1);
-        candlesToAnalyse.push(currCandle);
+        let candles = k.getPriceCandles();
+        let candlesToAnalyse = candles.slice(candles.length - trader.analysisIntervalLength());
         dt.connectCandles(candlesToAnalyse);
         let action = await trader.decideAction(candlesToAnalyse);
+        displayTraderStatus(action);
 
         switch (action) {
             case "HOLD":
-                if (count % 5 == 0) {
-                    displayPriceChange();
-                }
-                if (count % 50 == 0) {
-                    // every once in a while, refresh the trader data
+                if (count++ % 10 == 9) {
+                    // every once in a while, refresh the trader data and display it's status
                     await refreshTrader(currentBitcoinPrice);
-                    displayTraderStatus(action);
-                    await sleep(1);
-                } else {
-                    await sleep(5); // we just got new data, sleep for a while
                 }
                 break;
             case "SELL":
-                displayPriceChange();
                 console.log(`  - SELLING ${btc(k.btcWallet)} at expected price ${price(currentBitcoinPrice * k.btcWallet)}`);
                 await k.sellAll(currentBitcoinPrice);
-                await sleep(1);
                 await refreshTrader(currentBitcoinPrice);
-                await sleep(1);
-                displayTraderStatus(action);
                 break;
             case "BUY":
-                displayPriceChange();
                 console.log(`  - BUYING for ${price(k.eurWallet)} of bitcoin at expected price ${price(currentBitcoinPrice)}: ${btc(k.eurWallet/currentBitcoinPrice)}`);
                 await k.buyAll(currentBitcoinPrice);
-                await sleep(1);
                 await refreshTrader(currentBitcoinPrice);
-                await sleep(1);
-                displayTraderStatus(action);
                 break;
             default:
                 console.error('Trader returned no action !'.red);
