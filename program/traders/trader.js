@@ -53,8 +53,8 @@ const tradingFees = {
 
 // const tradingFees = {
 //     0: {
-//         "maker": 0.0000,
-//         "taker": 0.0010
+//         "maker": 0.0010,
+//         "taker": 0.0024
 //     }
 // }
 
@@ -79,12 +79,16 @@ class Trader {
         // trade utils
         this.inTrade = false;
         this.enterTradeValue = 0;
+        this.bidPrice = null;
+        this.askPrice = null;
 
         // statistics utils
         this.nbPenalties = 0;
         this.trades = [];
         this.nbBuy = 0;
         this.nbSell = 0;
+        this.nbBid = 0;
+        this.nbAsk = 0;
         this.nbHold = 0;
         this.nbHoldOut = 0;
         this.nbHoldIn = 0;
@@ -158,6 +162,14 @@ class Trader {
         return this.sellTax;
     }
 
+    getBidTax() {
+        return this.bidTax;
+    }
+
+    getAskTax() {
+        return this.askTax;
+    }
+
     getWinningPrice() {
         return this.enterTradeValue * (1 + this.getBuyTax() + this.getSellTax());
     }
@@ -179,6 +191,8 @@ class Trader {
         this.trades = [];
         this.nbBuy = 0;
         this.nbSell = 0;
+        this.nbBid = 0;
+        this.nbAsk = 0;
         this.nbHold = 0;
         this.nbHoldOut = 0;
         this.nbHoldIn = 0;
@@ -195,6 +209,8 @@ class Trader {
             trades: this.trades,
             nbBuy: this.nbBuy,
             nbSell: this.nbSell,
+            nbBid: this.nbBid,
+            nbAsk: this.nbAsk,
             nbHold: this.nbHold,
             nbHoldOut: this.nbHoldOut,
             nbHoldIn: this.nbHoldIn,
@@ -211,6 +227,8 @@ class Trader {
             this.trades = this.trades.concat(s.trades);
             this.nbBuy += s.nbBuy;
             this.nbSell += s.nbSell;
+            this.nbBid += s.nbBid;
+            this.nbAsk += s.nbAsk;
             this.nbHold += s.nbHold;
             this.nbHoldOut += s.nbHoldOut;
             this.nbHoldIn += s.nbHoldIn;
@@ -239,6 +257,8 @@ class Trader {
                 nbTakeProfit: this.nbTakeProfit,
                 nbBuy: this.nbBuy,
                 nbSell: this.nbSell,
+                nbBid: this.nbBid,
+                nbAsk: this.nbAsk,
                 nbHold: this.nbHold,
                 nbHoldIn: this.nbHoldIn,
                 nbHoldOut: this.nbHoldOut
@@ -290,7 +310,7 @@ class Trader {
     }
 
     tradesStr() {
-        return `${this.nbBuy} buy, ${this.nbSell} sell, ${this.nbHold} hold (${this.nbHoldIn} in, ${this.nbHoldOut} out)`;
+        return `${this.nbBuy} buy, ${this.nbSell} sell, ${this.nbBid} bid, ${this.nbAsk} ask, ${this.nbHold} hold (${this.nbHoldIn} in, ${this.nbHoldOut} out)`;
     }
 
     hasEuros() {
@@ -321,11 +341,29 @@ class Trader {
             let taxes = this.getTaxes();
             this.buyTax = taxes.taker; // all market orders are provided the taker fee
             this.sellTax = taxes.taker; // all market orders are provided the taker fee, even for sell
+            this.bidTax = taxes.maker;
+            this.askTax = taxes.maker;
         }
     }
 
     // called on each new period, will call the action() method
     async decideAction(dataPeriods) {
+        // first check if our bids and asks were fullfilled
+        var lastPeriod = _.last(dataPeriods);
+        if (this.bidPrice !== null) {
+            if (lastPeriod.low <= this.bidPrice) {
+                this._fullfillBid();
+            } else {
+                this._clearBid();
+            }
+        } else if (this.askPrice !== null) {
+            if (lastPeriod.high >= this.askPrice) {
+                this._fullfillAsk();
+            } else {
+                this._clearAsk();
+            }
+        }
+
         if (dataPeriods.length !== this.analysisIntervalLength()) {
             console.error(`Trader ${this.hash()}: expected ${this.analysisIntervalLength()} periods but got ${dataPeriods.length}`);
         }
@@ -355,6 +393,7 @@ class Trader {
         let dataPeriods = periods.slice(0, analysisIntervalLength - 1); // no trades in this area
         for (var i = analysisIntervalLength; i < periods.length; i++) {
             let nextPeriod = periods[i];
+
             dataPeriods.push(nextPeriod);
             await this.decideAction(dataPeriods);
 
@@ -368,14 +407,15 @@ class Trader {
         //return this.gain();
     }
 
-    buy() {
-        let price = this.lastBitcoinPrice;
+    buy(price = this.lastBitcoinPrice) {
+        //console.log(`btcPrice=${this.lastBitcoinPrice} buyingAt=${price}`);
 
         this.nbBuy++;
         if (this.eurWallet > 0) {
             let buyTax = this.getBuyTax();
 
             this.addAction("BUY"); // do this before recording action
+            //console.log('BUYING at ' + price.toFixed(0) + ", tax: " + (buyTax * price).toFixed(1));
 
             this.btcWallet += (this.eurWallet * (1 - buyTax)) / price;
             this.eurWallet = 0;
@@ -390,12 +430,13 @@ class Trader {
         }
     }
 
-    sell() {
-        let price = this.lastBitcoinPrice;
+    sell(price = this.lastBitcoinPrice) {
+        //console.log(`btcPrice=${this.lastBitcoinPrice} sellingAt=${price}`);
 
         this.nbSell++;
         if (this.btcWallet > 0) {
             let sellTax = this.getSellTax(); // do this before recording action
+            //console.log('SELLING at ' + price.toFixed(0) + ", tax: " + (sellTax * price).toFixed(1));
 
             this.addAction("SELL"); // record the action
 
@@ -411,15 +452,98 @@ class Trader {
         }
     }
 
-    addAction(actionStr) {
-        let price = this.lastBitcoinPrice;
+    bid(bidPrice) {
+        this.bidPrice = bidPrice;
+        this.nbHoldOut++;
+        return "BID";
+    }
 
+    ask(askPrice) {
+        this.askPrice = askPrice;
+        this.nbHoldIn++;
+        return "ASK";
+    }
+
+    _fullfillBid() {
+        let price = this.bidPrice;
+
+        this.nbBid++;
+        if (this.eurWallet > 0) {
+            let bidTax = this.getBidTax();
+            // console.log('BUYING at ' + this.bidPrice.toFixed(0) + ", tax: " + (this.bidTax * price).toFixed(1));
+
+            this.addAction("BID"); // do this before recording action
+
+            this.btcWallet += (this.eurWallet * (1 - bidTax)) / price;
+            this.eurWallet = 0;
+
+            this.inTrade = true;
+            this.enterTradeValue = price;
+
+            this.bidPrice = null;
+
+            return "BUY";
+        } else {
+            this.bidPrice = null;
+            this.nbPenalties++; // cant buy, have no money
+            return "";
+        }
+    }
+
+    _clearBid() {
+        this.bidPrice = null;
+    }
+
+    _fullfillAsk() {
+        let price = this.askPrice;
+
+        this.nbAsk++;
+        if (this.btcWallet > 0) {
+            let askTax = this.getAskTax(); // do this before recording action
+            // console.log('SELLING at ' + this.askPrice.toFixed(0) + ", tax: " + (this.askTax * price).toFixed(0));
+
+            this.addAction("ASK"); // record the action
+
+            this.eurWallet += (this.btcWallet * (1 - askTax)) * price;
+            this.btcWallet = 0;
+
+            this.inTrade = false;
+            this.askPrice = null;
+            return "SELL";
+        } else {
+            this.askPrice = null;
+            this.nbPenalties++;
+            return "";
+        }
+    }
+
+    _clearAsk() {
+        this.askPrice = null;
+    }
+
+    addAction(actionStr) {
         let totalVolume, actionTax, volumeEUR;
         if (actionStr == "BUY") {
             totalVolume = this.eurWallet;
             actionTax = this.getBuyTax();
             volumeEUR = totalVolume;
+        } else if (actionStr == "BID") {
+            totalVolume = this.eurWallet;
+            actionTax = this.getBidTax();
+            volumeEUR = totalVolume;
+        } else if (actionStr == "ASK") {
+            let price = this.askPrice;
+            totalVolume = this.btcWallet;
+            actionTax = this.getAskTax();
+            volumeEUR = totalVolume * price;
+            if (volumeEUR < this.lowestBalance) {
+                this.lowestBalance = volumeEUR;
+            }
+
+            // add last trade statistics
+            this.addTrade(this.enterTradeValue, price);
         } else if (actionStr == "SELL") {
+            let price = this.lastBitcoinPrice;
             totalVolume = this.btcWallet;
             actionTax = this.getSellTax();
             volumeEUR = totalVolume * price;

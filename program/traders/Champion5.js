@@ -7,19 +7,9 @@ class ChampionTrader extends Trader {
         super();
 
         // EMA triggers we react to
-        // this.emaPeriods = 2;
-        // this.emaDownTrigger = { 'min': 0.15, 'max': 0.4 };
-        // this.emaUpTrigger = { 'min': 0.15, 'max': 0.4 };
-
-        // // Trader will also scalp shortly after a buy
-        // this.timeInTrade = null;
-        // this.winTradePeriod = 20;
-        // this.shortScalpProfit = { 'min': 0.0009, 'max': 0.0014 };
-
-        // EMA triggers we react to
         this.emaPeriods = 5;
-        this.emaDownTrigger = { 'min': 0.15, 'max': 0.65 };
-        this.emaUpTrigger = { 'min': 0.15, 'max': 0.65 };
+        this.emaDownTrigger = { 'min': 0.2, 'max': 0.6 };
+        this.emaUpTrigger = { 'min': 0.2, 'max': 0.6 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;

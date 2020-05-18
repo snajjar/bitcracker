@@ -14,7 +14,7 @@ class DivTrader extends Trader {
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
         this.winTradePeriod = 20;
-        this.shortScalpProfit = { 'min': 0.00012, 'max': 0.0013 };
+        this.shortScalpProfit = { 'min': 0.00015, 'max': 0.0013 };
     }
 
     analysisIntervalLength() {
