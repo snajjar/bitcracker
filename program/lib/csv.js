@@ -116,6 +116,8 @@ const setTradeData = async function(csvFilePath, data) {
             { id: 'low', title: 'Low' },
             { id: 'close', title: 'Close' },
             { id: 'action', title: 'Action' },
+            { id: 'bid', title: 'Bid' },
+            { id: 'ask', title: 'Ask' },
         ]
     });
 
@@ -128,6 +130,8 @@ const setTradeData = async function(csvFilePath, data) {
             low: period.low.toFixed(0),
             close: period.close.toFixed(0),
             action: period.action,
+            bid: period.bid,
+            ask: period.ask
         });
     });
 

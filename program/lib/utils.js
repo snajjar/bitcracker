@@ -39,7 +39,7 @@ var displayTrader = async function(t) {
     console.log(`    Trader #${t.number} (${hash}):`);
     console.log(`      gain: ${s.cumulatedGain} win/loss: ${s.winLossRatio} avg ROI: ${s.avgROI} lowest balance: ${s.lowestBalance}`);
     console.log(`      ${trades.nbTrades} trades, ${trades.nbPositiveTrades} won, ${trades.nbNegativeTrades} lost, ${trades.nbStopLoss} stop loss, ${trades.nbTakeProfit} take profit`);
-    console.log(`      ${trades.nbBuy} buy, ${trades.nbSell} sell, ${trades.nbHold} hold (${trades.nbHoldIn} in, ${trades.nbHoldOut} out)`);
+    console.log(`      ${trades.nbBuy} buy, ${trades.nbSell} sell, ${trades.nbBid} bid, ${trades.nbAsk} ask, ${trades.nbHold} hold (${trades.nbHoldIn} in, ${trades.nbHoldOut} out)`);
 }
 
 var displayTraders = async function(arr) {

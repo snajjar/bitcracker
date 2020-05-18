@@ -52,6 +52,12 @@ const plotTrader = async function(name, outputFilePath) {
                 lastAction = "SELL";
                 lastActionPrice = currentBitcoinPrice;
             }
+        } else if (action == "BID") {
+            candle.bid = trader.bidPrice;
+        } else if (action == "ASK") {
+            candle.ask = trader.askPrice;
+        } else {
+            console.log("unknown action: " + action);
         }
     }
 

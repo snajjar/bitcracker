@@ -429,6 +429,47 @@ class Kraken {
         }
     }
 
+    // bidding is like buying, but at a limit price, expiration in 55 seconds
+    // (to be sure it's expired when next period starts)
+    // we use post limit order to make sure we get the maker fees
+    async bidAll(currentBitcoinPrice) {
+        let r = null;
+
+        // reference that order, we never know
+        let userref = Math.floor(Math.random() * 1000000000);
+        let options = {
+            pair: 'XBTEUR',
+            type: 'buy',
+            ordertype: 'limit',
+            volume: this._getMaxBTCVolume(currentBitcoinPrice),
+            expiretm: "+55", // expire in 55s,
+            oflags: "post",
+            price: currentBitcoinPrice.toFixed(1),
+            userref: userref, // reference for order, to be used internally
+            // validate: true, // validate input only, do not submit order !
+        }
+        if (this.fake) {
+            options.validate = true;
+        }
+
+        try {
+            // get balance info
+            r = await this.kraken.api('AddOrder', options);
+            console.log(`[*] placed ${this.fake ? "(FAKE)": ""} BUY order: ${r.result.descr.order}`);
+            this.placedOrders.push({ order: options, result: r.result });
+        } catch (e) {
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error while bidding: ' + errorMsg.red);
+            } else {
+                console.error('Error while bidding'.red);
+                console.error(e);
+                console.log(JSON.stringify(r));
+            }
+            process.exit(-1);
+        }
+    }
+
     async sellAll(currentBitcoinPrice) {
         let r = null;
 
@@ -458,6 +499,44 @@ class Kraken {
                 console.error('Error while selling: ' + errorMsg.red);
             } else {
                 console.error('Error while selling'.red);
+                console.error(e);
+                console.log(JSON.stringify(r));
+            }
+            process.exit(-1);
+        }
+    }
+
+    async askAll() {
+        let r = null;
+
+        // reference that order, we never know
+        let userref = Math.floor(Math.random() * 1000000000);
+        let options = {
+            pair: 'XBTEUR',
+            type: 'sell',
+            ordertype: 'limit',
+            volume: this.btcWallet,
+            expiretm: "+55", // expire in 60s,
+            oflags: "post",
+            price: currentBitcoinPrice.toFixed(1),
+            userref: userref, // reference for order, to be used internally
+        }
+
+        if (this.fake) {
+            options.validate = true;
+        }
+
+        try {
+            // get balance info
+            r = await this.kraken.api('AddOrder', options);
+            console.log(`[*] placed ${this.fake ? "(FAKE)": ""} SELL order: ${r.result.descr.order}`);
+            this.placedOrders.push({ order: options, result: r.result });
+        } catch (e) {
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error while asking: ' + errorMsg.red);
+            } else {
+                console.error('Error while asking'.red);
                 console.error(e);
                 console.log(JSON.stringify(r));
             }
@@ -586,17 +665,34 @@ const trade = async function(name, fake) {
                 if (count++ % 10 == 9) {
                     // every once in a while, refresh the trader data and display it's status
                     await refreshTrader(currentBitcoinPrice);
+                    k.displayAccount();
                 }
-                break;
-            case "SELL":
-                console.log(`  - SELLING ${btc(k.btcWallet)} at expected price ${price(currentBitcoinPrice * k.btcWallet)}`);
-                await k.sellAll(currentBitcoinPrice);
-                await refreshTrader(currentBitcoinPrice);
                 break;
             case "BUY":
                 console.log(`  - BUYING for ${price(k.eurWallet)} of bitcoin at expected price ${price(currentBitcoinPrice)}: ${btc(k.eurWallet/currentBitcoinPrice)}`);
                 await k.buyAll(currentBitcoinPrice);
                 await refreshTrader(currentBitcoinPrice);
+                k.displayAccount();
+                break;
+            case "SELL":
+                console.log(`  - SELLING ${btc(k.btcWallet)} at expected price ${price(currentBitcoinPrice * k.btcWallet)}`);
+                await k.sellAll(currentBitcoinPrice);
+                await refreshTrader(currentBitcoinPrice);
+                k.displayAccount();
+                break;
+            case "BID":
+                console.log(`  - BIDDING for ${price(k.eurWallet)} of bitcoin at expected price ${price(currentBitcoinPrice)}: ${btc(k.eurWallet/currentBitcoinPrice)}`);
+                await k.bidAll(currentBitcoinPrice);
+                await sleep(20); // sleep 20s
+                await refreshTrader(currentBitcoinPrice);
+                k.displayAccount();
+                break;
+            case "ASK":
+                console.log(`  - ASKING for ${btc(k.btcWallet)} at expected price ${price(currentBitcoinPrice * k.btcWallet)}`);
+                await k.askAll(currentBitcoinPrice);
+                await sleep(20); // sleep 20s
+                await refreshTrader(currentBitcoinPrice);
+                k.displayAccount();
                 break;
             default:
                 console.error('Trader returned no action !'.red);
