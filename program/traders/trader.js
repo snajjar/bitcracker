@@ -60,8 +60,8 @@ const tradingFees = {
 
 // const tradingFees = {
 //     0: {
-//         "maker": 0.0012,
-//         "taker": 0.0020,
+//         "maker": 0.0016,
+//         "taker": 0.0026,
 //     }
 // }
 
@@ -118,6 +118,19 @@ class Trader {
 
     setTradeVolume(v) {
         this.tradeVolume30 = v;
+    }
+
+    // if the last recorded transaction expired, recompute taxes
+    volumeExpire(nowTimestamp) {
+        let startWindow = moment.unix(this.lastTimestamp).subtract(30, "days");
+        let lastRecordedAction = _.first(this.last30DaysActions);
+        if (lastRecordedAction) {
+            let lastRecordedActionTime = moment.unix(lastRecordedAction.timestamp);
+
+            if (lastRecordedActionTime.isBefore(startWindow)) {
+                this.recomputeTaxes();
+            }
+        }
     }
 
     get30DaysTradingVolume() {
@@ -348,6 +361,8 @@ class Trader {
 
     // called on each new period, will call the action() method
     async decideAction(dataPeriods) {
+        this.volumeExpire();
+
         // first check if our bids and asks were fullfilled
         var lastPeriod = _.last(dataPeriods);
         if (this.bidPrice !== null) {
@@ -372,7 +387,8 @@ class Trader {
         this.lastBitcoinPrice = _.last(dataPeriods).close;
         this.lastTimestamp = _.last(dataPeriods).timestamp;
 
-        return await this.action(dataPeriods, this.lastBitcoinPrice);
+        let action = await this.action(dataPeriods, this.lastBitcoinPrice);
+        return action;
     }
 
     async action(dataPeriods, currentBitcoinPrice) {

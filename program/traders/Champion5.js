@@ -76,8 +76,8 @@ class ChampionTrader extends Trader {
 
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
-        // let stopped = this.stopLoss(0.02);
-        // if (stopped) return;
+        // let stopped = this.stopLoss(0.05);
+        // if (stopped) return this.sell();
 
         // stopped = this.takeProfit();
         // if (stopped) return;
