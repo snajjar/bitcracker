@@ -14,7 +14,7 @@ class ChampionTrader extends Trader {
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
         this.winTradePeriod = 20;
-        this.shortScalpProfit = { 'min': 0.0009, 'max': 0.0014 };
+        this.shortScalpProfit = { 'min': 0.0011, 'max': 0.0016 };
     }
 
     analysisIntervalLength() {

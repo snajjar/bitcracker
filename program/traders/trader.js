@@ -541,7 +541,8 @@ class Trader {
             }
 
             // add last trade statistics
-            this.addTrade(this.enterTradeValue, price);
+            let lastAction = _.last(this.actions);
+            this.addTrade(this.enterTradeValue, price, lastAction.tax, this.getAskTax());
         } else if (actionStr == "SELL") {
             let price = this.lastBitcoinPrice;
             totalVolume = this.btcWallet;
@@ -552,7 +553,8 @@ class Trader {
             }
 
             // add last trade statistics
-            this.addTrade(this.enterTradeValue, price);
+            let lastAction = _.last(this.actions);
+            this.addTrade(this.enterTradeValue, price, lastAction.tax, this.getSellTax());
         }
         let volumeTF = totalVolume * (1 - actionTax);
 
@@ -573,8 +575,8 @@ class Trader {
         this.recomputeTaxes();
     }
 
-    addTrade(oldBitcoinPrice, newBitcoinPrice) {
-        this.trades.push(newBitcoinPrice / oldBitcoinPrice - this.getBuyTax() - this.getSellTax());
+    addTrade(oldBitcoinPrice, newBitcoinPrice, buyTax, sellTax) {
+        this.trades.push(newBitcoinPrice / oldBitcoinPrice - buyTax - sellTax);
     }
 
     hold() {
