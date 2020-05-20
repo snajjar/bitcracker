@@ -108,11 +108,11 @@ class ChampionTrader extends Trader {
                 let winningScalpTrade = currentBitcoinPrice > this.getWinningPrice() * (1 + scalpProfit);
                 let winningBidScalpTrade = currentBitcoinPrice > this.getBidWinningPrice() * (1 + scalpProfit);;
 
-                if (this.timeInTrade <= this.winTradePeriod && winningScalpTrade) {
+                if (winningScalpTrade) {
                     return this.sell();
                 }
 
-                if (this.timeInTrade <= this.winTradePeriod && winningBidScalpTrade) {
+                if (winningBidScalpTrade) {
                     return this.ask(currentBitcoinPrice);
                 }
 
