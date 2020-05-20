@@ -429,6 +429,43 @@ class Kraken {
         }
     }
 
+    async sellAll() {
+        let r = null;
+
+        // reference that order, we never know
+        let userref = Math.floor(Math.random() * 1000000000);
+        let options = {
+            pair: 'XBTEUR',
+            type: 'sell',
+            ordertype: 'market',
+            volume: this.btcWallet,
+            expiretm: "+60", // expire in 60s,
+            userref: userref, // reference for order, to be used internally
+        }
+
+        if (this.fake) {
+            options.validate = true;
+        }
+
+        try {
+            // get balance info
+            r = await this.kraken.api('AddOrder', options);
+            console.log(`[*] placed ${this.fake ? "(FAKE)": ""} SELL order: ${r.result.descr.order}`);
+            this.placedOrders.push({ order: options, result: r.result });
+        } catch (e) {
+            let errorMsg = _.get(r, ['data', 'error', 0]);
+            if (errorMsg) {
+                console.error('Error while selling: ' + errorMsg.red);
+            } else {
+                console.error('Error while selling'.red);
+                console.error(e);
+                console.log(JSON.stringify(r));
+            }
+            process.exit(-1);
+        }
+    }
+
+
     // bidding is like buying, but at a limit price, expiration in 55 seconds
     // (to be sure it's expired when next period starts)
     // we use post limit order to make sure we get the maker fees
@@ -470,43 +507,7 @@ class Kraken {
         }
     }
 
-    async sellAll(currentBitcoinPrice) {
-        let r = null;
-
-        // reference that order, we never know
-        let userref = Math.floor(Math.random() * 1000000000);
-        let options = {
-            pair: 'XBTEUR',
-            type: 'sell',
-            ordertype: 'market',
-            volume: this.btcWallet,
-            expiretm: "+60", // expire in 60s,
-            userref: userref, // reference for order, to be used internally
-        }
-
-        if (this.fake) {
-            options.validate = true;
-        }
-
-        try {
-            // get balance info
-            r = await this.kraken.api('AddOrder', options);
-            console.log(`[*] placed ${this.fake ? "(FAKE)": ""} SELL order: ${r.result.descr.order}`);
-            this.placedOrders.push({ order: options, result: r.result });
-        } catch (e) {
-            let errorMsg = _.get(r, ['data', 'error', 0]);
-            if (errorMsg) {
-                console.error('Error while selling: ' + errorMsg.red);
-            } else {
-                console.error('Error while selling'.red);
-                console.error(e);
-                console.log(JSON.stringify(r));
-            }
-            process.exit(-1);
-        }
-    }
-
-    async askAll() {
+    async askAll(currentBitcoinPrice) {
         let r = null;
 
         // reference that order, we never know
