@@ -65,9 +65,10 @@ class MACDTrader extends Trader {
             // console.log("histo: " + _.last(histo));
 
             // the MACD buy signal is when MACD cross the signal line
-            // but we only take that signal when the histo line is below 0
-            let macdBuySignal = prevMACD < prevSignal && lastMACD >= lastSignal && lastHisto < 0.1;
-            let macdSellSignal = prevMACD > prevSignal && lastMACD <= lastSignal;
+            // but we only take that signal when crossing happens way below the histo line
+            let treshold = 0.4;
+            let macdBuySignal = prevMACD < prevSignal && lastMACD >= lastSignal && lastMACD < -treshold;
+            let macdSellSignal = prevMACD > prevSignal && lastMACD <= lastSignal && lastMACD > treshold;
 
             // We want to trade in the direction of the market. Filter trades with 200 ema
             // check if we are currently in uptrend or downtrend

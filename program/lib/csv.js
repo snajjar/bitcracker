@@ -35,7 +35,7 @@ const getData = async function() {
 
 const getDataForInterval = async function(interval) {
     let btcData = null;
-    let dataFile = `./data/Cex_BTCEUR_${utils.intervalToStr(interval)}_Refined.csv`;
+    let dataFile = `./data/Cex_${config.getAssetPair()}_${utils.intervalToStr(interval)}_Refined.csv`;
 
     if (fs.existsSync(dataFile)) {
         btcData = await getFileData(dataFile);

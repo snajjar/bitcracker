@@ -100,6 +100,21 @@ const mergeCandles = function(arr, intervalStart) {
     }
 }
 
+// merge candles n by n
+const mergeCandlesBy = function(candles, n) {
+    if (candles.length % n !== 0) {
+        throw new Error("Error while merging candles: " + candles.length + " cant be divided by " + n);
+    }
+
+    let merged = [];
+    let chunks = _.chunk(candles, n);
+    _.each(chunks, chunk => {
+        let c = mergeCandles(chunk);
+        merged.push(c);
+    });
+    return merged;
+}
+
 const getMax = function(data) {
     let max = -Infinity;
     for (let i = 1; i < data.length; i++) {
@@ -473,6 +488,7 @@ const connectCandles = function(samples) {
 module.exports = {
     dataVariations,
     mergeCandles,
+    mergeCandlesBy,
     getMax,
     splitData,
     kSplitData,

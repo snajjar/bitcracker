@@ -1,6 +1,9 @@
 const moment = require('moment');
 
 const config = {
+    // pair
+    assetPair: "BTCEUR",
+
     // trade parameters
     stopLossRatio: 0.05,
     takeProfitRatio: 0.05,
@@ -34,6 +37,18 @@ const setTakeProfitRatio = function(v) {
 
 const getTakeProfitRatio = function() {
     return config.takeProfitRatio;
+}
+
+const setAssetPair = function(p) {
+    config.assetPair = p;
+}
+
+const getAssetPair = function() {
+    return config.assetPair;
+}
+
+const getAssetPairArray = function() {
+    return [config.assetpair.substring(0, 3), config.assetPair.substring(3, 6)];
 }
 
 const setStartDate = function(dateStr) {
@@ -77,6 +92,9 @@ module.exports = {
     getStopLossRatio,
     setTakeProfitRatio,
     getTakeProfitRatio,
+    setAssetPair,
+    getAssetPair,
+    getAssetPairArray,
     setStartDate,
     getStartDate,
     setEndDate,

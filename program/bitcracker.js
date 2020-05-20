@@ -32,6 +32,11 @@ var argv = yargs
         describe: 'optional end date YYYY-MM-DD',
         type: 'string',
     })
+    .option('pair', {
+        alias: 'p',
+        describe: 'asset pair (ex: BTCEUR, ETHEUR, ...)',
+        type: 'string',
+    })
     .middleware([setIntervalOptions])
     .command('fetch <pair> [source]', 'Fetch', (yargs) => {
         yargs.positional('pair', {
@@ -212,6 +217,9 @@ function setIntervalOptions(argv) {
     }
     if (argv.end) {
         config.setEndDate(argv.end);
+    }
+    if (argv.pair) {
+        config.setAssetPair(argv.pair);
     }
 
     if (argv.interval) {
