@@ -22,7 +22,7 @@ class ChampionTrader extends Trader {
     }
 
     hash() {
-        return "Algo_Champion";
+        return "Algo_Champion5";
     }
 
     // return the current value for position (between 0 and 1), on a logarithmic scale from min to max
@@ -76,10 +76,10 @@ class ChampionTrader extends Trader {
 
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
-        // let stopped = this.stopLoss(this.stopLossRatio);
+        // let stopped = this.stopLoss(0.02);
         // if (stopped) return;
 
-        // stopped = this.takeProfit(this.takeProfitRatio);
+        // stopped = this.takeProfit();
         // if (stopped) return;
 
         // calculate sma indicator

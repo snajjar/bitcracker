@@ -22,7 +22,7 @@ class ChampionTrader extends Trader {
     }
 
     hash() {
-        return "Algo_Champion";
+        return "Algo_Champion2";
     }
 
     // return the current value for position (between 0 and 1), on a logarithmic scale from min to max

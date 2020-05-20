@@ -127,10 +127,10 @@ class Trader {
         } else {
             if (!this.calculatedTradeVolume30) {
                 let startWindow = moment.unix(this.lastTimestamp).subtract(30, "days");
-                let last30DaysActions = _.filter(this.actions, a => moment.unix(a.timestamp).isAfter(startWindow));
+                this.last30DaysActions = _.filter(this.last30DaysActions, a => moment.unix(a.timestamp).isAfter(startWindow));
 
                 let volume = 0;
-                _.each(last30DaysActions, a => volume += a.volumeDollar);
+                _.each(this.last30DaysActions, a => volume += a.volumeDollar);
                 this.calculatedTradeVolume30 = volume;
             }
 
@@ -556,7 +556,7 @@ class Trader {
         }
         let volumeTF = totalVolume * (1 - actionTax);
 
-        this.actions.push({
+        let action = {
             type: actionStr,
             timestamp: this.lastTimestamp,
             btcPrice: this.lastBitcoinPrice,
@@ -566,7 +566,9 @@ class Trader {
             volumeDollar: volumeEUR * 1.08,
             tradeVolume30: this.get30DaysTradingVolume(),
             tax: actionTax,
-        });
+        };
+        this.actions.push(action);
+        this.last30DaysActions.push(action);
 
         this.recomputeTaxes();
     }
