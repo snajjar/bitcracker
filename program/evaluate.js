@@ -34,8 +34,9 @@ const evaluateTrader = async function(trader, duration) {
             }
 
             await trader.trade(dataset);
-            let s = trader.statistics(); // as numbers
-            let stats = trader.statisticsStr(); // as displayable strings
+            trader.s.mergeStatistics();
+            let s = trader.s.getStatistics("all"); // as numbers
+            let stats = trader.s.getStatisticsStr("all"); // as displayable strings
 
             // console.log(JSON.stringify(stats, null, 2));
             let period = `${start.format('YYYY-MM-DD hh:mm')}`;
@@ -51,14 +52,14 @@ const evaluateTrader = async function(trader, duration) {
             });
             lastGain = s.cumulatedGain;
 
-            trader.saveStatistics();
+            trader.s.saveToBuffer();
         }
         console.table(results);
-        trader.mergeStatistics();
-        utils.displayTrader(trader);
+        trader.s.mergeBuffer();
+        trader.s.displayDetails();
     } else {
         await trader.trade(btcData);
-        utils.displayTrader(trader);
+        trader.s.display();
         // console.log(JSON.stringify(trader.actions, null, 2));
     }
 }

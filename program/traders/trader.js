@@ -3,12 +3,15 @@ const config = require('../config');
 const colors = require('colors');
 const moment = require('moment');
 const HRNumbers = require('human-readable-numbers');
+const Statistics = require('../lib/statistics');
 
 class Trader {
     static count = 0;
 
     constructor() {
         this.number = Trader.count++;
+
+        this.s = new Statistics(this);
 
         // wallet and score values
         this.btcWallet = 0;
@@ -22,16 +25,6 @@ class Trader {
         this.askPrice = null;
 
         // statistics utils
-        this.nbPenalties = 0;
-        this.trades = [];
-        this.nbBuy = 0;
-        this.nbSell = 0;
-        this.nbBid = 0;
-        this.nbAsk = 0;
-        this.nbHold = 0;
-        this.nbHoldOut = 0;
-        this.nbHoldIn = 0;
-        this.stats = [];
         this.lowestBalance = config.getStartFund();
 
         // config settings
@@ -139,133 +132,6 @@ class Trader {
         this.actions = [];
     }
 
-    resetStatistics() {
-        this.nbPenalties = 0;
-        this.trades = [];
-        this.nbBuy = 0;
-        this.nbSell = 0;
-        this.nbBid = 0;
-        this.nbAsk = 0;
-        this.nbHold = 0;
-        this.nbHoldOut = 0;
-        this.nbHoldIn = 0;
-        this.nbStopLoss = 0;
-        this.nbTakeProfit = 0;
-    }
-
-    // saveStatistics() allow to save current stats to display
-    // only period-relevant statistics. Apply mergeStatistics()
-    // to restore all-time stats
-    saveStatistics() {
-        this.stats.push({
-            nbPenalties: this.nbPenalties,
-            trades: this.trades,
-            nbBuy: this.nbBuy,
-            nbSell: this.nbSell,
-            nbBid: this.nbBid,
-            nbAsk: this.nbAsk,
-            nbHold: this.nbHold,
-            nbHoldOut: this.nbHoldOut,
-            nbHoldIn: this.nbHoldIn,
-            nbStopLoss: this.nbStopLoss,
-            nbTakeProfit: this.nbTakeProfit,
-        });
-        this.resetStatistics();
-    }
-
-    mergeStatistics() {
-        this.resetStatistics();
-        _.each(this.stats, s => {
-            this.nbPenalties += s.nbPenalties;
-            this.trades = this.trades.concat(s.trades);
-            this.nbBuy += s.nbBuy;
-            this.nbSell += s.nbSell;
-            this.nbBid += s.nbBid;
-            this.nbAsk += s.nbAsk;
-            this.nbHold += s.nbHold;
-            this.nbHoldOut += s.nbHoldOut;
-            this.nbHoldIn += s.nbHoldIn;
-            this.nbStopLoss += s.nbStopLoss;
-            this.nbTakeProfit += s.nbTakeProfit;
-        });
-    }
-
-    statistics() {
-        let totalROI = _.reduce(this.trades, (a, b) => a * b) || 1;
-        let nbPositiveTrades = _.filter(this.trades, t => t > 1).length || 0;
-        let nbNegativeTrades = this.trades.length - nbPositiveTrades || 0;
-        let assets = this.btcWallet * this.lastBitcoinPrice + this.eurWallet;
-
-        return {
-            assets: assets,
-            cumulatedGain: assets - config.getStartFund(),
-            avgROI: _.mean(this.trades) || 0,
-            winLossRatio: (nbPositiveTrades / this.trades.length) || 0,
-            lowestBalance: this.lowestBalance,
-            trades: {
-                nbTrades: this.trades.length,
-                nbPositiveTrades: nbPositiveTrades,
-                nbNegativeTrades: nbNegativeTrades,
-                nbStopLoss: this.nbStopLoss,
-                nbTakeProfit: this.nbTakeProfit,
-                nbBuy: this.nbBuy,
-                nbSell: this.nbSell,
-                nbBid: this.nbBid,
-                nbAsk: this.nbAsk,
-                nbHold: this.nbHold,
-                nbHoldIn: this.nbHoldIn,
-                nbHoldOut: this.nbHoldOut
-            }
-        }
-    }
-
-    // same as statistics(), but return displayable strings
-    statisticsStr() {
-        let stats = this.statistics();
-
-        let assetsStr = `${stats.assets.toFixed(0)}€`;
-        stats.assets = assetsStr;
-
-        let gainStr = `${stats.cumulatedGain.toFixed(0)}€`;
-        stats.cumulatedGain = gainStr;
-        // stats.cumulatedGain = stats.cumulatedGain > 0 ? gainStr.green : gainStr.red;
-
-        let winLossRatioStr = `${(stats.winLossRatio*100).toFixed(2)}%`;
-        stats.winLossRatio = winLossRatioStr;
-        // stats.winLossRatio = stats.winLossRatio > 0.5 ? winLossRatioStr.green : winLossRatioStr.red;
-
-        let avgROIStr = (stats.avgROI * 100).toFixed(2) + "%";
-        stats.avgROI = avgROIStr;
-        // stats.avgROI = stats.avgROI > 1 ? avgROIStr.green : avgROIStr.red;
-
-        let lowestBalance = `${(stats.lowestBalance).toFixed(0)}€`;
-        stats.lowestBalance = lowestBalance;
-
-        return stats;
-    }
-
-    statisticsColoredStr() {
-        let stats = this.statistics();
-
-        let gainStr = `${HRNumbers.toHumanString(stats.cumulatedGain.toFixed(0))}€`;
-        stats.cumulatedGain = stats.cumulatedGain > 0 ? gainStr.green : gainStr.red;
-
-        let winLossRatioStr = `${(stats.winLossRatio*100).toFixed(2)}%`;
-        stats.winLossRatio = stats.winLossRatio > 0.5 ? winLossRatioStr.green : winLossRatioStr.red;
-
-        let avgROIStr = (stats.avgROI * 100).toFixed(2) + "%";
-        stats.avgROI = stats.avgROI > 1 ? avgROIStr.green : avgROIStr.red;
-
-        let lowestBalance = `${(stats.lowestBalance).toFixed(0)}€`;
-        stats.lowestBalance = lowestBalance.cyan;
-
-        return stats;
-    }
-
-    tradesStr() {
-        return `${this.nbBuy} buy, ${this.nbSell} sell, ${this.nbBid} bid, ${this.nbAsk} ask, ${this.nbHold} hold (${this.nbHoldIn} in, ${this.nbHoldOut} out)`;
-    }
-
     hasEuros() {
         return this.eurWallet > 0 ? 1 : 0;
     }
@@ -328,6 +194,7 @@ class Trader {
         this.lastTimestamp = _.last(dataPeriods).timestamp;
 
         let action = await this.action(dataPeriods, this.lastBitcoinPrice);
+        this.s.log(action);
         return action;
     }
 
@@ -366,7 +233,6 @@ class Trader {
     buy(price = this.lastBitcoinPrice) {
         //console.log(`btcPrice=${this.lastBitcoinPrice} buyingAt=${price}`);
 
-        this.nbBuy++;
         if (this.eurWallet > 0) {
             let buyTax = this.getBuyTax();
 
@@ -381,7 +247,6 @@ class Trader {
 
             return "BUY";
         } else {
-            this.nbPenalties++; // cant buy, have no money
             return "";
         }
     }
@@ -389,7 +254,6 @@ class Trader {
     sell(price = this.lastBitcoinPrice) {
         //console.log(`btcPrice=${this.lastBitcoinPrice} sellingAt=${price}`);
 
-        this.nbSell++;
         if (this.btcWallet > 0) {
             let sellTax = this.getSellTax(); // do this before recording action
             //console.log('SELLING at ' + price.toFixed(0) + ", tax: " + (sellTax * price).toFixed(1));
@@ -403,27 +267,23 @@ class Trader {
 
             return "SELL";
         } else {
-            this.nbPenalties++;
             return "";
         }
     }
 
     bid(bidPrice) {
         this.bidPrice = bidPrice;
-        this.nbHoldOut++;
         return "BID";
     }
 
     ask(askPrice) {
         this.askPrice = askPrice;
-        this.nbHoldIn++;
         return "ASK";
     }
 
     _fullfillBid() {
         let price = this.bidPrice;
 
-        this.nbBid++;
         if (this.eurWallet > 0) {
             let bidTax = this.getBidTax();
             // console.log('BUYING at ' + this.bidPrice.toFixed(0) + ", tax: " + (this.bidTax * price).toFixed(1));
@@ -441,7 +301,6 @@ class Trader {
             return "BUY";
         } else {
             this.bidPrice = null;
-            this.nbPenalties++; // cant buy, have no money
             return "";
         }
     }
@@ -453,7 +312,6 @@ class Trader {
     _fullfillAsk() {
         let price = this.askPrice;
 
-        this.nbAsk++;
         if (this.btcWallet > 0) {
             let askTax = this.getAskTax(); // do this before recording action
             // console.log('SELLING at ' + this.askPrice.toFixed(0) + ", tax: " + (this.askTax * price).toFixed(0));
@@ -468,7 +326,6 @@ class Trader {
             return "SELL";
         } else {
             this.askPrice = null;
-            this.nbPenalties++;
             return "";
         }
     }
@@ -477,7 +334,7 @@ class Trader {
         this.askPrice = null;
     }
 
-    addAction(actionStr) {
+    getAction(actionStr) {
         let totalVolume, actionTax, volumeEUR;
         if (actionStr == "BUY") {
             totalVolume = this.eurWallet;
@@ -498,7 +355,6 @@ class Trader {
 
             // add last trade statistics
             let lastAction = _.last(this.actions);
-            this.addTrade(this.enterTradeValue, price, lastAction.tax, this.getAskTax());
         } else if (actionStr == "SELL") {
             let price = this.lastBitcoinPrice;
             totalVolume = this.btcWallet;
@@ -510,7 +366,6 @@ class Trader {
 
             // add last trade statistics
             let lastAction = _.last(this.actions);
-            this.addTrade(this.enterTradeValue, price, lastAction.tax, this.getSellTax());
         }
         let volumeTF = totalVolume * (1 - actionTax);
 
@@ -518,31 +373,31 @@ class Trader {
             type: actionStr,
             timestamp: this.lastTimestamp,
             btcPrice: this.lastBitcoinPrice,
-            volume: actionStr,
+            volume: totalVolume,
             volumeTF: volumeTF,
             volumeEUR: volumeEUR,
             volumeDollar: volumeEUR * 1.08,
             tradeVolume30: this.get30DaysTradingVolume(),
             tax: actionTax,
         };
+        return action;
+    }
+
+    addAction(actionStr) {
+        let action = this.getAction(actionStr);
         this.actions.push(action);
         this.last30DaysActions.push(action);
+        this.s.logAction(action);
 
         this.recomputeTaxes();
     }
 
-    addTrade(oldBitcoinPrice, newBitcoinPrice, buyTax, sellTax) {
-        this.trades.push(newBitcoinPrice / oldBitcoinPrice - buyTax - sellTax);
+    getLastAction() {
+        return _.last(this.actions);
     }
 
     hold() {
         // doing nothing is what i do best
-        this.nbHold++;
-        if (this.inTrade) {
-            this.nbHoldIn++;
-        } else {
-            this.nbHoldOut++;
-        }
         return "HOLD";
     }
 
