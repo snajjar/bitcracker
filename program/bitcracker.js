@@ -37,7 +37,22 @@ var argv = yargs
         describe: 'asset pair (ex: BTCEUR, ETHEUR, ...)',
         type: 'string',
     })
-    .middleware([setIntervalOptions])
+    .option('initialFund', {
+        alias: 'f',
+        describe: 'Initial fund (default: 1000€)',
+        type: 'string',
+    })
+    .option('makerTax', {
+        alias: 'm',
+        describe: 'Maker tax (in %)',
+        type: 'string',
+    })
+    .option('takerTax', {
+        alias: 't',
+        describe: 'Taker tax (in %)',
+        type: 'string',
+    })
+    .middleware([setOptions])
     .command('fetch <pair> [source]', 'Fetch', (yargs) => {
         yargs.positional('pair', {
             describe: 'Pair of value you want to get data: ex BTCEUR',
@@ -210,7 +225,7 @@ var argv = yargs
     .alias('help', 'h')
     .argv;
 
-function setIntervalOptions(argv) {
+function setOptions(argv) {
     // handle interval settings globally
     if (argv.start) {
         config.setStartDate(argv.start);
@@ -220,6 +235,22 @@ function setIntervalOptions(argv) {
     }
     if (argv.pair) {
         config.setAssetPair(argv.pair);
+    }
+    if (argv.initialFund) {
+        config.setStartFund(parseInt(argv.initialFund));
+    }
+    if (argv.makerTax || argv.takerTax) {
+        if (!(argv.makerTax && argv.takerTax)) {
+            console.error('--makerTax (-m) and --takerTax (-t) options must be used together');
+            process.exit(-1);
+        } else {
+            config.setTradingFees({
+                0: {
+                    "maker": parseFloat(argv.makerTax) / 100,
+                    "taker": parseFloat(argv.takerTax) / 100
+                }
+            });
+        }
     }
 
     if (argv.interval) {

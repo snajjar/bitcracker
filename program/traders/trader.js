@@ -3,53 +3,6 @@ const config = require('../config');
 const colors = require('colors');
 const moment = require('moment');
 const HRNumbers = require('human-readable-numbers');
-const startingFunding = 1000;
-
-const tradingFees = {
-    0: {
-        "maker": 0.0016,
-        "taker": 0.0026,
-    },
-    50000: {
-        "maker": 0.0014,
-        "taker": 0.0024,
-    },
-    100000: {
-        "maker": 0.0012,
-        "taker": 0.0022,
-    },
-    250000: {
-        "maker": 0.0010,
-        "taker": 0.0020,
-    },
-    500000: {
-        "maker": 0.0008,
-        "taker": 0.0018,
-    },
-    1000000: {
-        "maker": 0.0006,
-        "taker": 0.0016,
-    },
-    2500000: {
-        "maker": 0.0004,
-        "taker": 0.0014,
-    },
-    5000000: {
-        "maker": 0.0002,
-        "taker": 0.0012,
-    },
-    10000000: {
-        "maker": 0,
-        "taker": 0.0010,
-    },
-}
-
-// const tradingFees = {
-//     0: {
-//         "maker": 0.0014,
-//         "taker": 0.0024,
-//     }
-// }
 
 class Trader {
     static count = 0;
@@ -59,7 +12,7 @@ class Trader {
 
         // wallet and score values
         this.btcWallet = 0;
-        this.eurWallet = startingFunding;
+        this.eurWallet = config.getStartFund();
         this.lastBitcoinPrice = 0; // keep last bitcoin price for score computations
 
         // trade utils
@@ -79,7 +32,7 @@ class Trader {
         this.nbHoldOut = 0;
         this.nbHoldIn = 0;
         this.stats = [];
-        this.lowestBalance = startingFunding;
+        this.lowestBalance = config.getStartFund();
 
         // config settings
         this.stopLossRatio = config.getStopLossRatio();
@@ -138,6 +91,7 @@ class Trader {
     }
 
     getTaxes() {
+        const tradingFees = config.getTradingFees();
         let tradingVolume = this.get30DaysTradingVolume();
 
         let keys = _.keys(tradingFees);
@@ -178,7 +132,7 @@ class Trader {
 
     resetTrading() {
         this.btcWallet = 0;
-        this.eurWallet = startingFunding;
+        this.eurWallet = config.getStartFund();
         this.lastBitcoinPrice = 0;
         this.inTrade = false;
         this.enterTradeValue = 0;
@@ -244,7 +198,7 @@ class Trader {
 
         return {
             assets: assets,
-            cumulatedGain: assets - startingFunding,
+            cumulatedGain: assets - config.getStartFund(),
             avgROI: _.mean(this.trades) || 0,
             winLossRatio: (nbPositiveTrades / this.trades.length) || 0,
             lowestBalance: this.lowestBalance,

@@ -124,9 +124,11 @@ const fetch = async function(pair, source, continueFromLast) {
         console.log(`[*] fetching data for ${d.format('DD/MM/YYYY')}`);
         try {
             let newData = await getCexData(pair, d);
-            if (!newData) {
-                console.log('[*] no more data');
-                break;
+            if (!newData || _.isEmpty(newData)) {
+                console.log('[*] No data for this day');
+                d = d.add(1, 'days');
+                await sleep(500);
+                continue;
             }
 
             // check if it's not data we already have
