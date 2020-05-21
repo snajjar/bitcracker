@@ -95,8 +95,8 @@ class ChampionTrader extends Trader {
                     return this.hold();
                 }
             } else {
-                let stopped = this.stopLoss(0.07);
-                if (stopped) return this.sell();
+                // let stopped = this.stopLoss(0.07);
+                // if (stopped) return this.sell();
 
                 // stopped = this.takeProfit(this.takeProfitRatio);
                 // if (stopped) return;

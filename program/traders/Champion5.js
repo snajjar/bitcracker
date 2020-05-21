@@ -8,8 +8,8 @@ class ChampionTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 5;
-        this.emaDownTrigger = { 'min': 0.2, 'max': 0.6 };
-        this.emaUpTrigger = { 'min': 0.2, 'max': 0.6 };
+        this.emaDownTrigger = { 'min': 0.25, 'max': 0.55 };
+        this.emaUpTrigger = { 'min': 0.2, 'max': 0.48 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
@@ -101,6 +101,9 @@ class ChampionTrader extends Trader {
                     return this.hold();
                 }
             } else {
+                // let stopped = this.stopLoss(0.07);
+                // if (stopped) return this.sell();
+
                 this.timeInTrade++;
                 let winningTrade = currentBitcoinPrice > this.getWinningPrice();
 

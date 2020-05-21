@@ -46,22 +46,8 @@ const tradingFees = {
 
 // const tradingFees = {
 //     0: {
-//         "maker": -0.00025, // 0.025% for making trades
-//         "taker": 0.00075
-//     }
-// }
-
-// const tradingFees = {
-//     0: {
-//         "maker": 0.0010,
-//         "taker": 0.0024
-//     }
-// }
-
-// const tradingFees = {
-//     0: {
-//         "maker": 0.0016,
-//         "taker": 0.0026,
+//         "maker": 0.0014,
+//         "taker": 0.0024,
 //     }
 // }
 
