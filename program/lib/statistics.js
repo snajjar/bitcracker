@@ -10,59 +10,8 @@ class Statistics {
         this.trader = trader;
 
         // initialize the statistics object
-        this.statistics = {}
-        this.initializeStatistics();
-
-        this.buffer = [];
-    }
-
-    saveToBuffer() {
-        this.buffer.push(_.clone(this.statistics));
-        this.initializeStatistics();
-    }
-
-    mergeBuffer() {
-        //this.saveToBuffer();
-        this.statistics = {};
-        _.each(this.buffer, stats => {
-            _.each(stats, (s, key) => {
-                let targetStatistics = this.statistics[key];
-                if (!targetStatistics) {
-                    this.statistics[key] = this.getInitialStatistics();
-                    targetStatistics = this.statistics[key];
-                }
-
-                targetStatistics.actions = targetStatistics.actions.concat(s.actions);
-                targetStatistics.nbBuy += s.nbBuy;
-                targetStatistics.nbSell += s.nbSell;
-                targetStatistics.nbBid += s.nbBid;
-                targetStatistics.nbAsk += s.nbAsk;
-                targetStatistics.nbHold += s.nbHold;
-                targetStatistics.nbHoldOut += s.nbHoldOut;
-                targetStatistics.nbHoldIn += s.nbHoldIn;
-            });
-        });
-    }
-
-    getTaxKey() {
-        const { maker, taker } = this.trader.getTaxes();
-        return Math.round(maker * 10000) + "#" + Math.round(taker * 10000);
-    }
-
-    getCurrentStats() {
-        const key = this.getTaxKey();
-        let stats = this.statistics[key];
-        if (!stats) {
-            this.statistics[key] = this.getInitialStatistics();
-            stats = this.statistics[key];
-        }
-        return stats;
-    }
-
-    initializeStatistics() {
-        this.statistics = {};
-        const key = this.getTaxKey();
-        this.statistics[key] = this.getInitialStatistics();
+        this.statistics = this.getInitialStatistics();
+        this.actions = [];
     }
 
     getInitialStatistics() {
@@ -74,37 +23,33 @@ class Statistics {
             nbHold: 0,
             nbHoldOut: 0,
             nbHoldIn: 0,
-            actions: [],
         }
     }
 
-    logAction(action) {
-        let stats = this.getCurrentStats();
-        stats.actions.push(_.clone(this.trader.getLastAction()));
+    logAction() {
+        this.actions.push(_.clone(this.trader.getLastAction()));
     }
 
     log(actionStr) {
-        let stats = this.getCurrentStats();
-
         switch (actionStr) {
             case "BUY":
-                stats.nbBuy++;
+                this.statistics.nbBuy++;
                 break;
             case "SELL":
-                stats.nbSell++;
+                this.statistics.nbSell++;
                 break;
             case "BID":
-                stats.nbBid++;
+                this.statistics.nbBid++;
                 break;
             case "ASK":
-                stats.nbAsk++;
+                this.statistics.nbAsk++;
                 break;
             case "HOLD":
-                stats.nbHold++;
+                this.statistics.nbHold++;
                 if (this.trader.isInTrade()) {
-                    stats.nbHoldIn++;
+                    this.statistics.nbHoldIn++;
                 } else {
-                    stats.nbHoldOut++;
+                    this.statistics.nbHoldOut++;
                 }
                 break;
             default:
@@ -112,36 +57,19 @@ class Statistics {
         }
     }
 
-    getSortedKeys() {
-        let keys = _.remove(_.keys(this.statistics), k => k !== "all");
-        let sorted = _.sortBy(keys, k => parseInt(k));
-        return _.reverse(sorted);
-    }
-
-    stack() {
-
-    }
-
-    pop() {
-
-    }
-
-    getTrades(key = null) {
-        if (!key) {
-            key = this.getTaxKey();
-        }
-        let stats = this.statistics[key];
+    getTrades() {
         let trades = [];
 
         let lastAction = null;
-        _.each(stats.actions, action => {
+        let actions = _.sortBy(this.actions, a => a.timestamp);
+        _.each(actions, action => {
             if (action.type == "BUY" || action.type == "BID") {
                 lastAction = action;
             } else if (action.type == "SELL" || action.type == "ASK") {
                 if (lastAction) {
                     let totalTax = lastAction.totalTax + action.totalTax;
                     let beforeTrade = lastAction.volumeEUR;
-                    let afterTrade = action.volumeEUR - totalTax;
+                    let afterTrade = action.volumeEUR - action.totalTax;
                     let roi = afterTrade / beforeTrade;
                     let trade = {
                         enterPrice: lastAction.cryptoPrice,
@@ -152,6 +80,8 @@ class Statistics {
                         gain: afterTrade - beforeTrade,
                         roi: roi
                     };
+
+                    // console.log('beforeTrader:', beforeTrade, 'afterTrade:', afterTrade);
                     // console.log(JSON.stringify(trade, null, 2));
                     trades.push(trade);
                     lastAction = null;
@@ -162,13 +92,9 @@ class Statistics {
         return trades;
     }
 
-    getStatistics(key = null) {
-        if (!key) {
-            key = this.getTaxKey();
-        }
-
-        let stats = this.statistics[key];
-        let trades = this.getTrades(key);
+    getStatistics() {
+        let stats = this.statistics;
+        let trades = this.getTrades();
         let totalROI = _.reduce(trades, (a, b) => a.roi * b.roi) || 1;
         let nbPositiveTrades = _.filter(trades, t => t.roi > 1).length || 0;
         let nbNegativeTrades = trades.length - nbPositiveTrades || 0;
@@ -197,12 +123,8 @@ class Statistics {
     }
 
     // same as statistics(), but return displayable strings
-    getStatisticsStr(key = null) {
-        if (!key) {
-            key = this.getTaxKey();
-        }
-
-        let stats = this.getStatistics(key);
+    getStatisticsStr() {
+        let stats = this.getStatistics();
 
         let assetsStr = `${stats.assets.toFixed(0)}€`;
         stats.assets = assetsStr;
@@ -225,12 +147,8 @@ class Statistics {
         return stats;
     }
 
-    getColoredStatistics(key = null) {
-        if (!key) {
-            key = this.getTaxKey();
-        }
-
-        let stats = this.getStatistics(key);
+    getColoredStatistics() {
+        let stats = this.getStatistics();
 
         let gainStr = `${HRNumbers.toHumanString(stats.cumulatedGain.toFixed(0))}€`;
         stats.cumulatedGain = stats.cumulatedGain > 0 ? gainStr.green : gainStr.red;
@@ -253,8 +171,7 @@ class Statistics {
     async display() {
         let t = this.trader;
         let hash = await this.trader.hash();
-        this.mergeStatistics();
-        let s = this.getColoredStatistics("all");
+        let s = this.getColoredStatistics();
         let trades = s.trades;
         console.log("");
         console.log(`    Trader #${t.number} (${hash}): Final results`);
@@ -266,47 +183,13 @@ class Statistics {
     async displayDetails() {
         let t = this.trader;
         let hash = await this.trader.hash();
-        let keys = this.getSortedKeys();
-
-        _.each(keys, k => {
-            let taxNumbers = k.split('#');
-            let makerTax = parseInt(taxNumbers[0]) / 100 + '%';
-            let takerTax = parseInt(taxNumbers[1]) / 100 + '%';
-            let s = this.getColoredStatistics(k);
-            let trades = s.trades;
-            console.log(``);
-            console.log(`      maker=${makerTax.cyan}, taker=${takerTax.cyan}`);
-            console.log(`      gain: ${s.cumulatedGain} win/loss: ${s.winLossRatio} avg ROI: ${s.avgROI}`);
-            console.log(`      ${trades.nbTrades} trades, ${trades.nbPositiveTrades} won, ${trades.nbNegativeTrades} lost, avg tax: ${trades.avgTax.toFixed(2)}€`);
-            console.log(`      ${trades.nbBuy} buy, ${trades.nbSell} sell, ${trades.nbBid} bid, ${trades.nbAsk} ask, ${trades.nbHold} hold (${trades.nbHoldIn} in, ${trades.nbHoldOut} out)`);
-        });
-
-        this.mergeStatistics();
-        let s = this.getColoredStatistics("all");
+        let s = this.getColoredStatistics();
         let trades = s.trades;
         console.log("");
         console.log(`    Trader #${t.number} (${hash}): Final results`);
         console.log(`      gain: ${s.cumulatedGain} win/loss: ${s.winLossRatio} avg ROI: ${s.avgROI}`);
         console.log(`      ${trades.nbTrades} trades, ${trades.nbPositiveTrades} won, ${trades.nbNegativeTrades} lost, avg tax: ${trades.avgTax.toFixed(2)}€`);
         console.log(`      ${trades.nbBuy} buy, ${trades.nbSell} sell, ${trades.nbBid} bid, ${trades.nbAsk} ask, ${trades.nbHold} hold (${trades.nbHoldIn} in, ${trades.nbHoldOut} out)`);
-    }
-
-    mergeStatistics() {
-        delete this.statistics["all"];
-        let stats = this.getInitialStatistics();
-
-        _.each(this.statistics, (s, key) => {
-            stats.nbBuy += s.nbBuy;
-            stats.nbSell += s.nbSell;
-            stats.nbBid += s.nbBid;
-            stats.nbAsk += s.nbAsk;
-            stats.nbHold += s.nbHold;
-            stats.nbHoldOut += s.nbHoldOut;
-            stats.nbHoldIn += s.nbHoldIn;
-            stats.actions = stats.actions.concat(s.actions);
-        });
-
-        this.statistics["all"] = stats;
     }
 }
 

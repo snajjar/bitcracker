@@ -341,13 +341,13 @@ class Trader {
         this.currentCrypto = cryptoName;
         this.volumeExpire();
 
-        let last = _.last(candles);
-        this.wallet.setPrice(cryptoName, last.close);
-        this.lastTimestamp = last.timestamp;
-
         // first check if our bids and asks were fullfilled
+        let last = _.last(candles);
         this.checkBidValidation(cryptoName, last);
         this.checkAskValidation(cryptoName, last);
+
+        this.wallet.setPrice(cryptoName, last.close);
+        this.lastTimestamp = last.timestamp;
 
         if (candles.length !== this.analysisIntervalLength()) {
             console.error(`Trader ${this.hash()}: expected ${this.analysisIntervalLength()} periods but got ${candles.length}`);
@@ -356,10 +356,6 @@ class Trader {
 
 
         let action = await this.action(cryptoName, candles, last.close);
-        if (action.startsWith("ERROR")) {
-            console.log('Action undefined on: ', cryptoName, candles.slice(0, 2), last.close);
-            this.wallet.display();
-        }
         this.stats.log(action);
         return action;
     }
@@ -395,6 +391,11 @@ class Trader {
 
                 candles[crypto].shift();
             }
+        }
+
+        // if at the end, we're still in trade, sell
+        if (this.isInTrade()) {
+            this.sell();
         }
     }
 
@@ -440,7 +441,7 @@ class Trader {
         if (cryptoAmount > 0) {
             this.addAction("SELL"); // record the action before we change the wallet
 
-            let sellTax = this.getSellTax(); // do this before recording action
+            let sellTax = this.getSellTax();
             let newCurrencyAmount = currencyAmount + cryptoAmount * (1 - sellTax) * cryptoPrice;
             this.wallet.setAmount(this.wallet.getMainCurrency(), newCurrencyAmount);
             this.wallet.setAmount(this.currentCrypto, 0);
@@ -448,7 +449,7 @@ class Trader {
             this.currentTrade = null;
 
             if (this.logActions) {
-                console.log(`- SELL ${_amount(cryptoAmount)} of ${this.currentCrypto.cyan} at ${_price(cryptoPrice)}`);
+                console.log(`- SELL ${_amount(cryptoAmount)} of ${this.currentCrypto.cyan} at ${_price(cryptoPrice)}: ${_price(newCurrencyAmount)}`);
             }
 
             return "SELL";
@@ -511,7 +512,7 @@ class Trader {
         let cryptoAmount = this.wallet.getAmount(this.currentCrypto);
 
         if (cryptoAmount > 0) {
-            this.addAction("SELL"); // record the action before we change the wallet
+            this.addAction("ASK"); // record the action before we change the wallet
 
             let askTax = this.getAskTax(); // do this before recording action
             let newCurrencyAmount = currencyAmount + cryptoAmount * (1 - askTax) * cryptoPrice;
@@ -521,7 +522,7 @@ class Trader {
             this.currentTrade = null;
 
             if (this.logActions) {
-                console.log(`- ASK ${_amount(cryptoAmount)} of ${this.currentCrypto.cyan} at ${_price(cryptoPrice)}`);
+                console.log(`- ASK ${_amount(cryptoAmount)} of ${this.currentCrypto.cyan} at ${_price(cryptoPrice)}:  ${_price(newCurrencyAmount)}`);
             }
         }
 
