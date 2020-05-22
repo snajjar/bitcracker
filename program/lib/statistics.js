@@ -80,7 +80,7 @@ class Statistics {
 
     logAction(action) {
         let stats = this.getCurrentStats();
-        stats.actions.push(this.trader.getLastAction());
+        stats.actions.push(_.clone(this.trader.getLastAction()));
     }
 
     log(actionStr) {
@@ -101,7 +101,7 @@ class Statistics {
                 break;
             case "HOLD":
                 stats.nbHold++;
-                if (this.trader.inTrade) {
+                if (this.trader.isInTrade()) {
                     stats.nbHoldIn++;
                 } else {
                     stats.nbHoldOut++;
@@ -139,21 +139,20 @@ class Statistics {
                 lastAction = action;
             } else if (action.type == "SELL" || action.type == "ASK") {
                 if (lastAction) {
-                    let volume = action.volume;
-                    let totalTax = lastAction.tax * volume * lastAction.btcPrice + action.tax * volume * action.btcPrice;
-                    let beforeTrade = volume * lastAction.btcPrice;
-                    let afterTrade = volume * action.btcPrice - totalTax;
+                    let totalTax = lastAction.totalTax + action.totalTax;
+                    let beforeTrade = lastAction.volumeEUR;
+                    let afterTrade = action.volumeEUR - totalTax;
                     let roi = afterTrade / beforeTrade;
                     let trade = {
-                        enterPrice: lastAction.btcPrice,
-                        exitPrice: action.btcPrice,
-                        volume: action.volume,
+                        enterPrice: lastAction.cryptoPrice,
+                        exitPrice: action.cryptoPrice,
+                        volume: lastAction.volumeEUR + action.volumeEUR,
                         taxRatio: lastAction.tax + action.tax,
                         totalTax: totalTax,
                         gain: afterTrade - beforeTrade,
                         roi: roi
                     };
-                    //console.log(JSON.stringify(trade, null, 2));
+                    // console.log(JSON.stringify(trade, null, 2));
                     trades.push(trade);
                     lastAction = null;
                 }
@@ -185,7 +184,7 @@ class Statistics {
                 nbTrades: trades.length,
                 nbPositiveTrades: nbPositiveTrades,
                 nbNegativeTrades: nbNegativeTrades,
-                avgTax: _.meanBy(trades, t => t.totalTax),
+                avgTax: _.meanBy(trades, t => t.totalTax) || 0,
                 nbBuy: stats.nbBuy,
                 nbSell: stats.nbSell,
                 nbBid: stats.nbBid,
@@ -275,7 +274,6 @@ class Statistics {
             let takerTax = parseInt(taxNumbers[1]) / 100 + '%';
             let s = this.getColoredStatistics(k);
             let trades = s.trades;
-            console.log('key: ' + k);
             console.log(``);
             console.log(`      maker=${makerTax.cyan}, taker=${takerTax.cyan}`);
             console.log(`      gain: ${s.cumulatedGain} win/loss: ${s.winLossRatio} avg ROI: ${s.avgROI}`);

@@ -7,19 +7,9 @@ class ChampionTrader extends Trader {
         super();
 
         // EMA triggers we react to
-        // this.emaPeriods = 2;
-        // this.emaDownTrigger = { 'min': 0.15, 'max': 0.4 };
-        // this.emaUpTrigger = { 'min': 0.15, 'max': 0.4 };
-
-        // // Trader will also scalp shortly after a buy
-        // this.timeInTrade = null;
-        // this.winTradePeriod = 20;
-        // this.shortScalpProfit = { 'min': 0.0009, 'max': 0.0014 };
-
-        // EMA triggers we react to
-        this.emaPeriods = 5;
-        this.emaDownTrigger = { 'min': 0.15, 'max': 0.65 };
-        this.emaUpTrigger = { 'min': 0.15, 'max': 0.65 };
+        this.emaPeriods = 2;
+        this.emaDownTrigger = { 'min': 0.25, 'max': 0.45 };
+        this.emaUpTrigger = { 'min': 0.25, 'max': 0.45 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
@@ -32,7 +22,7 @@ class ChampionTrader extends Trader {
     }
 
     hash() {
-        return "Algo_Champion";
+        return "Algo_Champion_Multi";
     }
 
     // return the current value for position (between 0 and 1), on a logarithmic scale from min to max
@@ -85,65 +75,68 @@ class ChampionTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
-        // let stopped = this.stopLoss(this.stopLossRatio);
-        // if (stopped) return;
-
-        // stopped = this.takeProfit(this.takeProfitRatio);
-        // if (stopped) return;
-
+    async action(crypto, candles, currentPrice) {
         // calculate sma indicator
         try {
-            let ema = await this.getEMA(dataPeriods);
+            let ema = await this.getEMA(candles);
             let currEMA = _.last(ema);
-            let emadiff = (currentBitcoinPrice / currEMA * 100) - 100;
+            let emadiff = (currentPrice / currEMA * 100) - 100;
             let bidtaxdiff = (this.getBuyTax() + this.getSellTax() - this.getAskTax() - this.getBidTax()) / 2;
-            let emabiddiff = (currentBitcoinPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
+            let emabiddiff = (currentPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (emadiff < -this.adaptativeEMADownTrigger()) {
                     // BUY condition
                     this.timeInTrade = 0;
                     return this.buy();
                 } else if (emabiddiff < -this.adaptativeEMADownTrigger()) {
-                    return this.bid(currentBitcoinPrice);
+                    return this.bid(currentPrice);
                 } else {
                     return this.hold();
                 }
             } else {
-                this.timeInTrade++;
-                let winningTrade = currentBitcoinPrice > this.getWinningPrice();
+                let stopped = this.stopLoss(0.07);
+                if (stopped) return this.sell();
 
-                let scalpProfit = this.adaptativeScalp();
-                let winningScalpTrade = currentBitcoinPrice > this.getWinningPrice() * (1 + scalpProfit);
-                let winningBidScalpTrade = currentBitcoinPrice > this.getBidWinningPrice() * (1 + scalpProfit);;
+                // stopped = this.takeProfit(this.takeProfitRatio);
+                // if (stopped) return;
 
-                if (this.timeInTrade <= this.winTradePeriod && winningScalpTrade) {
-                    return this.sell();
-                }
+                // check if the trade started on this crypto, otherwise hold
+                if (this.getCurrentTradeAsset() == crypto) {
+                    this.timeInTrade++;
+                    let winningTrade = currentPrice > this.getSellWinningPrice();
 
-                if (this.timeInTrade <= this.winTradePeriod && winningBidScalpTrade) {
-                    return this.ask(currentBitcoinPrice);
-                }
+                    let scalpProfit = this.adaptativeScalp();
+                    let winningScalpTrade = currentPrice > this.getSellWinningPrice() * (1 + scalpProfit);
+                    let winningBidScalpTrade = currentPrice > this.getAskWinningPrice() * (1 + scalpProfit);;
 
-                // if EMA tells us to sell, sell if it's winning
-                let emaBigUp = emadiff > this.adaptativeEMAUpTrigger();
-                if (emaBigUp && winningTrade) {
-                    return this.sell();
-                }
-
-                let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger();
-                if (winningAsk) {
-                    return this.ask(currentBitcoinPrice);
-                }
-
-                // if both tells us to sell (and it's not winning), sell if we didnt buy less than 5 min ago
-                if (emaBigUp) {
-                    // if we're shortly after buy, don't sell at loss
-                    if (!winningTrade && this.timeInTrade <= this.winTradePeriod) {
-                        return this.hold();
-                    } else {
+                    if (winningScalpTrade) {
                         return this.sell();
+                    }
+
+                    if (winningBidScalpTrade) {
+                        return this.ask(currentPrice);
+                    }
+
+                    // if EMA tells us to sell, sell if it's winning
+                    let emaBigUp = emadiff > this.adaptativeEMAUpTrigger();
+                    if (emaBigUp && winningTrade) {
+                        return this.sell();
+                    }
+
+                    let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger();
+                    if (winningAsk) {
+                        return this.ask(currentPrice);
+                    }
+
+                    // if both tells us to sell (and it's not winning), sell if we didnt buy less than 5 min ago
+                    if (emaBigUp) {
+                        // if we're shortly after buy, don't sell at loss
+                        if (!winningTrade && this.timeInTrade <= this.winTradePeriod) {
+                            return this.hold();
+                        } else {
+                            return this.sell();
+                        }
                     }
                 }
 

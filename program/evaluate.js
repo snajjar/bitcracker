@@ -11,15 +11,15 @@ const moment = require('moment');
 const HRNumbers = require('human-readable-numbers');
 
 const evaluateTrader = async function(trader, duration) {
-    let btcData = await csv.getData();
+    let candles = await csv.getData();
     if (duration) {
-        let btcDataSets = dt.splitByDuration(btcData, duration);
-        console.log(`[*] splitted into ${btcDataSets.length} sets of ${btcDataSets[0].length} candles`);
+        let candlesSets = dt.splitByDuration(candles, duration);
+        console.log(`[*] splitted into ${candlesSets.length} sets of ${candlesSets[0].length} candles`);
 
         let results = {};
         let lastGain = 0;
-        for (let i = 0; i < btcDataSets.length; i++) {
-            let dataset = btcDataSets[i];
+        for (let i = 0; i < candlesSets.length; i++) {
+            let dataset = candlesSets[i];
             let start = moment.unix(dataset[0].timestamp);
 
             let btcTrend = (dt.trend(dataset) * 100).toFixed(0) + '%'
@@ -29,14 +29,15 @@ const evaluateTrader = async function(trader, duration) {
             // (we simulate a continuous trading, but we want results period by period)
             if (i > 0) {
                 let analysisIntervalLength = trader.analysisIntervalLength();
-                let endPeriodData = btcDataSets[i - 1].slice(btcDataSets[i - 1].length - analysisIntervalLength);
+                let endPeriodData = candlesSets[i - 1].slice(candlesSets[i - 1].length - analysisIntervalLength);
                 dataset = endPeriodData.concat(dataset);
             }
 
-            await trader.trade(dataset);
-            trader.s.mergeStatistics();
-            let s = trader.s.getStatistics("all"); // as numbers
-            let stats = trader.s.getStatisticsStr("all"); // as displayable strings
+            await trader.trade({ 'BTC': dataset });
+
+            trader.stats.mergeStatistics();
+            let s = trader.stats.getStatistics("all"); // as numbers
+            let stats = trader.stats.getStatisticsStr("all"); // as displayable strings
 
             // console.log(JSON.stringify(stats, null, 2));
             let period = `${start.format('YYYY-MM-DD hh:mm')}`;
@@ -52,14 +53,16 @@ const evaluateTrader = async function(trader, duration) {
             });
             lastGain = s.cumulatedGain;
 
-            trader.s.saveToBuffer();
+            trader.stats.saveToBuffer();
         }
         console.table(results);
-        trader.s.mergeBuffer();
-        trader.s.displayDetails();
+        trader.stats.mergeBuffer();
+        trader.stats.displayDetails();
+        trader.wallet.display();
     } else {
-        await trader.trade(btcData);
-        trader.s.display();
+        await trader.trade({ 'BTC': candles });
+        trader.stats.display();
+        trader.wallet.display();
         // console.log(JSON.stringify(trader.actions, null, 2));
     }
 }
