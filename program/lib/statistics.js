@@ -99,8 +99,8 @@ class Statistics {
                     let afterTrade = action.volumeEUR - action.totalTax;
                     let roi = afterTrade / beforeTrade;
                     let trade = {
-                        enterPrice: lastAction.cryptoPrice,
-                        exitPrice: action.cryptoPrice,
+                        enterPrice: lastAction.assetPrice,
+                        exitPrice: action.assetPrice,
                         volume: lastAction.volumeEUR + action.volumeEUR,
                         taxRatio: lastAction.tax + action.tax,
                         totalTax: totalTax,
