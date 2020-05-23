@@ -67,6 +67,10 @@ const evaluateTrader = async function(trader, duration) {
             });
         }
         console.table(results);
+
+        _.each(trader.assetStats, stats => {
+            stats.display();
+        });
     } else {
         await trader.trade(candlesByAsset);
     }

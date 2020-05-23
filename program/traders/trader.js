@@ -136,12 +136,12 @@ class Wallet {
 class Trader {
     static count = 0;
 
-    constructor(assetNames) {
+    constructor() {
         this.number = Trader.count++;
-        this.assetNames = assetNames;
         this.logActions = false;
 
         this.stats = new Statistics(this);
+        this.assetStats = {};
         this.otherStatistics = []; // other stats that can be added via addStatistics()
         this.wallet = new Wallet();
         this.wallet.setAmount("EUR", config.getStartFund());
@@ -168,6 +168,10 @@ class Trader {
 
     logAction(actionStr) {
         this.stats.logAction(actionStr);
+        if (!this.assetStats[this.currentAsset]) {
+            this.assetStats[this.currentAsset] = new Statistics(this, null, this.currentAsset);
+        }
+        this.assetStats[this.currentAsset].logAction(actionStr);
         _.each(this.otherStatistics, s => {
             s.logAction(actionStr);
         });
@@ -175,6 +179,10 @@ class Trader {
 
     logTransaction(actionObject) {
         this.stats.logTransaction(actionObject);
+        if (!this.assetStats[this.currentAsset]) {
+            this.assetStats = new Statistics(this, null, this.currentAsset);
+        }
+        this.assetStats[this.currentAsset].logTransaction(actionObject);
         _.each(this.otherStatistics, s => {
             s.logTransaction(actionObject);
         });

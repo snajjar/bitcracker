@@ -200,7 +200,7 @@ class Statistics {
         let hash = await this.trader.hash();
         let s = this.getColoredStatistics();
         let trades = s.trades;
-        let label = this.label ? this.label : `    Trader #${t.number} (${hash}):`;
+        let label = this.label ? this.label : `Trader #${t.number} (${hash}):`;
         console.log("");
         console.log(`      ${label}`);
         console.log(`      gain: ${s.cumulatedGain} win/loss: ${s.winLossRatio} avg ROI: ${s.avgROI}`);
