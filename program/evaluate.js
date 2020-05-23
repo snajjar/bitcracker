@@ -38,7 +38,7 @@ const evaluateTrader = async function(trader, duration) {
 
         let results = {};
         for (let i = 0; i < nbPeriods; i++) {
-            let start = moment.unix(candlesByAsset[assets[0]][i].timestamp);
+            let start = moment.unix(candleSetsByAssets[assets[0]][i][analysisIntervalLength].timestamp);
 
             // build the dataset for this period
             let dataset = {};

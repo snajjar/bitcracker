@@ -74,9 +74,12 @@ var argv = yargs
         argv.pair = argv.pair.toUpperCase();
         await fetch(argv.pair, argv.source, argv.continue);
     })
-    .command('extract [interval]', 'Extract and refine data from a specific granularity. If no arguments specified, extract for all granularities', (yargs) => {
+    .command('extract <pair> [interval]', 'Extract and refine data from a specific granularity. If no arguments specified, extract for all granularities', (yargs) => {
         yargs.positional('interval', {
             describe: 'optional time interval: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
+        }).positional('pair', {
+            describe: 'Pair of value you want to get data: ex BTCEUR',
+            default: 'BTCEUR'
         })
     }, async (argv) => {
         const extract = require('./extract');
@@ -86,7 +89,7 @@ var argv = yargs
                 await extract(utils.intervals[i]);
             }
         } else {
-            await extract(utils.strToInterval(argv.interval));
+            await extract(argv.pair, utils.strToInterval(argv.interval));
         }
     })
     .command('train <model>', 'Train a model from a data source', (yargs) => {

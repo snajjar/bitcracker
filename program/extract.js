@@ -80,12 +80,12 @@ const convertToInterval = function(data, interval) {
     return samples;
 }
 
-var extract = async function(interval) {
+var extract = async function(pair, interval) {
     console.log(`[*] Extracting data for interval ${utils.intervalToStr(interval)}`);
-    let data1m = await csv.getFileData(`./data/Cex_${config.getAssetPair()}_1m.csv`);
+    let data1m = await csv.getFileData(`./data/Cex_${pair}_1m.csv`);
     let cleanedData = dt.removePriceAnomalies(data1m)
     let data = convertToInterval(cleanedData, interval);
-    await csv.setFileData(`./data/Cex_${config.getAssetPair()}_${utils.intervalToStr(interval)}_Refined.csv`, data);
+    await csv.setFileData(`./data/Cex_${pair}_${utils.intervalToStr(interval)}_Refined.csv`, data);
 }
 
 module.exports = extract;
