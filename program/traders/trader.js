@@ -151,7 +151,7 @@ class Trader {
         // currentTrade has the following definition
         // this.currentTrade = {
         //     asset: null,
-        //     enterValue: null,
+        //     enterPrice: null,
         //     enterTimestamp: null,
         // }
 
@@ -182,7 +182,7 @@ class Trader {
     }
 
     getCurrentTradeEnterPrice() {
-        return this.currentTrade.enterValue;
+        return this.currentTrade.enterPrice;
     }
 
     setTradeVolume(v) {
@@ -258,11 +258,11 @@ class Trader {
     }
 
     getSellWinningPrice() {
-        return this.enterTradeValue * (1 + this.getBuyTax()) / (1 - this.getSellTax());
+        return this.getCurrentTradeEnterPrice() * (1 + this.getBuyTax()) / (1 - this.getSellTax());
     }
 
     getAskWinningPrice() {
-        return this.enterTradeValue * (1 + this.getBuyTax()) / (1 - this.getAskTax());
+        return this.getCurrentTradeEnterPrice() * (1 + this.getBuyTax()) / (1 - this.getAskTax());
     }
 
     // to be redefined if needed
@@ -288,7 +288,7 @@ class Trader {
         } else {
             this.currentTrade = {
                 asset: maxAsset,
-                enterValue: lastEnterTrade,
+                enterPrice: lastEnterTrade,
             }
         }
     }
@@ -420,7 +420,7 @@ class Trader {
 
             this.currentTrade = {
                 asset: this.currentCrypto,
-                price: cryptoPrice,
+                enterPrice: cryptoPrice,
                 timestamp: this.lastTimestamp
             }
 
@@ -489,7 +489,7 @@ class Trader {
 
             this.currentTrade = {
                 asset: this.currentCrypto,
-                price: cryptoPrice,
+                enterPrice: cryptoPrice,
                 timestamp: this.lastTimestamp
             }
             this.currentBid = null;
@@ -595,7 +595,7 @@ class Trader {
 
     stopLoss(ratio) {
         if (this.currentTrade) {
-            if (this.wallet.getPrice(this.currentTrade.asset) < this.currentTrade.enterValue * (1 - ratio)) {
+            if (this.wallet.getPrice(this.currentTrade.asset) < this.currentTrade.enterPrice * (1 - ratio)) {
                 return true;
             }
         }
@@ -604,7 +604,7 @@ class Trader {
 
     takeProfit(ratio) {
         if (this.currentTrade) {
-            if (this.wallet.getPrice(this.currentTrade.asset) > this.currentTrade.enterValue * (1 + ratio)) {
+            if (this.wallet.getPrice(this.currentTrade.asset) > this.currentTrade.enterPrice * (1 + ratio)) {
                 return true;
             }
         }
