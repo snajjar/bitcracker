@@ -12,7 +12,7 @@ const HRNumbers = require('human-readable-numbers');
 const Statistics = require('./lib/statistics');
 
 const evaluateTrader = async function(trader, duration) {
-    let candles = await csv.getData();
+    let candlesByAsset = await csv.getData();
     if (duration) {
         let candlesSets = dt.splitByDuration(candles, duration);
         console.log(`[*] splitted into ${candlesSets.length} sets of ${candlesSets[0].length} candles`);
@@ -57,7 +57,7 @@ const evaluateTrader = async function(trader, duration) {
         trader.stats.display();
         trader.wallet.display();
     } else {
-        await trader.trade({ 'BTC': candles });
+        await trader.trade(candlesByAsset);
         trader.stats.display();
         trader.wallet.display();
         // console.log(JSON.stringify(trader.actions, null, 2));

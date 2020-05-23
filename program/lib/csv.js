@@ -28,14 +28,17 @@ const removeBlankLines = function(filePath) {
 }
 
 const getData = async function() {
-    console.log('[*] Retrieving bitcoin history...');
-    let data = await getDataForInterval(config.getInterval());
+    let data = {};
+    for (assetName of config.getAssets()) {
+        data[assetName] = await getDataForInterval(assetName, config.getInterval());
+    }
     return data;
 }
 
-const getDataForInterval = async function(interval) {
+const getDataForInterval = async function(crypto, interval) {
+    console.log(`[*] Retrieving ${crypto} history...`);
     let btcData = null;
-    let dataFile = `./data/Cex_${config.getAssetPair()}_${utils.intervalToStr(interval)}_Refined.csv`;
+    let dataFile = `./data/Cex_${crypto}${config.getCurrency()}_${utils.intervalToStr(interval)}_Refined.csv`;
 
     if (fs.existsSync(dataFile)) {
         btcData = await getFileData(dataFile);

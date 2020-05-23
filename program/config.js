@@ -4,8 +4,9 @@ const config = {
     // initial funding
     startFund: 1000,
 
-    // pair
-    assetPair: "BTCEUR",
+    // pair to trade
+    currency: "EUR",
+    assets: ["BTC"],
 
     // trade parameters
     stopLossRatio: 0.05,
@@ -89,16 +90,24 @@ const getTakeProfitRatio = function() {
     return config.takeProfitRatio;
 }
 
-const setAssetPair = function(p) {
-    config.assetPair = p;
+const getCurrency = function() {
+    return config.currency;
 }
 
-const getAssetPair = function() {
-    return config.assetPair;
+const setCurrency = function(c) {
+    config.currency = c;
 }
 
-const getAssetPairArray = function() {
-    return [config.assetpair.substring(0, 3), config.assetPair.substring(3, 6)];
+const getAssets = function() {
+    return config.assets;
+}
+
+const setAssets = function(c) {
+    config.assets = c;
+}
+
+const getAssetsPairs = function() {
+    return _.map(getAsset(), a => getCurrency() + a);
 }
 
 const setStartDate = function(dateStr) {
@@ -158,9 +167,11 @@ module.exports = {
     getStopLossRatio,
     setTakeProfitRatio,
     getTakeProfitRatio,
-    setAssetPair,
-    getAssetPair,
-    getAssetPairArray,
+    getCurrency,
+    setCurrency,
+    getAssets,
+    setAssets,
+    getAssetsPairs,
     setStartDate,
     getStartDate,
     setEndDate,

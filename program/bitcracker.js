@@ -32,9 +32,14 @@ var argv = yargs
         describe: 'optional end date YYYY-MM-DD',
         type: 'string',
     })
-    .option('pair', {
+    .option('assets', {
         alias: 'p',
-        describe: 'asset pair (ex: BTCEUR, ETHEUR, ...)',
+        describe: 'Crypto assets to trade on (ex: BTC, ETH, BTH, XRP, ...)',
+        type: 'string',
+    })
+    .option('currency', {
+        alias: 'c',
+        describe: 'main currency (ex: EUR, USD)',
         type: 'string',
     })
     .option('initialFund', {
@@ -233,8 +238,13 @@ function setOptions(argv) {
     if (argv.end) {
         config.setEndDate(argv.end);
     }
-    if (argv.pair) {
-        config.setAssetPair(argv.pair);
+    if (argv.currency) {
+        config.setCurrency(argv.currency);
+    }
+    if (argv.assets) {
+        let assets = argv.assets.split(',');
+        assets = _.map(assets, a => a.trim());
+        config.setAssets(assets);
     }
     if (argv.initialFund) {
         config.setStartFund(parseInt(argv.initialFund));
