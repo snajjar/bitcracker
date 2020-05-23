@@ -88,7 +88,7 @@ class Wallet {
 
     setPrices(o) {
         _.each(o, (price, name) => {
-            this.statsetPrice(name, price);
+            this.setPrice(name, price);
         });
     }
 
@@ -142,6 +142,7 @@ class Trader {
         this.logActions = false;
 
         this.stats = new Statistics(this);
+        this.otherStatistics = []; // other stats that can be added via addStatistics()
         this.wallet = new Wallet();
         this.wallet.setAmount("EUR", config.getStartFund());
 
@@ -163,6 +164,28 @@ class Trader {
         this.tradeVolume30 = null; // trade volume on 30 days. to be set with setTradingVolume()
         this.calculatedTradeVolume30 = null; // used if setTradingVolume() is not used
         this.recomputeTaxes();
+    }
+
+    logAction(actionStr) {
+        this.stats.logAction(actionStr);
+        _.each(this.otherStatistics, s => {
+            s.logAction(actionStr);
+        });
+    }
+
+    logTransaction(actionObject) {
+        this.stats.logTransaction(actionObject);
+        _.each(this.otherStatistics, s => {
+            s.logTransaction(actionObject);
+        });
+    }
+
+    addStatistic(s) {
+        this.otherStatistics.push(s);
+    }
+
+    removeStatistic(s) {
+        _.remove(this.otherStatistics, stat => stat == s);
     }
 
     hash() {
@@ -300,7 +323,7 @@ class Trader {
             this.calculatedTradeVolume30 = null; // erase previous value
             let taxes = this.getTaxes();
             this.buyTax = taxes.taker; // all market orders are provided the taker fee
-            this.statsellTax = taxes.taker; // all market orders are provided the taker fee, even for sell
+            this.sellTax = taxes.taker; // all market orders are provided the taker fee, even for sell
             this.bidTax = taxes.maker;
             this.askTax = taxes.maker;
         }
@@ -353,10 +376,8 @@ class Trader {
             console.error(`Trader ${this.hash()}: expected ${this.analysisIntervalLength()} periods but got ${candles.length}`);
         }
 
-
-
         let action = await this.action(cryptoName, candles, last.close);
-        this.stats.log(action);
+        this.logAction(action);
         return action;
     }
 
@@ -533,7 +554,7 @@ class Trader {
         this.currentAsk = null;
     }
 
-    getAction(actionStr) {
+    getTransaction(actionStr) {
         let cryptoPrice, totalVolume, actionTax, volumeEUR;
         if (actionStr == "BUY") {
             cryptoPrice = this.wallet.getPrice(this.currentCrypto);
@@ -576,10 +597,10 @@ class Trader {
     }
 
     addAction(actionStr) {
-        let action = this.getAction(actionStr);
-        this.actions.push(action);
-        this.last30DaysActions.push(action);
-        this.stats.logAction(action);
+        let transaction = this.getTransaction(actionStr);
+        this.actions.push(transaction);
+        this.last30DaysActions.push(transaction);
+        this.logTransaction(transaction);
 
         this.recomputeTaxes();
     }
@@ -612,7 +633,7 @@ class Trader {
     }
 
     checkNotNaN() {
-        if (isNaN(this.statscore())) {
+        if (isNaN(this.score())) {
             this.debug();
             process.exit(-1);
         }

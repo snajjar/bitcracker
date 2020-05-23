@@ -9,6 +9,7 @@ const config = require('./config');
 const dt = require('./lib/datatools');
 const moment = require('moment');
 const HRNumbers = require('human-readable-numbers');
+const Statistics = require('./lib/statistics');
 
 const evaluateTrader = async function(trader, duration) {
     let candles = await csv.getData();
@@ -17,7 +18,6 @@ const evaluateTrader = async function(trader, duration) {
         console.log(`[*] splitted into ${candlesSets.length} sets of ${candlesSets[0].length} candles`);
 
         let results = {};
-        let lastGain = 0;
         for (let i = 0; i < candlesSets.length; i++) {
             let dataset = candlesSets[i];
             let start = moment.unix(dataset[0].timestamp);
@@ -33,16 +33,17 @@ const evaluateTrader = async function(trader, duration) {
                 dataset = endPeriodData.concat(dataset);
             }
 
+            let periodStat = new Statistics(trader);
+            trader.addStatistic(periodStat);
             await trader.trade({ 'BTC': dataset });
+            trader.removeStatistic(periodStat);
 
-            trader.stats.mergeStatistics();
-            let s = trader.stats.getStatistics("all"); // as numbers
-            let stats = trader.stats.getStatisticsStr("all"); // as displayable strings
+            let stats = periodStat.getStatisticsStr();
+            //console.log(JSON.stringify(stats));
 
-            // console.log(JSON.stringify(stats, null, 2));
             let period = `${start.format('YYYY-MM-DD hh:mm')}`;
             results[period] = ({
-                'gain': (s.cumulatedGain - lastGain).toFixed(0) + '€',
+                'gain': stats.cumulatedGain,
                 'w/l': stats.winLossRatio,
                 'avgROI': stats.avgROI,
                 'pos': stats.trades.nbPositiveTrades,
@@ -51,13 +52,9 @@ const evaluateTrader = async function(trader, duration) {
                 'variance': HRNumbers.toHumanString(btcVar),
                 'tv': HRNumbers.toHumanString(trader.calculatedTradeVolume30),
             });
-            lastGain = s.cumulatedGain;
-
-            trader.stats.saveToBuffer();
         }
         console.table(results);
-        trader.stats.mergeBuffer();
-        trader.stats.displayDetails();
+        trader.stats.display();
         trader.wallet.display();
     } else {
         await trader.trade({ 'BTC': candles });

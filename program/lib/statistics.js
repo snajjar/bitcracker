@@ -6,12 +6,26 @@ const HRNumbers = require('human-readable-numbers');
 // Log trader actions and extract statistics from it
 // Statistics are classified according to current trading volume (which change taxes)
 class Statistics {
-    constructor(trader) {
+    static merge(s1, s2) {
+        let s = new Statistics();
+
+        _.each(s.statistics, (v, k) => {
+            s.statistics[k] = s1.statistics[k] + s2.statistics[k];
+        });
+
+        s.actions = s1.actions.concat(s2.actions);
+        s.actions = _.sortBy(s.actions, a => a.timestamp);
+        return s;
+    }
+
+    constructor(trader, conditionFn = null, label = null) {
         this.trader = trader;
+        this.conditionFn = conditionFn; // condition fn that we check before we log anything into this object
+        this.label = label; // label to be displayed with the stats
 
         // initialize the statistics object
         this.statistics = this.getInitialStatistics();
-        this.actions = [];
+        this.transactions = [];
     }
 
     getInitialStatistics() {
@@ -26,34 +40,47 @@ class Statistics {
         }
     }
 
-    logAction() {
-        this.actions.push(_.clone(this.trader.getLastAction()));
+    conditionVerified() {
+        if (this.conditionFn) {
+            return this.conditionFn();
+        } else {
+            return true;
+        }
     }
 
-    log(actionStr) {
-        switch (actionStr) {
-            case "BUY":
-                this.statistics.nbBuy++;
-                break;
-            case "SELL":
-                this.statistics.nbSell++;
-                break;
-            case "BID":
-                this.statistics.nbBid++;
-                break;
-            case "ASK":
-                this.statistics.nbAsk++;
-                break;
-            case "HOLD":
-                this.statistics.nbHold++;
-                if (this.trader.isInTrade()) {
-                    this.statistics.nbHoldIn++;
-                } else {
-                    this.statistics.nbHoldOut++;
-                }
-                break;
-            default:
-                throw new Error("Unrecognized action string: " + actionStr);
+    logAction(actionStr) {
+        if (this.conditionVerified()) {
+            switch (actionStr) {
+                case "BUY":
+                    this.statistics.nbBuy++;
+                    break;
+                case "SELL":
+                    this.statistics.nbSell++;
+                    break;
+                case "BID":
+                    this.statistics.nbBid++;
+                    break;
+                case "ASK":
+                    this.statistics.nbAsk++;
+                    break;
+                case "HOLD":
+                    this.statistics.nbHold++;
+                    if (this.trader.isInTrade()) {
+                        this.statistics.nbHoldIn++;
+                    } else {
+                        this.statistics.nbHoldOut++;
+                    }
+                    break;
+                default:
+                    throw new Error("Unrecognized action string: " + actionStr);
+            }
+        }
+    }
+
+    logTransaction() {
+        if (this.conditionVerified()) {
+            let lastAction = this.trader.getLastAction();
+            this.transactions.push(_.clone(lastAction));
         }
     }
 
@@ -61,7 +88,7 @@ class Statistics {
         let trades = [];
 
         let lastAction = null;
-        let actions = _.sortBy(this.actions, a => a.timestamp);
+        let actions = _.sortBy(this.transactions, a => a.timestamp);
         _.each(actions, action => {
             if (action.type == "BUY" || action.type == "BID") {
                 lastAction = action;
@@ -173,20 +200,9 @@ class Statistics {
         let hash = await this.trader.hash();
         let s = this.getColoredStatistics();
         let trades = s.trades;
+        let label = this.label ? this.label : `    Trader #${t.number} (${hash}):`;
         console.log("");
-        console.log(`    Trader #${t.number} (${hash}): Final results`);
-        console.log(`      gain: ${s.cumulatedGain} win/loss: ${s.winLossRatio} avg ROI: ${s.avgROI}`);
-        console.log(`      ${trades.nbTrades} trades, ${trades.nbPositiveTrades} won, ${trades.nbNegativeTrades} lost, avg tax: ${trades.avgTax.toFixed(2)}€`);
-        console.log(`      ${trades.nbBuy} buy, ${trades.nbSell} sell, ${trades.nbBid} bid, ${trades.nbAsk} ask, ${trades.nbHold} hold (${trades.nbHoldIn} in, ${trades.nbHoldOut} out)`);
-    }
-
-    async displayDetails() {
-        let t = this.trader;
-        let hash = await this.trader.hash();
-        let s = this.getColoredStatistics();
-        let trades = s.trades;
-        console.log("");
-        console.log(`    Trader #${t.number} (${hash}): Final results`);
+        console.log(`      ${label}`);
         console.log(`      gain: ${s.cumulatedGain} win/loss: ${s.winLossRatio} avg ROI: ${s.avgROI}`);
         console.log(`      ${trades.nbTrades} trades, ${trades.nbPositiveTrades} won, ${trades.nbNegativeTrades} lost, avg tax: ${trades.avgTax.toFixed(2)}€`);
         console.log(`      ${trades.nbBuy} buy, ${trades.nbSell} sell, ${trades.nbBid} bid, ${trades.nbAsk} ask, ${trades.nbHold} hold (${trades.nbHoldIn} in, ${trades.nbHoldOut} out)`);
