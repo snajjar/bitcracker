@@ -14,33 +14,46 @@ const Statistics = require('./lib/statistics');
 const evaluateTrader = async function(trader, duration) {
     let candlesByAsset = await csv.getData();
     if (duration) {
-        let candlesSets = dt.splitByDuration(candles, duration);
-        console.log(`[*] splitted into ${candlesSets.length} sets of ${candlesSets[0].length} candles`);
+        let candleSetsByAssets = _.mapValues(candlesByAsset, (v, k) => {
+            let set = dt.splitByDuration(v, duration);
+            console.log(`[*] splitted ${k} set into ${set.length} sets of ${set[0].length} candles`);
+            return set;
+        });
+
+        // since our trader need the last n=trader.analysisIntervalLength() periods to decide an action
+        // we need to connect the different set by adding the last n-1 periods to it
+        let analysisIntervalLength = trader.analysisIntervalLength();
+        _.each(candleSetsByAssets, (candleset, asset) => {
+            for (var i = 0; i < candleset.length; i++) {
+                if (i > 0) {
+                    let previousSet = candleset[i - 1];
+                    let endPeriodData = previousSet.slice(previousSet.length - analysisIntervalLength - 1);
+                    candleset[i] = endPeriodData.concat(candleset[i]);
+                }
+            }
+        });
+
+        let assets = _.keys(candlesByAsset);
+        let nbPeriods = candleSetsByAssets[assets[0]].length
 
         let results = {};
-        for (let i = 0; i < candlesSets.length; i++) {
-            let dataset = candlesSets[i];
-            let start = moment.unix(dataset[0].timestamp);
+        for (let i = 0; i < nbPeriods; i++) {
+            let start = moment.unix(candlesByAsset[assets[0]][i].timestamp);
 
-            let btcTrend = (dt.trend(dataset) * 100).toFixed(0) + '%'
-            let btcVar = dt.variance(dataset).toFixed(0);
-
-            // adjust dataset to the trader, by adding end of previous data
-            // (we simulate a continuous trading, but we want results period by period)
-            if (i > 0) {
-                let analysisIntervalLength = trader.analysisIntervalLength();
-                let endPeriodData = candlesSets[i - 1].slice(candlesSets[i - 1].length - analysisIntervalLength);
-                dataset = endPeriodData.concat(dataset);
+            // build the dataset for this period
+            let dataset = {};
+            for (asset of assets) {
+                dataset[asset] = candleSetsByAssets[asset][i];
             }
 
+            // add a statistic object to log data related to this period
             let periodStat = new Statistics(trader);
             trader.addStatistic(periodStat);
-            await trader.trade({ 'BTC': dataset });
+            await trader.trade(dataset);
             trader.removeStatistic(periodStat);
 
+            // extract stats into our result array (for console.table)
             let stats = periodStat.getStatisticsStr();
-            //console.log(JSON.stringify(stats));
-
             let period = `${start.format('YYYY-MM-DD hh:mm')}`;
             results[period] = ({
                 'gain': stats.cumulatedGain,
@@ -48,20 +61,18 @@ const evaluateTrader = async function(trader, duration) {
                 'avgROI': stats.avgROI,
                 'pos': stats.trades.nbPositiveTrades,
                 'neg': stats.trades.nbNegativeTrades,
-                'btc trend': btcTrend,
-                'variance': HRNumbers.toHumanString(btcVar),
+                // 'btc trend': btcTrend,
+                // 'variance': HRNumbers.toHumanString(btcVar),
                 'tv': HRNumbers.toHumanString(trader.calculatedTradeVolume30),
             });
         }
         console.table(results);
-        trader.stats.display();
-        trader.wallet.display();
     } else {
         await trader.trade(candlesByAsset);
-        trader.stats.display();
-        trader.wallet.display();
-        // console.log(JSON.stringify(trader.actions, null, 2));
     }
+
+    trader.stats.display();
+    trader.wallet.display();
 }
 
 const evaluate = async function(name, duration) {

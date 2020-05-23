@@ -6,6 +6,7 @@ const fs = require('fs-extra');
 const utils = require('./utils');
 const config = require('../config');
 const dt = require('./datatools');
+const colors = require('colors');
 
 const getDataFromCSV = function(filePath) {
     return new Promise((resolve, reject) => {
@@ -32,16 +33,28 @@ const getData = async function() {
     for (assetName of config.getAssets()) {
         data[assetName] = await getDataForInterval(assetName, config.getInterval());
     }
+
+    // output a warning of all assets don't have the same length
+    let keys = _.keys(data);
+    if (keys.length > 1) {
+        let length = data[keys[0]].length
+        for (k of keys) {
+            if (data[k].length !== length) {
+                console.warn(`[*] WARNING: ${k} have only ${data[k].length} candles while ${keys[0]} have ${length}`.orange);
+            }
+        }
+    }
+
     return data;
 }
 
 const getDataForInterval = async function(crypto, interval) {
     console.log(`[*] Retrieving ${crypto} history...`);
-    let btcData = null;
+    let candles = null;
     let dataFile = `./data/Cex_${crypto}${config.getCurrency()}_${utils.intervalToStr(interval)}_Refined.csv`;
 
     if (fs.existsSync(dataFile)) {
-        btcData = await getFileData(dataFile);
+        candles = await getFileData(dataFile);
     } else {
         console.error(`[*] Error: could not find .csv file ${adjustedDataFile} or ${dataFile}`);
         process.exit(-1);
@@ -52,23 +65,23 @@ const getDataForInterval = async function(crypto, interval) {
 
     if (startTimestamp || endTimestamp) {
         if (startTimestamp) {
-            btcData = dt.cutDataBefore(startTimestamp, btcData);
+            candles = dt.cutDataBefore(startTimestamp, candles);
         }
         if (endTimestamp) {
-            btcData = dt.cutDataAfter(endTimestamp, btcData);
+            candles = dt.cutDataAfter(endTimestamp, candles);
         }
     }
 
-    if (btcData.length === 0) {
+    if (candles.length === 0) {
         throw 'No bitcoin data is available for the selected period';
     }
 
-    console.log(`[*] Dataset: ${dt.rangeStr(btcData)}`);
-    return btcData;
+    console.log(`[*] Retrieved ${crypto} history: ${dt.rangeStr(candles)}`);
+    return candles;
 }
 
 const getFileData = async function(csvFilePath) {
-    let btcData = [];
+    let candles = [];
     const csvData = await getDataFromCSV(csvFilePath);
     let i = 0;
     _.each(csvData, (row, index) => {
@@ -81,7 +94,7 @@ const getFileData = async function(csvFilePath) {
             }
         });
 
-        btcData.push({
+        candles.push({
             "timestamp": parseInt(row.timestamp),
             "open": parseFloat(row.Open),
             "high": parseFloat(row.High),
@@ -90,7 +103,7 @@ const getFileData = async function(csvFilePath) {
             "volume": parseFloat(row.Volume)
         });
     });
-    return btcData;
+    return candles;
 }
 
 const setFileData = async function(csvFilePath, data) {
