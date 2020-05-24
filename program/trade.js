@@ -231,7 +231,7 @@ class Kraken {
     // get the max BTC volume we can buy with our current EUR wallet
     _getMaxAssetVolume(price) {
         // for safety of orders, let's assume BTC price increased by 0.1% since last price
-        price = price * 1.001;
+        price = price * 1.002;
 
         // adjust volumal precision: 8 decimals for a BTC. Round it to 3
         return Math.floor((this.wallet.getAmount(this.wallet.getMainCurrency()) / price) * 1000) / 1000;
@@ -240,7 +240,7 @@ class Kraken {
     // get the max EUR volume we can get with our current BTC wallet
     _getMaxCurrencyVolume(asset, price) {
         // for safety of orders, let's assume BTC price decreased by 0.1% since last price
-        price = price * 0.999;
+        price = price * 0.998;
 
         // adjust volumal precision: 1 decimals for a EUR. Round it to 0
         return Math.floor(this.wallet.getAmount(asset) * price);
@@ -476,7 +476,7 @@ class Kraken {
                 console.error(e);
                 console.log(JSON.stringify(r));
             }
-            process.exit(-1);
+            //process.exit(-1);
         }
     }
 
@@ -512,7 +512,7 @@ class Kraken {
                 console.error(e);
                 console.log(JSON.stringify(r));
             }
-            process.exit(-1);
+            //process.exit(-1);
         }
     }
 
@@ -554,7 +554,7 @@ class Kraken {
                 console.error(e);
                 console.log(JSON.stringify(r));
             }
-            process.exit(-1);
+            //process.exit(-1);
         }
     }
 
@@ -592,7 +592,7 @@ class Kraken {
                 console.error(e);
                 console.log(JSON.stringify(r));
             }
-            process.exit(-1);
+            //process.exit(-1);
         }
     }
 
