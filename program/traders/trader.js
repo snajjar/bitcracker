@@ -4,7 +4,7 @@ const colors = require('colors');
 const moment = require('moment');
 const HRNumbers = require('human-readable-numbers');
 const Statistics = require('../lib/statistics');
-
+const Wallet = require('../lib/wallet');
 
 const _price = function(n) {
     return `${n.toFixed(0)}€`.cyan;
@@ -14,124 +14,6 @@ const _amount = function(n) {
     return `${n.toFixed(3)}`.cyan;
 }
 
-class Wallet {
-    // assets: array of names of asset we want to trade
-    constructor(mainCurrency = "EUR") {
-        this.mainCurrency = mainCurrency; // the currency that will be the base value
-        this.assetNames = [];
-        this.reset();
-    }
-
-    getMainCurrency() {
-        return this.mainCurrency;
-    }
-
-    reset() {
-        this.assetNames = [];
-        this.assets = {};
-        _.each(this.assetsNames, name => {
-            this.init(name);
-        });
-    }
-
-    init(assetName) {
-        if (assetName == undefined) {
-            throw new Error("asset cant be undefined");
-        }
-
-        if (!this.assetNames.includes(assetName)) {
-            this.assetNames.push(assetName);
-        }
-        this.assets[assetName] = {
-            amount: 0,
-            price: null,
-        }
-
-        if (assetName == this.mainCurrency) {
-            this.assets[assetName].price = 1;
-        }
-    }
-
-    get(name) {
-        if (!this.assets[name]) {
-            this.init(name);
-        }
-        return this.assets[name];
-    }
-
-    setAmount(name, v) {
-        this.get(name).amount = v;
-    }
-
-    getAmount(name) {
-        let asset = this.get(name);
-        if (asset) {
-            return asset.amount;
-        } else {
-            return 0;
-        }
-    }
-
-    setPrice(name, v) {
-        this.get(name).price = v;
-    }
-
-    getPrice(name) {
-        return this.get(name).price;
-    }
-
-    setAmounts(o) {
-        _.each(o, (amount, name) => {
-            this.setAmount(name, amount);
-        });
-    }
-
-    setPrices(o) {
-        _.each(o, (price, name) => {
-            this.setPrice(name, price);
-        });
-    }
-
-    has(asset) {
-        return this.getAmount(asset) > 0;
-    }
-
-    // return the asset that contains the most value
-    getMaxAsset() {
-        let maxValue = 0;
-        let asset = 0;
-        _.each(this.asset, (asset, assetName) => {
-            if (this.value(assetName) > maxValue) {
-                maxValue = this.value(assetName);
-                asset = assetName;
-            }
-        });
-
-        return assetName;
-    }
-
-    // compute the current value of the wallet
-    value(assetName = null) {
-        if (assetName) {
-            let asset = this.get(assetName);
-            return asset.amount * asset.price;
-        } else {
-            let s = 0;
-            _.each(this.assets, asset => {
-                s += asset.amount * asset.price;
-            });
-            return s;
-        }
-    }
-
-    display() {
-        console.log('================================================');
-        _.each(this.assets, (asset, assetName) => {
-            console.log(`${assetName}: ${asset.amount.toFixed(3)} (${(asset.amount * asset.price).toFixed(2)}€)`);
-        });
-        console.log('================================================');
-    }
-}
 
 class Trader {
     static count = 0;
@@ -308,13 +190,13 @@ class Trader {
         this.actions = [];
     }
 
-    setBalance(assetAmounts, assetPrices, lastEnterTrade) {
-        this.wallet.setAmount(assetAmounts);
-        this.wallet.setPrices(assetPrices);
+    setBalance(wallet, lastEnterTrade) {
+        this.wallet = Wallet.clone(wallet);
 
         // check if we are currently in trade
         let maxAsset = this.wallet.getMaxAsset();
-        if (maxAsset == "EUR") {
+
+        if (maxAsset == this.wallet.getMainCurrency()) {
             this.currentTrade = null;
         } else {
             this.currentTrade = {

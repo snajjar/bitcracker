@@ -72,7 +72,7 @@ class Statistics {
                     }
                     break;
                 default:
-                    throw new Error("Unrecognized action string: " + actionStr);
+                    console.error("[STATISTICS ERROR] Unrecognized action string: " + actionStr);
             }
         }
     }
