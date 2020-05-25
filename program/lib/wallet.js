@@ -117,7 +117,6 @@ class Wallet {
     value(assetName = null) {
         if (assetName) {
             let asset = this.get(assetName);
-            console.log('Value ' + assetName + ':', asset.amount * asset.price);
             return asset.amount * asset.price;
         } else {
             let s = 0;

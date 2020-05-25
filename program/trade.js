@@ -342,14 +342,14 @@ class Kraken {
 
     // return when there is a new price data available
     async nextData(asset) {
-        let since = _.get(this.prices, [asset, "since"]) || 0;
-        let startOfLastMinute = moment().subtract(1, 'minute').subtract(1, 'second').startOf('minute');
-        let lastAssetRefresh = moment.unix(since);
+        // let since = _.get(this.prices, [asset, "since"]) || 0;
+        // let startOfLastMinute = moment().subtract(1, 'minute').subtract(1, 'second').startOf('minute');
+        // let lastAssetRefresh = moment.unix(since);
 
-        // if last refresh happened in this minute, wait for the next minute
-        if (startOfLastMinute.isBefore(lastAssetRefresh)) {
-            await this.nextMinute();
-        }
+        // // if last refresh happened in this minute, wait for the next minute
+        // if (startOfLastMinute.isBefore(lastAssetRefresh)) {
+        //     await this.nextMinute();
+        // }
 
         let newDataAvailable = await this.refreshOHLC(asset);
         while (!newDataAvailable) {
@@ -712,6 +712,7 @@ const trade = async function(name, fake) {
 
     let count = 0;
     while (1) {
+        await k.nextMinute();
         console.log('');
         console.log('');
 
