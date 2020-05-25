@@ -59,12 +59,16 @@ class Trader {
         });
     }
 
+    getAssetStats() {
+        if (!this.assetStats[this.currentAsset]) {
+            this.assetStats[this.currentAsset] = new Statistics(this, null, this.currentAsset);
+        }
+        return this.assetStats[this.currentAsset];
+    }
+
     logTransaction(actionObject) {
         this.stats.logTransaction(actionObject);
-        if (!this.assetStats[this.currentAsset]) {
-            this.assetStats = new Statistics(this, null, this.currentAsset);
-        }
-        this.assetStats[this.currentAsset].logTransaction(actionObject);
+        this.getAssetStats().logTransaction(actionObject);
         _.each(this.otherStatistics, s => {
             s.logTransaction(actionObject);
         });

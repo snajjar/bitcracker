@@ -6,7 +6,7 @@ class Wallet {
     static clone(w) {
         let wallet = new Wallet();
         wallet.mainCurrency = w.mainCurrency;
-        wallet.assets = _.clone(w.assets);
+        wallet.assets = _.cloneDeep(w.assets);
         return wallet;
     }
 

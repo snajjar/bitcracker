@@ -17,16 +17,16 @@ class RandomTrader extends Trader {
     // decide for an action
     async action(dataPeriods, currentBitcoinPrice) {
         let stopped = this.stopLoss(this.stopLossRatio);
-        if (stopped) return;
+        if (stopped) return this.sell();
 
         stopped = this.takeProfit(this.takeProfitRatio);
-        if (stopped) return;
+        if (stopped) return this.sell();
 
         // calculate sma indicator
         try {
-            let rand = Math.random() > 0.01; // buy in average once every 100 boxes
+            let rand = Math.random() < 0.5; // buy in average once every 100 boxes
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (rand) {
                     // BUY condition
                     return this.buy();
