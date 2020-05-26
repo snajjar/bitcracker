@@ -14,7 +14,7 @@ class ChampionTrader extends Trader {
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
         this.winTradePeriod = 60;
-        this.shortScalpProfit = { 'min': 0.0009, 'max': 0.0015 };
+        this.shortScalpProfit = { 'min': 0.0009, 'max': 0.0018 };
     }
 
     analysisIntervalLength() {
@@ -129,7 +129,7 @@ class ChampionTrader extends Trader {
                         return this.ask(currentPrice);
                     }
 
-                    // if both tells us to sell (and it's not winning), sell if we didnt buy less than 5 min ago
+                    // if both tells us to sell (and it's not winning), sell if we didnt buy less than this.winTradePeriod min ago
                     if (emaBigUp) {
                         // if we're shortly after buy, don't sell at loss
                         if (!winningTrade && this.timeInTrade <= this.winTradePeriod) {
