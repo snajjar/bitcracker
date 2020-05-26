@@ -8,13 +8,13 @@ class ChampionTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.2, 'max': 0.43 };
-        this.emaUpTrigger = { 'min': 0.14, 'max': 0.28 };
+        this.emaDownTrigger = { 'min': 0.2, 'max': 0.48 };
+        this.emaUpTrigger = { 'min': 0.14, 'max': 0.48 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
-        this.winTradePeriod = 20;
-        this.shortScalpProfit = { 'min': 0.0009, 'max': 0.0014 };
+        this.winTradePeriod = 60;
+        this.shortScalpProfit = { 'min': 0.0009, 'max': 0.0015 };
     }
 
     analysisIntervalLength() {
@@ -81,7 +81,7 @@ class ChampionTrader extends Trader {
             let ema = await this.getEMA(candles);
             let currEMA = _.last(ema);
             let emadiff = (currentPrice / currEMA * 100) - 100;
-            let bidtaxdiff = (this.getBuyTax() + this.getSellTax() - this.getAskTax() - this.getBidTax()) / 2;
+            let bidtaxdiff = (this.getBuyTax() - this.getBidTax());
             let emabiddiff = (currentPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
 
             if (!this.isInTrade()) {

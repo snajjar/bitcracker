@@ -263,9 +263,20 @@ class Trader {
                 this.wallet.setPrice(assetName, last.close);
                 this.lastTimestamp = last.timestamp;
 
-                let action = await this.action(assetName, candles, last.close);
-                this.logAction(action);
-                return action;
+                if (this.isInTrade()) {
+                    // if we're in a trade, only make SELL/ASK decisions on that asset
+                    if (this.currentTrade.asset == assetName) {
+                        let action = await this.action(assetName, candles, last.close);
+                        this.logAction(action);
+                        return action;
+                    } else {
+                        return "HOLD";
+                    }
+                } else {
+                    let action = await this.action(assetName, candles, last.close);
+                    this.logAction(action);
+                    return action;
+                }
             }
         } else {
             console.error(`Trader ${this.hash()}: expected ${this.analysisIntervalLength()} periods but got ${candles.length}`);

@@ -49,7 +49,7 @@ class EMADivTrader extends Trader {
             let bigDown = diff < -this.emaTrigger;
             let bigUp = diff > this.emaTrigger;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (bigDown) {
                     // BUY condition
                     return this.buy();

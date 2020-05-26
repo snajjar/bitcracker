@@ -83,7 +83,7 @@ class EMADivTrader extends Trader {
             let currEMA = _.last(ema);
             var diff = (currentBitcoinPrice / currEMA * 100) - 100;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 let bigDown = diff < -this.adaptativeDownTrigger();
                 if (bigDown) {
                     // BUY condition
