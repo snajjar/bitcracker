@@ -28,6 +28,9 @@ class Trader {
         this.wallet = new Wallet();
         this.wallet.setAmount("EUR", config.getStartFund());
 
+        this.bidCompletionProba = 1;
+        this.askCompletionProba = 1;
+
         // trade utils
         this.currentAsset = null;
         this.currentTrade = null;
@@ -225,6 +228,7 @@ class Trader {
 
     checkBidValidation(asset, lastCandle) {
         if (this.currentBid !== null && this.currentBid.asset == asset) {
+            let randomCondition = Math.random() < this.bidCompletionProba;
             if (lastCandle.low <= this.currentBid.price) {
                 this._fullfillBid();
             } else {
@@ -235,6 +239,7 @@ class Trader {
 
     checkAskValidation(asset, lastCandle) {
         if (this.currentAsk !== null && this.currentAsk.asset == asset) {
+            let randomCondition = Math.random() < this.askCompletionProba;
             if (lastCandle.high >= this.currentAsk.price) {
                 this._fullfillAsk();
             } else {
@@ -248,21 +253,23 @@ class Trader {
         this.currentAsset = assetName;
         this.volumeExpire();
 
-        // first check if our bids and asks were fullfilled
-        let last = _.last(candles);
-        this.checkBidValidation(assetName, last);
-        this.checkAskValidation(assetName, last);
+        if (candles.length == this.analysisIntervalLength()) {
+            // first check if our bids and asks were fullfilled
+            let last = _.last(candles);
+            if (last) {
+                this.checkBidValidation(assetName, last);
+                this.checkAskValidation(assetName, last);
 
-        this.wallet.setPrice(assetName, last.close);
-        this.lastTimestamp = last.timestamp;
+                this.wallet.setPrice(assetName, last.close);
+                this.lastTimestamp = last.timestamp;
 
-        if (candles.length !== this.analysisIntervalLength()) {
+                let action = await this.action(assetName, candles, last.close);
+                this.logAction(action);
+                return action;
+            }
+        } else {
             console.error(`Trader ${this.hash()}: expected ${this.analysisIntervalLength()} periods but got ${candles.length}`);
         }
-
-        let action = await this.action(assetName, candles, last.close);
-        this.logAction(action);
-        return action;
     }
 
     async action(candles, currentBitcoinPrice) {

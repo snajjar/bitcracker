@@ -8,8 +8,8 @@ class ChampionTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.18, 'max': 0.38 };
-        this.emaUpTrigger = { 'min': 0.12, 'max': 0.25 };
+        this.emaDownTrigger = { 'min': 0.2, 'max': 0.43 };
+        this.emaUpTrigger = { 'min': 0.14, 'max': 0.28 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
@@ -22,7 +22,7 @@ class ChampionTrader extends Trader {
     }
 
     hash() {
-        return "Algo_Champion2";
+        return "Algo_Champion_Multi";
     }
 
     // return the current value for position (between 0 and 1), on a logarithmic scale from min to max
@@ -75,65 +75,68 @@ class ChampionTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, candles, currentPrice) {
         // calculate sma indicator
         try {
-            let ema = await this.getEMA(dataPeriods);
+            let ema = await this.getEMA(candles);
             let currEMA = _.last(ema);
-            let emadiff = (currentBitcoinPrice / currEMA * 100) - 100;
+            let emadiff = (currentPrice / currEMA * 100) - 100;
             let bidtaxdiff = (this.getBuyTax() + this.getSellTax() - this.getAskTax() - this.getBidTax()) / 2;
-            let emabiddiff = (currentBitcoinPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
+            let emabiddiff = (currentPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (emadiff < -this.adaptativeEMADownTrigger()) {
                     // BUY condition
                     this.timeInTrade = 0;
                     return this.buy();
                 } else if (emabiddiff < -this.adaptativeEMADownTrigger()) {
-                    return this.bid(currentBitcoinPrice);
+                    return this.bid(currentPrice);
                 } else {
                     return this.hold();
                 }
             } else {
-                // let stopped = this.stopLoss(0.07);
-                // if (stopped) return this.sell();
-
                 // stopped = this.takeProfit(this.takeProfitRatio);
                 // if (stopped) return;
 
-                this.timeInTrade++;
-                let winningTrade = currentBitcoinPrice > this.getWinningPrice();
+                // check if the trade started on this crypto, otherwise hold
+                if (this.getCurrentTradeAsset() == crypto) {
+                    let stopped = this.stopLoss(0.2);
+                    if (stopped) return this.sell();
 
-                let scalpProfit = this.adaptativeScalp();
-                let winningScalpTrade = currentBitcoinPrice > this.getWinningPrice() * (1 + scalpProfit);
-                let winningBidScalpTrade = currentBitcoinPrice > this.getBidWinningPrice() * (1 + scalpProfit);;
+                    this.timeInTrade++;
+                    let winningTrade = currentPrice > this.getSellWinningPrice();
 
-                if (winningScalpTrade) {
-                    return this.sell();
-                }
+                    let scalpProfit = this.adaptativeScalp();
+                    let winningScalpTrade = currentPrice > this.getSellWinningPrice() * (1 + scalpProfit);
+                    let winningBidScalpTrade = currentPrice > this.getAskWinningPrice() * (1 + scalpProfit);;
 
-                if (winningBidScalpTrade) {
-                    return this.ask(currentBitcoinPrice);
-                }
-
-                // if EMA tells us to sell, sell if it's winning
-                let emaBigUp = emadiff > this.adaptativeEMAUpTrigger();
-                if (emaBigUp && winningTrade) {
-                    return this.sell();
-                }
-
-                let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger();
-                if (winningAsk) {
-                    return this.ask(currentBitcoinPrice);
-                }
-
-                // if both tells us to sell (and it's not winning), sell if we didnt buy less than 5 min ago
-                if (emaBigUp) {
-                    // if we're shortly after buy, don't sell at loss
-                    if (!winningTrade && this.timeInTrade <= this.winTradePeriod) {
-                        return this.hold();
-                    } else {
+                    if (winningScalpTrade) {
                         return this.sell();
+                    }
+
+                    if (winningBidScalpTrade) {
+                        return this.ask(currentPrice);
+                    }
+
+                    // if EMA tells us to sell, sell if it's winning
+                    let emaBigUp = emadiff > this.adaptativeEMAUpTrigger();
+                    if (emaBigUp && winningTrade) {
+                        return this.sell();
+                    }
+
+                    let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger();
+                    if (winningAsk) {
+                        return this.ask(currentPrice);
+                    }
+
+                    // if both tells us to sell (and it's not winning), sell if we didnt buy less than 5 min ago
+                    if (emaBigUp) {
+                        // if we're shortly after buy, don't sell at loss
+                        if (!winningTrade && this.timeInTrade <= this.winTradePeriod) {
+                            return this.hold();
+                        } else {
+                            return this.sell();
+                        }
                     }
                 }
 
