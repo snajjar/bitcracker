@@ -21,6 +21,10 @@ class Wallet {
         return this.mainCurrency;
     }
 
+    getAssets() {
+        return _.keys(this.assets);
+    }
+
     reset() {
         this.assets = {};
         _.each(this.assetsNames, name => {

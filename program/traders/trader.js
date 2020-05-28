@@ -315,11 +315,6 @@ class Trader {
                 candles[asset].shift();
             }
         }
-
-        // if at the end, we're still in trade, sell
-        if (this.isInTrade()) {
-            this.sell();
-        }
     }
 
     score() {
@@ -361,6 +356,7 @@ class Trader {
         let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
         let assetPrice = this.wallet.getPrice(this.currentAsset);
         let assetAmount = this.wallet.getAmount(this.currentAsset);
+
         if (assetAmount > 0) {
             this.addAction("SELL"); // record the action before we change the wallet
 
@@ -379,6 +375,17 @@ class Trader {
         } else {
             return "ERROR (SELL)";
         }
+    }
+
+    closePositions() {
+        _.each(this.wallet.getAssets(), asset => {
+            if (this.wallet.getAmount(asset) > 0) {
+                this.currentAsset = asset;
+                this.addAction("SELL");
+                this.sell();
+                this.logAction("SELL");
+            }
+        });
     }
 
     bid(bidPrice) {

@@ -23,15 +23,15 @@ const evaluateTrader = async function(trader, duration) {
         // since our trader need the last n=trader.analysisIntervalLength() periods to decide an action
         // we need to connect the different set by adding the last n-1 periods to it
         let analysisIntervalLength = trader.analysisIntervalLength();
-        // _.each(candleSetsByAssets, (candleset, asset) => {
-        //     for (var i = 0; i < candleset.length; i++) {
-        //         if (i > 0) {
-        //             let previousSet = candleset[i - 1];
-        //             let endPeriodData = previousSet.slice(previousSet.length - analysisIntervalLength - 1);
-        //             candleset[i] = endPeriodData.concat(candleset[i]);
-        //         }
-        //     }
-        // });
+        _.each(candleSetsByAssets, (candleset, asset) => {
+            for (var i = 0; i < candleset.length; i++) {
+                if (i > 0) {
+                    let previousSet = candleset[i - 1];
+                    let endPeriodData = previousSet.slice(previousSet.length - analysisIntervalLength - 1);
+                    candleset[i] = endPeriodData.concat(candleset[i]);
+                }
+            }
+        });
 
         let assets = _.keys(candlesByAsset);
         let nbPeriods = candleSetsByAssets[assets[0]].length
@@ -50,6 +50,9 @@ const evaluateTrader = async function(trader, duration) {
             let periodStat = new Statistics(trader);
             trader.addStatistic(periodStat);
             await trader.trade(dataset);
+            if (i == nbPeriods - 1 && trader.isInTrade()) {
+                trader.closePositions();
+            }
             trader.removeStatistic(periodStat);
 
             // extract stats into our result array (for console.table)
@@ -66,6 +69,7 @@ const evaluateTrader = async function(trader, duration) {
                 'tv': HRNumbers.toHumanString(trader.calculatedTradeVolume30),
             });
         }
+
         console.table(results);
 
         _.each(trader.assetStats, stats => {
@@ -73,6 +77,11 @@ const evaluateTrader = async function(trader, duration) {
         });
     } else {
         await trader.trade(candlesByAsset);
+
+        // sell if trader still has assets
+        if (trader.isInTrade()) {
+            trader.closePositions();
+        }
     }
 
     trader.stats.display();
