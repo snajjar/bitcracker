@@ -33,7 +33,7 @@ class TraderLTSMPredictVar extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -45,7 +45,7 @@ class TraderLTSMPredictVar extends Trader {
         let bullish = prediction > currentBitcoinPrice;
         let bearish = prediction < currentBitcoinPrice;
 
-        if (!this.inTrade) {
+        if (!this.isInTrade()) {
             if (bullish) {
                 // BUY condition
                 return this.buy();

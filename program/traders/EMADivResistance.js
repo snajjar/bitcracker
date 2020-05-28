@@ -52,7 +52,7 @@ class EMADivResistanceTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -70,7 +70,7 @@ class EMADivResistanceTrader extends Trader {
             let trendUp = diff < upTrend;
             let trendDown = diff > downTrend;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (trendUp) {
                     // find the last resistance
                     let lastResistancePrice = this.getNextResistancePrice(dataPeriods, currentBitcoinPrice);

@@ -12,7 +12,7 @@ class ScalpingTrader extends Trader {
         this.emaDownTrigger = 0.2;
 
         // trade decision making
-        this.inTrade = false;
+        this.isInTrade() = false;
         this.enterTradeValue = 0;
         this.timeInTrade = 0;
         this.maxTimeInTrade = 1440 * 3; // 1 day
@@ -48,7 +48,7 @@ class ScalpingTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -62,7 +62,7 @@ class ScalpingTrader extends Trader {
         let bigDown = diff < -this.emaDownTrigger;
         let bigUp = diff > this.emaUpTrigger;
 
-        if (!this.inTrade) {
+        if (!this.isInTrade()) {
             if (bigDown) {
                 // BUY condition
                 this.timeInTrade = 0;

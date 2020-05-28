@@ -13,8 +13,8 @@ class EMADivTrader extends Trader {
 
         // parameters
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'max': 0.38, 'min': 0.14 };
-        this.emaUpTrigger = { 'max': 0.42, 'min': 0.21 };
+        this.emaDownTrigger = { 'min': 0.2, 'max': 0.48 };
+        this.emaUpTrigger = { 'min': 0.14, 'max': 0.48 };
     }
 
     analysisIntervalLength() {
@@ -70,7 +70,7 @@ class EMADivTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 

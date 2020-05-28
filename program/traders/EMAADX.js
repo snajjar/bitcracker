@@ -51,7 +51,7 @@ class EMAADXTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -72,7 +72,7 @@ class EMAADXTrader extends Trader {
             let lastADX = adx[adx.length - 1];
             let trendSeemsStrong = !isNaN(lastADX) && lastADX > this.adxTrigger;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (trendUp && trendSeemsStrong) {
                     // BUY condition
                     return this.buy();

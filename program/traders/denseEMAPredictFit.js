@@ -75,7 +75,7 @@ class TraderDenseEMAPredictFit extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -95,7 +95,7 @@ class TraderDenseEMAPredictFit extends Trader {
             let trendingUp = diff < upTrend;
             let trendingDown = diff > downTrend;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (trendingUp) {
                     // validate EMA strategy with next prediction
                     let lastPeriods = dataPeriods.slice(dataPeriods.length - this.modelPeriods);

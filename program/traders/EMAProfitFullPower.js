@@ -14,7 +14,7 @@ class EMAProfitFullPowerTrader extends Trader {
         this.objective = 0.03;
 
         // trade decision making
-        this.inTrade = false;
+        this.isInTrade() = false;
         this.enterTradeValue = 0;
         this.timeInTrade = 0;
         this.step = (this.objective - this.getBuyTax() + this.getSellTax()) / this.maxTimeInTrade;
@@ -89,7 +89,7 @@ class EMAProfitFullPowerTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(0.1);
         // if (stopped) return;
 
@@ -103,7 +103,7 @@ class EMAProfitFullPowerTrader extends Trader {
         let bigDown = diff < -this.emaDownTrigger;
         let bigUp = diff > this.emaUpTrigger;
 
-        if (!this.inTrade) {
+        if (!this.isInTrade()) {
             if (bigDown) {
                 // BUY condition
                 this.timeInTrade = 0;

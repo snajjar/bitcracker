@@ -1,6 +1,7 @@
 const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
+const dt = require('../lib/datatools');
 
 class MACDTrader extends Trader {
     constructor() {
@@ -8,10 +9,11 @@ class MACDTrader extends Trader {
 
         // parameters
         this.emaPeriods = 200;
+        this.candlePeriod = 60;
     }
 
     analysisIntervalLength() {
-        return 201;
+        return 27 * this.candlePeriod;
     }
 
     hash() {
@@ -45,7 +47,7 @@ class MACDTrader extends Trader {
     }
 
     // decide for an action
-    async action(candles, currentBitcoinPrice) {
+    async action(crypto, candles, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -55,12 +57,18 @@ class MACDTrader extends Trader {
         // calculate sma indicator
         try {
             // Use MACD to determine buy and sell signals
-            let [macd, signal, histo] = await this.getMACD(candles);
+            let mergedCandles = dt.mergeCandlesBy(candles, this.candlePeriod);
+            let [macd, signal, histo] = await this.getMACD(mergedCandles);
             let lastMACD = _.last(macd);
             let lastSignal = _.last(signal);
             let prevMACD = macd[macd.length - 2];
             let prevSignal = signal[signal.length - 2];
             let lastHisto = _.last(histo);
+
+            // console.log(lastMACD);
+            // console.log(lastSignal);
+            // console.log(prevMACD);
+            // console.log(prevSignal);
 
             // console.log("histo: " + _.last(histo));
 
@@ -76,7 +84,7 @@ class MACDTrader extends Trader {
             let lastEMA = _.last(ema);
             let trendUp = currentBitcoinPrice > lastEMA;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (macdBuySignal && trendUp) {
                     // BUY condition
                     return this.buy();

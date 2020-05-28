@@ -73,7 +73,7 @@ class BuyLowSellHighTrader extends Trader {
             let diffVar = (highest - lowest) / lowest;
 
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (diffVar > 0.01 && closeToLastLowest && this.priceGrowing(candles)) {
                     // BUY condition
                     // console.log(`BUYING at ${currentBitcoinPrice.toFixed(0)}€ (lowest: ${lowest.toFixed(0)}€, highest: ${highest.toFixed(0)}€)`);

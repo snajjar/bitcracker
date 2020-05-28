@@ -23,15 +23,15 @@ const evaluateTrader = async function(trader, duration) {
         // since our trader need the last n=trader.analysisIntervalLength() periods to decide an action
         // we need to connect the different set by adding the last n-1 periods to it
         let analysisIntervalLength = trader.analysisIntervalLength();
-        _.each(candleSetsByAssets, (candleset, asset) => {
-            for (var i = 0; i < candleset.length; i++) {
-                if (i > 0) {
-                    let previousSet = candleset[i - 1];
-                    let endPeriodData = previousSet.slice(previousSet.length - analysisIntervalLength - 1);
-                    candleset[i] = endPeriodData.concat(candleset[i]);
-                }
-            }
-        });
+        // _.each(candleSetsByAssets, (candleset, asset) => {
+        //     for (var i = 0; i < candleset.length; i++) {
+        //         if (i > 0) {
+        //             let previousSet = candleset[i - 1];
+        //             let endPeriodData = previousSet.slice(previousSet.length - analysisIntervalLength - 1);
+        //             candleset[i] = endPeriodData.concat(candleset[i]);
+        //         }
+        //     }
+        // });
 
         let assets = _.keys(candlesByAsset);
         let nbPeriods = candleSetsByAssets[assets[0]].length

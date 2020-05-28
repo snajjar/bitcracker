@@ -57,7 +57,7 @@ class SurfingTrader extends Trader {
             // let trendUp = diff < -this.emaTrigger;
             // let trendDown = diff > this.emaTrigger;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (buySignal) {
                     // BUY condition
                     return this.buy();

@@ -37,7 +37,7 @@ class TraderCNNEMAPredict extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -47,7 +47,7 @@ class TraderCNNEMAPredict extends Trader {
         let prediction = await this.predictPrice(dataPeriods);
 
         // calculate ema indicator
-        if (!this.inTrade) {
+        if (!this.isInTrade()) {
             if (currentBitcoinPrice * (1 + this.buyTreshold) < prediction) {
                 // BUY condition
                 return this.buy();

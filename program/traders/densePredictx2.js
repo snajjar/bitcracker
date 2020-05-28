@@ -49,7 +49,7 @@ class TraderDensePricePredictX2 extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -67,7 +67,7 @@ class TraderDensePricePredictX2 extends Trader {
         // sell condition: 2 successive downward predictions
         let bearish = currentBitcoinPrice > predictions[0] && predictions[0] > predictions[1];
 
-        if (!this.inTrade) {
+        if (!this.isInTrade()) {
             if (bullish) {
                 // BUY condition
                 return this.buy();

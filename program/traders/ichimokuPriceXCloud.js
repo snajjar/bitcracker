@@ -44,7 +44,7 @@ class IchimokuPriceXCloudTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         let stopped = this.stopLoss(this.stopLossRatio);
         if (stopped) return;
 
@@ -66,7 +66,7 @@ class IchimokuPriceXCloudTrader extends Trader {
 
             let priceXCloud = previouslyUnderCloud && nowOverCloud;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (priceXCloud) {
                     // BUY condition
                     return this.buy();

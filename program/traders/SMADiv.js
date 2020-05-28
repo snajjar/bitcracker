@@ -33,7 +33,7 @@ class EMADivTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -49,7 +49,7 @@ class EMADivTrader extends Trader {
             let bigDown = diff < -this.smaTrigger;
             let bigUp = diff > this.smaTrigger;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (bigDown) {
                     // BUY condition
                     return this.buy();

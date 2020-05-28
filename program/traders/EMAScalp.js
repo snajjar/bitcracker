@@ -8,13 +8,12 @@ class DivTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.1, 'max': 0.38 };
-        this.emaUpTrigger = { 'min': 0.12, 'max': 0.38 };
+        this.emaDownTrigger = { 'min': 0.2, 'max': 0.48 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
-        this.winTradePeriod = 20;
-        this.shortScalpProfit = { 'min': 0.00015, 'max': 0.0013 };
+        this.winTradePeriod = 60;
+        this.shortScalpProfit = { 'min': 0.0009, 'max': 0.0018 };
     }
 
     analysisIntervalLength() {
@@ -49,10 +48,6 @@ class DivTrader extends Trader {
         return this.logSlider(this.emaDownTrigger.min, this.emaDownTrigger.max, this.getTaxRatio());
     }
 
-    adaptativeEMAUpTrigger() {
-        return this.logSlider(this.emaUpTrigger.min, this.emaUpTrigger.max, this.getTaxRatio());
-    }
-
     adaptativeScalp() {
         return this.logSlider(this.shortScalpProfit.min, this.shortScalpProfit.max, this.getTaxRatio());
     }
@@ -71,7 +66,7 @@ class DivTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -84,7 +79,7 @@ class DivTrader extends Trader {
             let currEMA = _.last(ema);
             var emadiff = (currentBitcoinPrice / currEMA * 100) - 100;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 let emaBigDown = emadiff < -this.adaptativeEMADownTrigger();
                 if (emaBigDown) {
                     // BUY condition
@@ -104,18 +99,8 @@ class DivTrader extends Trader {
                     return this.sell();
                 }
 
-                // if EMA tells us to sell, sell if it's winning
-                let emaBigUp = emadiff > this.adaptativeEMAUpTrigger();
-                if (emaBigUp && winningTrade) {
-                    return this.sell();
-                }
-
-                // if both tells us to sell (and it's not winning), sell if we didnt buy less than 5 min ago
-                if (emaBigUp) {
-                    // if we're shortly after buy, don't sell at loss
-                    if (!winningTrade && this.timeInTrade <= this.winTradePeriod) {
-                        return this.hold();
-                    } else {
+                if (this.timeInTrade > this.winTradePeriod) {
+                    if (this.stopLoss(0.01)) {
                         return this.sell();
                     }
                 }

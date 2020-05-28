@@ -50,7 +50,7 @@ class SMAADXScalpTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -67,7 +67,7 @@ class SMAADXScalpTrader extends Trader {
             let lastADX = adx[adx.length - 1];
             let trendSeemsStrong = !isNaN(lastADX) && lastADX > this.adxTrigger;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 let delta = (currSMA - currentBitcoinPrice) / currSMA;
                 if (delta > this.diffTrigger && !trendSeemsStrong) {
                     // BUY condition

@@ -74,7 +74,7 @@ class BBandsTrader extends Trader {
 
             let buyCondition = buySignal && currentBitcoinPrice > lastEMA && growth > 0.01;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (buyCondition) {
                     // BUY condition
                     return this.buy();

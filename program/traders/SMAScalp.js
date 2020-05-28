@@ -33,7 +33,7 @@ class SMAScalpTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(0.05);
         // if (stopped) return;
 
@@ -46,7 +46,7 @@ class SMAScalpTrader extends Trader {
             let currSMA = sma[sma.length - 1];
 
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 let delta = (currSMA - currentBitcoinPrice) / currSMA;
                 if (delta > this.diffTrigger) {
                     // BUY condition

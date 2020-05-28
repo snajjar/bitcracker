@@ -145,7 +145,7 @@ class EMAFilterTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         let stopped = this.stopLoss(0.02);
         if (stopped) return;
 
@@ -177,7 +177,7 @@ class EMAFilterTrader extends Trader {
             // let growingVolumes = this.isGrowingVolumes(dataPeriods, 2);
             // let growingEMA = this.isGrowingEMA(dataPeriods, 2);
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (trendUp) {
                     // BUY condition
                     return this.buy();

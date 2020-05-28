@@ -15,7 +15,7 @@ class JustBuyAndHoldTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         /*
         let stopped = this.stopLoss(this.stopLossRatio);
         if (stopped) return;
@@ -27,7 +27,7 @@ class JustBuyAndHoldTrader extends Trader {
         // calculate sma indicator
         try {
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 // BUY everytime
                 return this.buy();
             } else {

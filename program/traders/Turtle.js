@@ -59,7 +59,7 @@ class TurtleTrader extends Trader {
             let trendDown = diff > this.emaTrigger;
 
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (trendUp && priceCloseToLower) {
                     // BUY condition
                     return this.buy();

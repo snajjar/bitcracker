@@ -15,7 +15,7 @@ class RandomTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         let stopped = this.stopLoss(this.stopLossRatio);
         if (stopped) return this.sell();
 

@@ -85,7 +85,7 @@ class CaptainPlanetTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // calculate sma indicator
         try {
             // determine start trend with EMA
@@ -113,7 +113,7 @@ class CaptainPlanetTrader extends Trader {
             let overbought = lastRSI > 95;
             let oversold = lastRSI < 5;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (emaTrendUp || oversold) {
                     // BUY condition
                     return this.buy();

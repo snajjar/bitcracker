@@ -283,7 +283,7 @@ class Trader {
         }
     }
 
-    async action(candles, currentBitcoinPrice) {
+    async action(asset, candles, currentBitcoinPrice) {
         throw "action must be redefined by the Trader subclass. It shall call either buy(), sell() or hold() method";
     }
 
@@ -310,7 +310,7 @@ class Trader {
                 let nextPeriod = candlesByasset[asset][i];
 
                 candles[asset].push(nextPeriod);
-                await this.decideAction(asset, candles[asset]);
+                await this.decideAction(asset, candles[asset], _.last(candles[asset]).close);
 
                 candles[asset].shift();
             }

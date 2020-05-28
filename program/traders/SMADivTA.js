@@ -65,7 +65,7 @@ class SMADivTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -79,7 +79,7 @@ class SMADivTrader extends Trader {
 
             var diff = (currentBitcoinPrice / currSMA * 100) - 100;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 let bigDown = diff < -this.adaptativeDownTrigger();
                 if (bigDown) {
                     // BUY condition

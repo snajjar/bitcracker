@@ -73,7 +73,7 @@ class TraderCNNEMAADXPredict extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -94,7 +94,7 @@ class TraderCNNEMAADXPredict extends Trader {
             let lastADX = adx[adx.length - 1];
             let trendSeemsStrong = !isNaN(lastADX) && lastADX > this.adxTrigger;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (upTrend && trendSeemsStrong) {
                     // validate strategy with next prediction
                     let prediction = await this.predictPrice(dataPeriods);

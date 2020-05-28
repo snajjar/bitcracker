@@ -87,7 +87,7 @@ class ADXTrader extends Trader {
 
             let buyCondition = trendUp && trendSeemsStrong && priceOverEMA && trendGrowth > 0.03;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (buyCondition) {
                     // BUY condition
                     return this.buy();

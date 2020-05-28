@@ -47,7 +47,7 @@ class EMAxSMATrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -74,7 +74,7 @@ class EMAxSMATrader extends Trader {
             let prevBitcoinPrice = dataPeriods[dataPeriods.length - 2].close;
             let priceDownCrossingSMA = currentBitcoinPrice < currSMA && prevBitcoinPrice >= prevSMA;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (bigDown && priceUnderSMA) {
                     // BUY condition
                     return this.buy();

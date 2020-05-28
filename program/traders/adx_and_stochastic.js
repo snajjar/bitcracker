@@ -46,7 +46,7 @@ class ADXAndStochastic extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -63,7 +63,7 @@ class ADXAndStochastic extends Trader {
             // console.log("stoch:", lastStoch);
             // console.log("adx:", lastADX);
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (lastStoch < 20 && lastADX > 25) {
                     // BUY condition: oversell and strong trend
                     return this.buy();

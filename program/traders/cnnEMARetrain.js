@@ -91,7 +91,7 @@ class TraderCNNEMAPredict extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -114,7 +114,7 @@ class TraderCNNEMAPredict extends Trader {
                 let upTrend = diff < -this.emaTrigger;
                 let downTrend = diff > this.emaTrigger;
 
-                if (!this.inTrade) {
+                if (!this.isInTrade()) {
                     if (upTrend) {
                         // validate EMA strategy with next prediction
                         let prediction = await this.predictPrice(dataPeriods);

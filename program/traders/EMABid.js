@@ -61,7 +61,7 @@ class EMABidTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -73,7 +73,7 @@ class EMABidTrader extends Trader {
         //     let ema = await this.getEMA(dataPeriods);
         //     let currEMA = _.last(ema);
 
-        //     if (!this.inTrade) {
+        //     if (!this.isInTrade()) {
         //         let trigger = 0.4;
         //         let bidPrice = (1 - trigger / 100) * currEMA;
         //         //console.log(`btc=${currentBitcoinPrice} ema=${currEMA} bid=${bidPrice}`);
@@ -92,7 +92,7 @@ class EMABidTrader extends Trader {
             let ema = await this.getEMA(dataPeriods);
             let currEMA = _.last(ema);
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 let bidPrice = (1 - this.adaptativeEMATrigger() / 100) * currEMA;
                 return this.bid(Math.min(bidPrice, currentBitcoinPrice));
             } else {

@@ -48,7 +48,7 @@ class EMAAndStochasticTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -73,7 +73,7 @@ class EMAAndStochasticTrader extends Trader {
             let oversell = lastStoch < 70;
             let overbought = lastStoch > 30;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (trendUp && oversell) {
                     // BUY condition
                     return this.buy();

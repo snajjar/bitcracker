@@ -69,7 +69,7 @@ class EMADivTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -83,7 +83,7 @@ class EMADivTrader extends Trader {
 
             var diff = (currentBitcoinPrice / currEMA * 100) - 100;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 let bigDown = diff < -this.adaptativeDownTrigger();
 
                 // determine trend strengh with ADX

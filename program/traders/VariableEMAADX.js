@@ -50,7 +50,7 @@ class VariableEMAADXTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -64,7 +64,7 @@ class VariableEMAADXTrader extends Trader {
             var diff = (currentBitcoinPrice / currEMA * 100) - 100;
             let trendUp, trendDown;
 
-            if (this.inTrade) {
+            if (this.isInTrade()) {
                 // the more we past our objective, the more we want to pay attention
                 // price variations.
                 let objectiveRatio = currentBitcoinPrice / this.objective;
@@ -78,7 +78,7 @@ class VariableEMAADXTrader extends Trader {
             let lastADX = adx[adx.length - 1];
             let trendSeemsStrong = !isNaN(lastADX) && lastADX > this.adxTrigger;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (trendUp && trendSeemsStrong) {
                     // BUY condition
 

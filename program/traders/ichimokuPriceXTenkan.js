@@ -44,7 +44,7 @@ class IchimokuTenkanXKijunTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         let stopped = this.stopLoss(this.stopLossRatio);
         if (stopped) return;
 
@@ -65,7 +65,7 @@ class IchimokuTenkanXKijunTrader extends Trader {
                 prevBitcoinPrice < prevIchimokuValue.base &&
                 currentBitcoinPrice >= lastIchimokuValue.base;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 if (tenkanCrossedKijun) {
                     // BUY condition
                     return this.buy();

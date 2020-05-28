@@ -94,7 +94,7 @@ class DivTrader extends Trader {
     }
 
     // decide for an action
-    async action(dataPeriods, currentBitcoinPrice) {
+    async action(crypto, dataPeriods, currentBitcoinPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -111,7 +111,7 @@ class DivTrader extends Trader {
             let currEMA = _.last(ema);
             var emadiff = (currentBitcoinPrice / currEMA * 100) - 100;
 
-            if (!this.inTrade) {
+            if (!this.isInTrade()) {
                 let smaBigDown = smadiff < -this.adaptativeSMADownTrigger();
                 let emaBigDown = emadiff < -this.adaptativeEMADownTrigger();
                 if (smaBigDown || emaBigDown) {
