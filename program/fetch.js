@@ -17,10 +17,8 @@ const getKrakenData = async function(interval, since = 0) {
     return [response.data];
 }
 
-const getCexData = async function(pair, day) {
-    let asset1 = pair.substring(0, 3);
-    let asset2 = pair.substring(3, 6);
-    let apiUrl = `https://cex.io/api/ohlcv/hd/${moment(day).format('YYYYMMDD')}/${asset1}/${asset2}`;
+const getCexData = async function(asset, currency, day) {
+    let apiUrl = `https://cex.io/api/ohlcv/hd/${moment(day).format('YYYYMMDD')}/${asset}/${currency}`;
     let response = await axios.get(apiUrl);
 
     if (response.error) {
@@ -71,7 +69,8 @@ let getRawFilePath = function(pair, source) {
 }
 
 var csvWriter = null;
-const fetch = async function(pair, source, continueFromLast) {
+const fetch = async function(asset, currency, source, continueFromLast) {
+    let pair = asset + currency;
     let data = continueFromLast ? await getExistingData(pair, source) : [];
     let lastDataWritten = null;
     let d = null;
@@ -123,7 +122,7 @@ const fetch = async function(pair, source, continueFromLast) {
     while (d.isBefore(yesterday)) {
         console.log(`[*] fetching data for ${d.format('DD/MM/YYYY')}`);
         try {
-            let newData = await getCexData(pair, d);
+            let newData = await getCexData(asset, currency, d);
             if (!newData || _.isEmpty(newData)) {
                 console.log('[*] No data for this day');
                 d = d.add(1, 'days');

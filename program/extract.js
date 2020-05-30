@@ -80,8 +80,9 @@ const convertToInterval = function(data, interval) {
     return samples;
 }
 
-var extract = async function(pair, interval) {
-    console.log(`[*] Extracting data for interval ${utils.intervalToStr(interval)}`);
+var extract = async function(asset, currency, interval) {
+    console.log(`[*] Extracting ${asset}/${currency} data for interval ${utils.intervalToStr(interval)}`);
+    let pair = asset + currency;
     let data1m = await csv.getFileData(`./data/Cex_${pair}_1m.csv`);
     let cleanedData = dt.removePriceAnomalies(data1m)
     let data = convertToInterval(cleanedData, interval);

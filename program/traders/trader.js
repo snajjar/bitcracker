@@ -28,8 +28,8 @@ class Trader {
         this.wallet = new Wallet();
         this.wallet.setAmount("EUR", config.getStartFund());
 
-        this.bidCompletionProba = 1;
-        this.askCompletionProba = 1;
+        this.bidCompletionProba = 0.1;
+        this.askCompletionProba = 0.1;
 
         // trade utils
         this.currentAsset = null;
@@ -229,7 +229,7 @@ class Trader {
     checkBidValidation(asset, lastCandle) {
         if (this.currentBid !== null && this.currentBid.asset == asset) {
             let randomCondition = Math.random() < this.bidCompletionProba;
-            if (lastCandle.low <= this.currentBid.price) {
+            if (lastCandle.low <= this.currentBid.price && randomCondition) {
                 this._fullfillBid();
             } else {
                 this._clearBid();
@@ -240,7 +240,7 @@ class Trader {
     checkAskValidation(asset, lastCandle) {
         if (this.currentAsk !== null && this.currentAsk.asset == asset) {
             let randomCondition = Math.random() < this.askCompletionProba;
-            if (lastCandle.high >= this.currentAsk.price) {
+            if (lastCandle.high >= this.currentAsk.price && randomCondition) {
                 this._fullfillAsk();
             } else {
                 this._clearAsk();

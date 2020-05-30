@@ -58,10 +58,12 @@ var argv = yargs
         type: 'string',
     })
     .middleware([setOptions])
-    .command('fetch <pair> [source]', 'Fetch', (yargs) => {
-        yargs.positional('pair', {
-            describe: 'Pair of value you want to get data: ex BTCEUR',
-            default: 'BTCEUR'
+    .command('fetch <asset> [currency] [source]', 'Fetch', (yargs) => {
+        yargs.positional('asset', {
+            describe: 'Crypto asset of the pair',
+        }).positional('currency', {
+            describe: 'Currency of the pair',
+            default: 'EUR'
         }).positional('source', {
             describe: 'optional source for data',
             default: 'Cex',
@@ -71,26 +73,25 @@ var argv = yargs
         })
     }, async (argv) => {
         const fetch = require('./fetch');
-        argv.pair = argv.pair.toUpperCase();
-        await fetch(argv.pair, argv.source, argv.continue);
+        argv.asset = argv.asset.toUpperCase();
+        argv.currency = argv.currency.toUpperCase();
+        await fetch(argv.asset, argv.currency, argv.source, argv.continue);
     })
-    .command('extract <pair> [interval]', 'Extract and refine data from a specific granularity. If no arguments specified, extract for all granularities', (yargs) => {
+    .command('extract <asset> [currency] [interval]', 'Extract and refine data from a specific granularity. If no arguments specified, extract for all granularities', (yargs) => {
         yargs.positional('interval', {
-            describe: 'optional time interval: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"'
-        }).positional('pair', {
-            describe: 'Pair of value you want to get data: ex BTCEUR',
-            default: 'BTCEUR'
+            describe: 'optional time interval: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"',
+            default: "1m",
+        }).positional('asset', {
+            describe: 'Crypto asset of the pair',
+        }).positional('currency', {
+            describe: 'Currency of the pair',
+            default: 'EUR'
         })
     }, async (argv) => {
         const extract = require('./extract');
-        if (!argv.interval) {
-            // if unspecified interval, extract for every interval
-            for (let i = 0; i < utils.intervals.length; i++) {
-                await extract(utils.intervals[i]);
-            }
-        } else {
-            await extract(argv.pair, utils.strToInterval(argv.interval));
-        }
+        argv.asset = argv.asset.toUpperCase();
+        argv.currency = argv.currency.toUpperCase();
+        await extract(argv.asset, argv.currency, utils.strToInterval(argv.interval));
     })
     .command('train <model>', 'Train a model from a data source', (yargs) => {
         yargs.positional('model', {
