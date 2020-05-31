@@ -72,6 +72,10 @@ const evaluateTrader = async function(trader, duration) {
 
         console.table(results);
 
+        _.each(trader.taxStats, stats => {
+            stats.display();
+        });
+
         _.each(trader.assetStats, stats => {
             stats.display();
         });

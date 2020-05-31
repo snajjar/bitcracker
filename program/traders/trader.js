@@ -24,12 +24,13 @@ class Trader {
 
         this.stats = new Statistics(this);
         this.assetStats = {};
+        this.taxStats = {};
         this.otherStatistics = []; // other stats that can be added via addStatistics()
         this.wallet = new Wallet();
         this.wallet.setAmount("EUR", config.getStartFund());
 
-        this.bidCompletionProba = 0.1;
-        this.askCompletionProba = 0.1;
+        this.bidCompletionProba = 1;
+        this.askCompletionProba = 1;
 
         // trade utils
         this.currentAsset = null;
@@ -52,11 +53,23 @@ class Trader {
     }
 
     logAction(actionStr) {
+        // log action in main stat
         this.stats.logAction(actionStr);
+
+        // log in asset stat
         if (!this.assetStats[this.currentAsset]) {
             this.assetStats[this.currentAsset] = new Statistics(this, null, this.currentAsset);
         }
         this.assetStats[this.currentAsset].logAction(actionStr);
+
+        // log in the current tax stat
+        let taxKey = this.getTaxKey();
+        if (!this.taxStats[taxKey]) {
+            this.taxStats[taxKey] = new Statistics(this, null, taxKey);
+        }
+        this.taxStats[taxKey].logAction(actionStr);
+
+        // log for other stats
         _.each(this.otherStatistics, s => {
             s.logAction(actionStr);
         });
@@ -69,9 +82,26 @@ class Trader {
         return this.assetStats[this.currentAsset];
     }
 
+    getTaxKey() {
+        let taxes = this.getTaxes();
+        return "m" + taxes.maker.toString() + "t" + taxes.taker.toString();
+    }
+
     logTransaction(actionObject) {
+        // log into main stat
         this.stats.logTransaction(actionObject);
+
+        // log into the asset stat
         this.getAssetStats().logTransaction(actionObject);
+
+        // log into the current tax stat
+        let taxKey = this.getTaxKey();
+        if (!this.taxStats[taxKey]) {
+            this.taxStats[taxKey] = new Statistics(this);
+        }
+        this.taxStats[taxKey].logTransaction(actionObject);
+
+        // log for other statistics (periods, etc)
         _.each(this.otherStatistics, s => {
             s.logTransaction(actionObject);
         });
