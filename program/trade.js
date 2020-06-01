@@ -287,7 +287,7 @@ class Kraken {
 
             _.each(r.result, (amountStr, key) => {
                 let name = key;
-                if (name.length == 4) {
+                if (name.length == 4 && (name[0] == 'X' || name[0] == 'Z')) {
                     // kraken sometimes prefix with 'X' for cryptos and 'Z' for currencies
                     name = name.substr(1);
                 }
@@ -365,7 +365,7 @@ class Kraken {
             // get balance info
             r = await this.kraken.api('Balance');
             _.each(r.result, (amountStr, assetName) => {
-                if (assetName.length == 4) {
+                if (assetName.length == 4 && (assetName[0] == 'X' || assetName[0] == 'Z')) {
                     // remove Kraken 'X' prefix (cryptos) or 'Z' prefix (currencies)
                     assetName = assetName.substr(1);
                 }
@@ -701,9 +701,10 @@ const trade = async function(name, fake) {
     // login and display account infos
     await k.login();
     await k.synchronize(); // get server time delay
-    // for (let asset of assets) {
-    //     await k.refreshOHLC(asset);
-    // }
+    for (let asset of assets) {
+        await k.refreshOHLC(asset);
+        await sleep(1);
+    }
     await refreshTrader();
     k.displayAccount();
 
