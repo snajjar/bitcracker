@@ -1,6 +1,7 @@
 const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
+const dt = require('../lib/datatools');
 
 class ChampionTrader extends Trader {
     constructor() {
@@ -85,6 +86,14 @@ class ChampionTrader extends Trader {
             let emabiddiff = (currentPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
 
             if (!this.isInTrade()) {
+                // compute linear regression for the last 10 ema
+                // filter out trades when EMA has a really bad shape
+                let lastEMAs = ema.slice(ema.length - 10);
+                let [a, b] = dt.linearRegression(_.range(10), lastEMAs);
+                if (a < -3) {
+                    return this.hold();
+                }
+
                 if (emadiff < -this.adaptativeEMADownTrigger()) {
                     // BUY condition
                     this.timeInTrade = 0;

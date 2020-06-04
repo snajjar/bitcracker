@@ -7,8 +7,8 @@ class EMAxSMATrader extends Trader {
         super();
 
         // parameters
-        this.smaPeriods = 100;
-        this.emaPeriods = 5;
+        this.smaPeriods = 200;
+        this.emaPeriods = 200;
 
         this.prevSMA = null;
         this.prevEMA = null;
