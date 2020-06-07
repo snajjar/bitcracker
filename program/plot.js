@@ -24,20 +24,24 @@ const getTrader = async function(name) {
 
 const plotTrader = async function(name, outputFilePath) {
     let trader = await getTrader(name);
-    let btcData = await csv.getData();
+    let assetsData = await csv.getData();
 
     let trades = [];
     let lastAction = "SELL";
     let lastActionPrice = 0;
 
     // make the trader trade on all data
-    let candles = btcData;
+    let key = _.keys(assetsData)[0];
+    let candles = assetsData[key];
+
+    console.log('candles: ', candles);
+
     let inputs = candles.slice(0, trader.analysisIntervalLength() - 1);
     for (var j = trader.analysisIntervalLength(); j < candles.length; j++) {
         let candle = candles[j]; // current bitcoin data
         inputs.push(candle);
         let currentBitcoinPrice = candle.close; // close price of the last candle
-        let action = await trader.decideAction(inputs);
+        let action = await trader.decideAction(key, inputs);
         candle.action = action; // save the action into the candle
         inputs.shift(); // remove 1st element that is not relevant anymore
 
@@ -56,15 +60,15 @@ const plotTrader = async function(name, outputFilePath) {
             candle.bid = trader.bidPrice;
         } else if (action == "ASK") {
             candle.ask = trader.askPrice;
+        } else if (action == "HOLD") {
+            // do nothing
         } else {
             console.log("unknown action: " + action);
         }
     }
 
-    await utils.displayTrader(trader);
-
     console.log(`[*] saving trade data as CSV into file: ${outputFilePath}`);
-    csv.setTradeData(outputFilePath, btcData);
+    csv.setTradeData(outputFilePath, candles);
 }
 
 const plotModel = async function(name, outputFilePath) {

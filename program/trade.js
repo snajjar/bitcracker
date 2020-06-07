@@ -70,9 +70,9 @@ const getAssets = function() {
 
 const trade = async function(name, fake) {
     if (fake) {
-        console.log('[*] Fake trading on current bitcoin price');
+        console.log('[*] Fake trading starting');
     } else {
-        console.log('[*] Real trading on current bitcoin price');
+        console.log('[*] Real trading starting');
     }
 
     let trader = await getTrader(name);
@@ -93,6 +93,18 @@ const trade = async function(name, fake) {
         console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} inTrade=${trader.isInTrade().toString().cyan}${lastTradeStr}${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
     }
 
+    let waitForOrderCompletion = async function() {
+        while (k.hasOpenOrders()) {
+            console.log(`[*] Refreshing status of open orders`);
+            k.refreshOpenOrders();
+            await sleep(3);
+
+            if (!k.hasOpenOrders()) {
+                await k.refreshTrader();
+            }
+        }
+    }
+
     // login and display account infos
     await k.login();
     await k.synchronize(); // get server time delay
@@ -107,6 +119,7 @@ const trade = async function(name, fake) {
     let count = 0;
     while (1) {
         await k.nextMinute();
+
         console.log('');
         console.log('');
 
@@ -117,9 +130,25 @@ const trade = async function(name, fake) {
             await k.nextData(asset);
 
             k.displayLastPrices(asset);
-            let currentPrice = trader.isInTrade ? k.estimateBuyPrice(asset) : k.estimateSellPrice(asset); //k.getCurrentPrice(asset);
-            if (!currentPrice || isNaN(currentPrice)) {
-                currentPrice = k.getCurrentPrice(asset);
+
+            // resolve current price
+            // give the price of the worst case scenario to our trader
+            let lastTradedPrice = k.getLastTradedPrice(asset)
+            let currentPrice;
+            if (trader.isInTrade()) {
+                let estimatedPrice = k.estimateSellPrice(asset);
+                if (estimatedPrice && !isNaN(estimatedPrice)) {
+                    currentPrice = Math.min(estimatedPrice, lastTradedPrice);
+                } else {
+                    currentPrice = lastTradedPrice;
+                }
+            } else {
+                let estimatedPrice = k.estimateBuyPrice(asset);
+                if (estimatedPrice && !isNaN(estimatedPrice)) {
+                    currentPrice = Math.max(estimatedPrice, lastTradedPrice);
+                } else {
+                    currentPrice = lastTradedPrice;
+                }
             }
 
             // time for trader action
@@ -147,15 +176,14 @@ const trade = async function(name, fake) {
                 case "BID":
                     console.log(`  - BIDDING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(k.wallet.getCurrencyAmount()/currentPrice)} ${asset}`);
                     await k.bidAll(asset, currentPrice);
-                    await sleep(20); // sleep 20s
-                    await refreshTrader();
+                    await waitForOrderCompletion();
                     k.displayAccount();
+
                     break;
                 case "ASK":
                     console.log(`  - ASKING for ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
                     await k.askAll(asset, currentPrice);
-                    await sleep(20); // sleep 20s
-                    await refreshTrader();
+                    await waitForOrderCompletion();
                     k.displayAccount();
                     break;
                 default:

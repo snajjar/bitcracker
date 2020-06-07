@@ -129,11 +129,9 @@ var argv = yargs
     })
     .command('plot', 'Output a plottable .csv file of a Trader results', (yargs) => {
         yargs.option('trader', {
-            alias: 't',
             describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list',
             type: 'string',
         }).option('model', {
-            alias: 'm',
             describe: 'The model name. Type "./bitcracker.js list models" to have the complete list',
             type: 'string',
         }).option('output', {

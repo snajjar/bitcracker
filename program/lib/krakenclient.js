@@ -243,6 +243,19 @@ class KrakenWebSocket extends EventEmitter {
         console.log('Estimate sell price for 10 BTC: ', this.estimateSellPrice("XBT", 10));
     }
 
+    // return the top value of bidding price
+    getTopBiddingPrice(asset) {
+        let bids = this.books[asset].bs;
+        let bestBid = bids[0];
+        return parseFloat(bestBid[0]);
+    }
+
+    getTopAskingPrice(asset) {
+        let asks = this.books[asset].as;
+        let bestAsk = asks[0];
+        return parseFloat(bestAsk[0]);
+    }
+
     estimateBuyPrice(asset, currencyVolume) {
         if (!this.books[asset]) {
             console.log(`${asset} is not in the book !`);
@@ -396,6 +409,7 @@ class KrakenREST {
 
         this.tradeVolume = 0;
         this.serverTimeDelay = 0; // number of ms diff between srv and client
+        this.lastMinute = null;
 
         this.ws = new KrakenWebSocket();
         this.ws.connect();
@@ -493,7 +507,7 @@ class KrakenREST {
         }
     }
 
-    getCurrentPrice(asset) {
+    getLastTradedPrice(asset) {
         if (!this.prices[asset] || !this.prices[asset].currCandle) {
             throw new Error("You should first refresh OHLC data before getting current price");
         }
@@ -524,7 +538,7 @@ class KrakenREST {
             `${price(candles[candles.length-3].close)} -> ` +
             `${price(candles[candles.length-2].close)} -> ` +
             `${price(candles[candles.length-1].close)} -> ` +
-            `last_traded=${priceYellow(this.getCurrentPrice(asset))} ${estimation}`);
+            `last_traded=${priceYellow(this.getLastTradedPrice(asset))} ${estimation}`);
     }
 
     displayAllPrices() {
@@ -536,18 +550,21 @@ class KrakenREST {
                 `${price(candles[candles.length-3].close)} -> ` +
                 `${price(candles[candles.length-2].close)} -> ` +
                 `${price(candles[candles.length-1].close)} -> ` +
-                `${priceYellow(this.getCurrentPrice(asset))} (current candle ${time.format('hh:mm:ss')})`);
+                `${priceYellow(this.getLastTradedPrice(asset))} (current candle ${time.format('hh:mm:ss')})`);
         })
         console.log('');
     }
 
     // get the max BTC volume we can buy with our current EUR wallet
-    _getMaxAssetVolume(price) {
-        // for safety of orders, let's assume BTC price increased by 0.1% since last price
-        price = price * 1.002;
+    _getMaxAssetVolume(asset, price) {
+        let volumePrecision = this.getVolumePrecision(asset);
+        let currencyAmount = this.wallet.getCurrencyAmount();
 
-        // adjust volumal precision: 8 decimals for a BTC. Round it to 3
-        return Math.floor((this.wallet.getAmount(this.wallet.getMainCurrency()) / price) * 1000) / 1000;
+        // for safety of orders, let's assume asset price increased by 0.05% since we wanted to order
+        price = price * 1.0005;
+
+        // adjust volumal precision: 8 decimals for a BTC
+        return Math.floor((currencyAmount / price) * Math.pow(10, volumePrecision)) / Math.pow(10, volumePrecision);
     }
 
     // get the max EUR volume we can get with our current BTC wallet
@@ -644,13 +661,21 @@ class KrakenREST {
 
     // required synchronisation
     async nextMinute() {
-        let now = moment();
+        if (!this.lastMinute) {
+            this.lastMinute = moment();
+        }
+
         let nextMinute = moment().add(1, "minute").startOf("minute");
         if (this.serverTimeDelay > 0) {
             nextMinute.add(this.serverTimeDelay, "milliseconds");
         }
-        let diff = moment.duration(nextMinute - now).asMilliseconds();
-        await sleepms(diff);
+
+        let diff = moment.duration(nextMinute - this.lastMinute).asMilliseconds();
+        if (diff > 0) {
+            await sleepms(diff);
+        }
+
+        this.lastMinute = moment();
     }
 
     // return when there is a new price data available
@@ -766,13 +791,12 @@ class KrakenREST {
             pair: this.getPairKey(asset),
             type: 'buy',
             ordertype: 'market',
-            volume: this._getMaxAssetVolume(currentAssetPrice),
+            volume: this._getMaxAssetVolume(asset, currentAssetPrice),
             expiretm: "+60", // expire in 60s,
             userref: userref, // reference for order, to be used internally
-            // validate: true, // validate input only, do not submit order !
         }
         if (this.fake) {
-            options.validate = true;
+            options.validate = true; // validate input only, do not submit order !
         }
 
         try {
@@ -789,6 +813,9 @@ class KrakenREST {
                 console.error(e);
                 console.log(JSON.stringify(r));
             }
+
+            console.log('[*] BUY failed. Try to bid instead');
+            await this.bidAll(asset, currentAssetPrice);
             //process.exit(-1);
         }
     }
@@ -806,9 +833,8 @@ class KrakenREST {
             expiretm: "+60", // expire in 60s,
             userref: userref, // reference for order, to be used internally
         }
-
         if (this.fake) {
-            options.validate = true;
+            options.validate = true; // validate input only, do not submit order !
         }
 
         try {
@@ -825,8 +851,31 @@ class KrakenREST {
                 console.error(e);
                 console.log(JSON.stringify(r));
             }
+
+            console.log('[*] SELL failed. Try to ask instead');
+            await this.askAll(asset, currentAssetPrice);
             //process.exit(-1);
         }
+    }
+
+    getPricePrecision(asset) {
+        // see https://support.kraken.com/hc/en-us/articles/360001389366-Price-and-volume-decimal-precision
+        let pricePrecision = {
+            "ADA": 6,
+            "XBT": 1,
+            "XRP": 5,
+            "BCH": 1,
+            "ETH": 2,
+            "LTC": 2,
+            "DASH": 3,
+        }
+
+        return pricePrecision[asset] || 6;
+    }
+
+    getVolumePrecision(asset) {
+        // see https://support.kraken.com/hc/en-us/articles/360001389366-Price-and-volume-decimal-precision
+        return 8;
     }
 
 
@@ -836,21 +885,29 @@ class KrakenREST {
     async bidAll(asset, price) {
         let r = null;
 
+        // the trader wants to bid at the specified price, but we know the book order
+        // meaning that we may be able to do better than that
+        // take the best bid on it, and see if it still matches our price
+        let bestBidPrice = this.ws.getTopBiddingPrice(asset);
+        if (bestBidPrice <= price) {
+            console.log(`[*] Adjusting bidding price from ${price} to ${bestBidPrice} based on book updates`);
+            price = bestBidPrice;
+        }
+
         // reference that order, we never know
         let userref = Math.floor(Math.random() * 1000000000);
         let options = {
             pair: this.getPairKey(asset),
             type: 'buy',
             ordertype: 'limit',
-            volume: this._getMaxAssetVolume(price),
-            expiretm: "+55", // expire in 55s,
+            volume: this._getMaxAssetVolume(asset, price),
+            expiretm: "+50", // expire in 50s,
             oflags: "post",
-            price: price.toFixed(1),
+            price: price.toFixed(this.getPricePrecision(asset)),
             userref: userref, // reference for order, to be used internally
-            // validate: true, // validate input only, do not submit order !
         }
         if (this.fake) {
-            options.validate = true;
+            options.validate = true; // validate input only, do not submit order !
         }
 
         try {
@@ -874,6 +931,15 @@ class KrakenREST {
     async askAll(asset, price) {
         let r = null;
 
+        // the trader wants to bid at the specified price, but we know the book order
+        // meaning that we may be able to do better than that
+        // take the best bid on it, and see if it still matches our price
+        let bestAskPrice = this.ws.getTopAskingPrice(asset);
+        if (bestAskPrice <= price) {
+            console.log(`[*] Adjusting asking price from ${price} to ${bestAskPrice} based on book updates`);
+            price = bestAskPrice;
+        }
+
         // reference that order, we never know
         let userref = Math.floor(Math.random() * 1000000000);
         let options = {
@@ -881,14 +947,13 @@ class KrakenREST {
             type: 'sell',
             ordertype: 'limit',
             volume: this.wallet.getAmount(asset),
-            expiretm: "+55", // expire in 60s,
+            expiretm: "+50", // expire in 50s,
             oflags: "post",
-            price: price.toFixed(1),
+            price: price.toFixed(this.getPricePrecision(asset)),
             userref: userref, // reference for order, to be used internally
         }
-
         if (this.fake) {
-            options.validate = true;
+            options.validate = true; // validate input only, do not submit order !
         }
 
         try {
@@ -921,6 +986,10 @@ class KrakenREST {
 
         await this.refreshClosedOrders();
         await sleep(2);
+    }
+
+    hasOpenOrders() {
+        return _.keys(this.openOrders).length > 0;
     }
 
     displayBalance() {
