@@ -65,8 +65,14 @@ class KrakenWebSocket extends EventEmitter {
         this.books = {};
 
         this.ws = null;
+    }
 
-        this.onConnect = null;
+    reset() {
+        this.connected = false;
+        this.lastMessageAt = 0;
+        this.prices = {};
+        this.books = {};
+        this.ws = null;
     }
 
     disconnect() {
@@ -89,7 +95,8 @@ class KrakenWebSocket extends EventEmitter {
             }
             this.ws.onclose = async e => {
                 console.log(new Date, '[KRAKEN] close', e);
-                await sleep(5);
+                this.reset();
+                await sleep(3);
                 console.log('[*] Reconnecting');
                 await this.connect();
             }
