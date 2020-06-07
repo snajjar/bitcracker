@@ -57,6 +57,8 @@ class KrakenWebSocket extends EventEmitter {
     constructor(url = 'wss://ws.kraken.com') {
         super();
 
+        this.bookSubscriptions = [];
+
         this.url = url;
         this.connected = false;
         this.lastMessageAt = 0;
@@ -97,8 +99,7 @@ class KrakenWebSocket extends EventEmitter {
                 console.log(new Date, '[KRAKEN] close', e);
                 this.reset();
                 await sleep(3);
-                console.log('[*] Reconnecting');
-                await this.connect();
+                await this.reconnect();
             }
 
             // initial book data coming in on the same tick as the subscription data
@@ -106,6 +107,14 @@ class KrakenWebSocket extends EventEmitter {
             // initial OB data.
             this.ws.onmessage = e => setImmediate(() => this._handleMessage(e));
         });
+    }
+
+    async reconnect() {
+        console.log('[*] Reconnecting to websocket');
+        await this.connect();
+        for (let asset of this.bookSubscriptions) {
+            this.subscribeBook(asset);
+        }
     }
 
     _handleMessage = e => {
@@ -361,6 +370,9 @@ class KrakenWebSocket extends EventEmitter {
 
     subscribeBook(asset) {
         // console.log(`[*] Subscribing to asset ${asset}`);
+        if (!this.bookSubscriptions.includes(asset)) {
+            this.bookSubscriptions.push(asset);
+        }
 
         this.ws.send(JSON.stringify({
             "event": "subscribe",
