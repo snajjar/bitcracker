@@ -94,10 +94,11 @@ const trade = async function(name, fake) {
     }
 
     let waitForOrderCompletion = async function() {
+        k.refreshOpenOrders();
         while (k.hasOpenOrders()) {
             console.log(`[*] Refreshing status of open orders`);
-            k.refreshOpenOrders();
             await sleep(3);
+            k.refreshOpenOrders();
 
             if (!k.hasOpenOrders()) {
                 await k.refreshTrader();
@@ -164,12 +165,14 @@ const trade = async function(name, fake) {
                 case "BUY":
                     console.log(`  - BUYING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(k.wallet.getCurrencyAmount()/currentPrice)} ${asset}`);
                     await k.buyAll(asset, currentPrice);
+                    await sleep(3);
                     await refreshTrader();
                     k.displayAccount();
                     break;
                 case "SELL":
                     console.log(`  - SELLING ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
                     await k.sellAll(asset, currentPrice);
+                    await sleep(3);
                     await refreshTrader();
                     k.displayAccount();
                     break;
@@ -177,6 +180,7 @@ const trade = async function(name, fake) {
                     console.log(`  - BIDDING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(k.wallet.getCurrencyAmount()/currentPrice)} ${asset}`);
                     await k.bidAll(asset, currentPrice);
                     await waitForOrderCompletion();
+                    await k.refreshTrader();
                     k.displayAccount();
 
                     break;
@@ -184,6 +188,7 @@ const trade = async function(name, fake) {
                     console.log(`  - ASKING for ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
                     await k.askAll(asset, currentPrice);
                     await waitForOrderCompletion();
+                    await k.refreshTrader();
                     k.displayAccount();
                     break;
                 default:

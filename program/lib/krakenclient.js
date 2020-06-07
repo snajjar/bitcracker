@@ -820,7 +820,7 @@ class KrakenREST {
         }
     }
 
-    async sellAll(asset) {
+    async sellAll(asset, currentAssetPrice) {
         let r = null;
 
         // reference that order, we never know
