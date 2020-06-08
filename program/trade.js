@@ -108,6 +108,7 @@ const trade = async function(name, fake) {
 
     // login and display account infos
     await k.login();
+    await k.connect(); // connect to websocket
     await k.synchronize(); // get server time delay
     for (let asset of assets) {
         k.addAsset(asset);

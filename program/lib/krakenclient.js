@@ -9,6 +9,7 @@ const Wallet = require('./wallet');
 const KrakenRestAPI = require('kraken-api');
 const moment = require('moment');
 const dotenv = require('dotenv');
+const dt = require('./datatools');
 
 const extractFieldsFromKrakenData = function(arr) {
     return {
@@ -56,17 +57,101 @@ const amount = function(p) {
 class KrakenWebSocket extends EventEmitter {
     constructor(url = 'wss://ws.kraken.com') {
         super();
-
-        this.bookSubscriptions = [];
+        this.assets = [];
 
         this.url = url;
         this.connected = false;
         this.lastMessageAt = 0;
+        this.serverTimeDelay = null;
 
+        this.cb = {};
         this.prices = {};
         this.books = {};
+        this.historySize = 1000; // default value
 
         this.ws = null;
+
+        this.clockTimer = null;
+        this._onNewCandle = null;
+    }
+
+    setHistorySize(n) {
+        this.historySize = n;
+    }
+
+    setServerTimeDelay(t) {
+        this.serverTimeDelay = t; // in ms
+    }
+
+    async waitNextMinute() {
+        let nextMinute = moment().add(1, "minute").startOf("minute");
+        let now = moment();
+        if (this.serverTimeDelay < 0) {
+            nextMinute.add(-this.serverTimeDelay, "milliseconds");
+        }
+
+        let diff = moment.duration(nextMinute - now).asMilliseconds();
+        if (diff > 0) {
+            await sleepms(diff);
+        }
+    }
+
+    async initClockTimer() {
+        await this.waitNextMinute();
+        this.clockTimer = setInterval(() => {
+            this.onClockTick();
+        }, 60000);
+        this.onClockTick();
+    }
+
+    // end of current candle, start of a new one
+    onClockTick() {
+        for (let asset of this.assets) {
+            let candle = _.cloneDeep(this.prices[asset].currCandle);
+            let newCandleStart = candle.timestamp + 60000
+            this.prices[asset].candles.push(candle);
+            if (this.prices[asset].candles.length > this.historySize) {
+                this.prices[asset].candles = this.prices[asset].candles.slice(this.prices[asset].candles.length - this.historySize);
+            }
+            this.prices[asset].currCandle = {
+                timestamp: newCandleStart,
+                open: candle.close,
+                high: candle.high,
+                low: candle.low,
+                close: candle.close,
+                volume: 0
+            }
+            this.prices[asset].since = newCandleStart;
+        }
+
+        for (let asset of this.assets) {
+            let newCandle = _.last(this.prices[asset].candles);
+            this._onNewCandle(asset, newCandle);
+        }
+    }
+
+    onNewCandle(cb) {
+        this._onNewCandle = cb;
+    }
+
+    addAsset(asset) {
+        if (!this.assets.includes(asset)) {
+            this.assets.push(asset);
+        }
+        this.subscribeOHLC(asset);
+        this.subscribeBook(asset);
+    }
+
+    initOHLC(asset, candles, currentCandle, since) {
+        this.prices[asset] = {
+            candles: candles,
+            currCandle: currentCandle,
+            since: since
+        }
+    }
+
+    isOHLCInitialized(asset) {
+        return this.prices[asset] !== undefined;
     }
 
     reset() {
@@ -112,7 +197,7 @@ class KrakenWebSocket extends EventEmitter {
     async reconnect() {
         console.log('[*] Reconnecting to websocket');
         await this.connect();
-        for (let asset of this.bookSubscriptions) {
+        for (let asset of this.assets) {
             this.subscribeBook(asset);
         }
     }
@@ -157,11 +242,34 @@ class KrakenWebSocket extends EventEmitter {
             default:
                 // console.log(JSON.stringify(msg, null, 2));
         }
-
     }
 
     _handlePriceUpdate(asset, msg) {
+        let newData = [this.prices[asset].currCandle];
+        //console.log(msg);
+        let data = msg.data;
+        let candle = {
+            timestamp: parseFloat(data[0]),
+            open: parseFloat(data[2]),
+            high: parseFloat(data[3]),
+            low: parseFloat(data[4]),
+            close: parseFloat(data[5]),
+            vwap: parseFloat(data[6]),
+            volume: parseFloat(data[7]),
+        }
+        let endTime = parseFloat(data[1]);
+        if (endTime < moment().unix() - 60) {
+            // old candle, sent for verification when no new candle was sent during 1 minute
+            // ditch this one
+            //console.log(`[*] Ignoring 1 verification candle for asset ${asset}`);
+        } else {
+            newData.push(candle);
+        }
 
+        //console.log(`Mergin ${newData.length} candles`);
+        this.prices[asset].currCandle = dt.mergeCandles(newData);
+
+        //console.log(msg);
     }
 
     _handleBookUpdate(asset, msg) {
@@ -369,11 +477,7 @@ class KrakenWebSocket extends EventEmitter {
     }
 
     subscribeBook(asset) {
-        // console.log(`[*] Subscribing to asset ${asset}`);
-        if (!this.bookSubscriptions.includes(asset)) {
-            this.bookSubscriptions.push(asset);
-        }
-
+        // console.log(`[*] Subscribing to asset ${asset} book order`);
         this.ws.send(JSON.stringify({
             "event": "subscribe",
             "pair": [
@@ -398,6 +502,19 @@ class KrakenWebSocket extends EventEmitter {
             }
         }));
     }
+
+    displayLastPrices(asset) {
+        let p = this.prices[asset];
+        let time = moment.unix(p.currCandle.timestamp);
+        let candles = p.candles;
+        let lastTradedPrice = this.prices[asset].currCandle.close
+
+        console.log(`[WS] ${moment().format('DD/MM/YY hh:mm:ss')} ${asset}: ${price(candles[candles.length-4].close)} -> ` +
+            `${price(candles[candles.length-3].close)} -> ` +
+            `${price(candles[candles.length-2].close)} -> ` +
+            `${price(candles[candles.length-1].close)} -> ` +
+            `last_traded=${priceYellow(lastTradedPrice)}`);
+    }
 }
 
 class KrakenREST {
@@ -418,8 +535,8 @@ class KrakenREST {
         //  }
         this.prices = {};
         this.candles = [];
-        this.currCandle = null;
         this.since = 0;
+        this.historySize = 1000; // default
 
         this.placedOrders = []; // history of orders we made
 
@@ -431,11 +548,20 @@ class KrakenREST {
         this.lastMinute = null;
 
         this.ws = new KrakenWebSocket();
-        this.ws.connect();
     }
 
-    addAsset(asset) {
-        this.ws.subscribeBook(asset);
+    setHistorySize(n) {
+        this.historySize = n;
+        this.ws.setHistorySize(n);
+    }
+
+    connect() {
+        return this.ws.connect();
+    }
+
+    async addAsset(asset) {
+        await this.refreshOHLC(asset);
+        this.ws.addAsset(asset);
     }
 
     estimateSellPrice(asset) {
@@ -499,9 +625,14 @@ class KrakenREST {
                     // there is new data
                     // concat new periods to old ones
                     this.prices[asset].candles = this.prices[asset].candles.concat(candles);
-                    if (this.prices[asset].candles.length > 1000) {
-                        this.prices[asset].candles = this.prices[asset].candles.slice(this.prices[asset].candles.length - 1000);
+                    if (this.prices[asset].candles.length > this.historySize) {
+                        this.prices[asset].candles = this.prices[asset].candles.slice(this.prices[asset].candles.length - this.historySize);
                     }
+
+                    if (!this.ws.isOHLCInitialized(asset)) {
+                        this.ws.initOHLC(asset, this.prices[asset].candles, this.prices[asset].currCandle, this.prices[asset].since);
+                    }
+
                     return true;
                 } else {
                     return false;
@@ -674,7 +805,8 @@ class KrakenREST {
         // server time synchronisation
         let serverTime = await this.getServerTime();
         let diff = moment() - moment.unix(serverTime);
-        this.serverTimeDelay = diff % 60000 - 200; // remove 200ms for ping delay
+        this.serverTimeDelay = diff % 60000;
+        this.ws.setServerTimeDelay(this.serverTimeDelay);
         console.log(`[*] Time synchronisation: ${this.serverTimeDelay}ms`);
     }
 
@@ -685,8 +817,8 @@ class KrakenREST {
         }
 
         let nextMinute = moment().add(1, "minute").startOf("minute");
-        if (this.serverTimeDelay > 0) {
-            nextMinute.add(this.serverTimeDelay, "milliseconds");
+        if (this.serverTimeDelay < 0) {
+            nextMinute.add(-this.serverTimeDelay, "milliseconds");
         }
 
         let diff = moment.duration(nextMinute - this.lastMinute).asMilliseconds();
@@ -1061,14 +1193,42 @@ class KrakenREST {
 
 
 var main = async function() {
-    let krakenws = new KrakenWebSocket();
-    await krakenws.connect();
-    krakenws.subscribeBook("XBT");
+    let assets = ["XBT", "XRP", "DASH"];
+    //let assets = ["XBT"];
+
+    let k = new KrakenREST();
+    k.kraken = new KrakenRestAPI();
+    await k.connect();
+    k.wallet.setAmount('EUR', 1000);
+    await k.synchronize(); // get server time delay
+    k.setHistorySize(10);
+
+    for (let asset of assets) {
+        await k.addAsset(asset);
+    }
+
+    k.ws.onNewCandle((asset, candle) => {
+        k.ws.displayLastPrices(asset);
+    });
+    await k.ws.initClockTimer();
 
     while (1) {
-        await sleep(5);
-        krakenws.displayOrderBook("XBT");
+        await k.nextMinute();
+
+        for (let asset of assets) {
+            await k.nextData(asset);
+            k.displayLastPrices(asset);
+        }
     }
+
+    // let krakenws = new KrakenWebSocket();
+    // await krakenws.connect();
+    // krakenws.subscribeBook("XBT");
+
+    // while (1) {
+    //     await sleep(5);
+    //     krakenws.displayOrderBook("XBT");
+    // }
 }
 
 if (require.main === module) {
