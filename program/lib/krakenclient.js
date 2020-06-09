@@ -161,7 +161,7 @@ class KrakenWebSocket extends EventEmitter {
                 if (this.prices[asset]) {
                     let lastCandle = _.find(this.prices[asset].candles, candle => candle.timestamp == lastMinuteTimestamp);
                     if (lastCandle == undefined) {
-                        _.each(this.prices[asset].candles, c => console.log(c.timestamp));
+                        //_.each(this.prices[asset].candles, c => console.log(c.timestamp));
                     } else {
                         this._onNewCandle(asset, lastCandle);
                     }
