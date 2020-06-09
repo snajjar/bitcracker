@@ -573,6 +573,34 @@ class KrakenWebSocket extends EventEmitter {
             `${price(candles[candles.length-1].close)} -> ` +
             `last_traded=${priceYellow(lastTradedPrice)}`);
     }
+
+    getLastTradedPrice(asset) {
+        if (!this.prices[asset] || !this.prices[asset].currCandle) {
+            throw new Error("You should first refresh OHLC data before getting current price");
+        }
+        return this.prices[asset].currCandle.close;
+    }
+
+    getPriceCandles(asset) {
+        if (!this.prices[asset] || !this.prices[asset].candles) {
+            throw new Error("You should first refresh OHLC data before getting candles");
+        }
+        return _.clone(this.prices[asset].candles);
+    }
+
+    getCurrentCandle(asset) {
+        if (!this.prices[asset] || !this.prices[asset].currCandle) {
+            throw new Error("You should first refresh OHLC data before getting candles");
+        }
+        return _.clone(this.prices[asset].currCandle);
+    }
+
+    getPriceInfos(asset) {
+        if (!this.prices[asset] || !this.prices[asset].currCandle) {
+            throw new Error("You should first refresh OHLC data before getting candles");
+        }
+        return _.clone(this.prices[asset]);
+    }
 }
 
 class KrakenREST {
@@ -764,30 +792,34 @@ class KrakenREST {
     }
 
     getLastTradedPrice(asset) {
-        if (!this.prices[asset] || !this.prices[asset].currCandle) {
-            throw new Error("You should first refresh OHLC data before getting current price");
-        }
-        return this.prices[asset].currCandle.close;
+        return this.ws.getLastTradedPrice(asset);
     }
 
     getPriceCandles(asset) {
-        if (!this.prices[asset] || !this.prices[asset].candles) {
-            throw new Error("You should first refresh OHLC data before getting candles");
-        }
-        return _.clone(this.prices[asset].candles);
+        return this.ws.getPriceCandles(asset);
+    }
+
+    getCurrentCandle(asset) {
+        return this.ws.getCurrentCandle(asset);
+    }
+
+    getPriceInfos(asset) {
+        return this.ws.getPriceInfos(asset);
     }
 
     displayLastPrices(asset) {
-        let p = this.prices[asset];
-        let time = moment.unix(p.currCandle.timestamp);
-        let candles = p.candles;
+        let candles = this.getPriceCandles(asset);
         let estimation = "";
         if (this.wallet.getMaxAsset() == asset) {
             let marketSellPrice = this.estimateSellPrice(asset);
             estimation = `market_sell=${priceYellow(marketSellPrice)}`
         } else {
-            let marketBuyPrice = this.estimateBuyPrice(asset);
-            estimation = `market_buy=${priceYellow(marketBuyPrice)}`;
+            if (this.wallet.getMaxAsset() == this.wallet.getMainCurrency()) {
+                let marketBuyPrice = this.estimateBuyPrice(asset);
+                estimation = `market_buy=${priceYellow(marketBuyPrice)}`;
+            } else {
+                estimation = ""; // we don't need an estimation for this asset
+            }
         }
 
         console.log(`[*] ${moment().format('DD/MM/YY hh:mm:ss')} ${asset}: ${price(candles[candles.length-4].close)} -> ` +
@@ -799,7 +831,8 @@ class KrakenREST {
 
     displayAllPrices() {
         console.log('');
-        _.each(this.prices, (p, asset) => {
+        _.each(this.assets, (asset) => {
+            let p = this.getPriceInfos(asset);
             let time = moment.unix(p.currCandle.timestamp);
             let candles = p.candles;
             console.log(`[*] ${moment().format('DD/MM/YY hh:mm:ss')} ${asset}: ${price(candles[candles.length-4].close)} -> ` +
