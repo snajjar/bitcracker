@@ -90,7 +90,7 @@ const trade = async function(name, fake) {
     let displayTraderStatus = function(action) {
         let lastTradeStr = trader.inTrade ? ` lastBuy=${k.lastBuyPrice()}€` : ``
         let objectiveStr = trader.getObjective ? ` objective=${trader.getObjective().toFixed(0)}€` : "";
-        console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} inTrade=${trader.isInTrade().toString().cyan}${lastTradeStr}${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
+        console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} asset=${trader.currentAsset} inTrade=${trader.isInTrade().toString().cyan}${lastTradeStr}${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
     }
 
     let waitForOrderCompletion = async function() {
@@ -106,6 +106,26 @@ const trade = async function(name, fake) {
         }
     }
 
+    // trader mutex to make sure we don't handle 2 assets at the same time
+    // to avoid confusing the trader
+    let traderBusy = false;
+    let takeTraderMutex = async function() {
+        return new Promise((resolve) => {
+            let checkIfTraderReady = () => {
+                if (traderBusy) {
+                    setTimeout(checkIfTraderReady, 1000);
+                } else {
+                    traderBusy = true;
+                    resolve();
+                }
+            }
+            checkIfTraderReady();
+        });
+    };
+    let releaseTraderMutex = function() {
+        traderBusy = false;
+    }
+
     let count = 0;
 
     // login and display account infos
@@ -117,7 +137,11 @@ const trade = async function(name, fake) {
     await k.synchronize(); // get server time delay
     await refreshTrader();
     k.displayAccount();
+
     k.onNewCandle(async (asset, newCandle) => {
+        await takeTraderMutex();
+        console.log('');
+
         k.displayLastPrices(asset);
 
         // resolve current price
@@ -188,6 +212,8 @@ const trade = async function(name, fake) {
             await refreshTrader();
             k.displayAccount();
         }
+
+        releaseTraderMutex();
     });
     await k.initSocket(); // connect to websocket
 }
