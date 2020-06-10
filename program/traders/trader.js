@@ -403,7 +403,8 @@ class Trader {
 
             return "SELL";
         } else {
-            return "ERROR (SELL)";
+            console.log('[*] Error: selling but asset amount is 0');
+            return "SELL";
         }
     }
 
