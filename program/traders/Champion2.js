@@ -16,10 +16,13 @@ class ChampionTrader extends Trader {
         this.timeInTrade = null;
         this.winTradePeriod = 60;
         this.shortScalpProfit = { 'min': 0.001, 'max': 0.0035 };
+
+        // how close we are to the highest value of the analysis interval
+        this.dangerZoneRatio = 0.94;
     }
 
     analysisIntervalLength() {
-        return 28;
+        return 720;
     }
 
     hash() {
@@ -59,7 +62,8 @@ class ChampionTrader extends Trader {
     }
 
     getEMA(dataPeriods) {
-        let closePrices = _.map(dataPeriods, p => p.close);
+        let candles = dataPeriods.slice(dataPeriods.length - 28);
+        let closePrices = _.map(candles, p => p.close);
         return new Promise((resolve, reject) => {
             tulind.indicators.ema.indicator([closePrices], [this.emaPeriods], function(err, results) {
                 if (err) {
@@ -69,6 +73,10 @@ class ChampionTrader extends Trader {
                 }
             });
         });
+    }
+
+    getAllTimeHigh(candles) {
+        return _.maxBy(candles, o => o.high).high;
     }
 
     getBidWinningPrice() {
@@ -92,6 +100,15 @@ class ChampionTrader extends Trader {
                 let [a, b] = dt.linearRegression(_.range(10), lastEMAs);
                 if (a < -3) {
                     return this.hold();
+                }
+
+                let allTimeHigh = this.getAllTimeHigh(candles);
+                let closeToAllTimeHigh = currentPrice > allTimeHigh * this.dangerZoneRatio;
+                if (closeToAllTimeHigh) {
+                    // console.log('close to all time high, hold');
+                    return this.hold();
+                } else {
+                    //console.log('AllTimeHigh:', allTimeHigh, "price:", currentPrice);
                 }
 
                 if (emadiff < -this.adaptativeEMADownTrigger()) {
