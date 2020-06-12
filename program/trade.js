@@ -169,8 +169,6 @@ const trade = async function(name, fake) {
         let candles = k.getPriceCandles(asset);
         if (candles.length >= analysisIntervalLength) {
             let candlesToAnalyse = candles.slice(candles.length - analysisIntervalLength);
-            console.log("candles length: ", candles.length);
-            console.log("analyse:", candlesToAnalyse.length);
             dt.connectCandles(candlesToAnalyse);
             let action = await trader.decideAction(asset, candlesToAnalyse);
             displayTraderStatus(action);
