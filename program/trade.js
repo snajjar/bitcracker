@@ -165,52 +165,59 @@ const trade = async function(name, fake) {
         }
 
         // time for trader action
+        let analysisIntervalLength = trader.analysisIntervalLength();
         let candles = k.getPriceCandles(asset);
-        let candlesToAnalyse = candles.slice(candles.length - trader.analysisIntervalLength());
-        dt.connectCandles(candlesToAnalyse);
-        let action = await trader.decideAction(asset, candlesToAnalyse);
-        displayTraderStatus(action);
+        if (candles.length >= analysisIntervalLength) {
+            let candlesToAnalyse = candles.slice(candles.length - analysisIntervalLength);
+            console.log("candles length: ", candles.length);
+            console.log("analyse:", candlesToAnalyse.length);
+            dt.connectCandles(candlesToAnalyse);
+            let action = await trader.decideAction(asset, candlesToAnalyse);
+            displayTraderStatus(action);
 
-        switch (action) {
-            case "HOLD":
-                break;
-            case "BUY":
-                console.log(`  - BUYING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(k.wallet.getCurrencyAmount()/currentPrice)} ${asset}`);
-                await k.buyAll(asset, currentPrice);
-                await sleep(3);
+            switch (action) {
+                case "HOLD":
+                    break;
+                case "BUY":
+                    console.log(`  - BUYING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(k.wallet.getCurrencyAmount()/currentPrice)} ${asset}`);
+                    await k.buyAll(asset, currentPrice);
+                    await sleep(3);
+                    await refreshTrader();
+                    k.displayAccount();
+                    break;
+                case "SELL":
+                    console.log(`  - SELLING ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
+                    await k.sellAll(asset, currentPrice);
+                    await sleep(3);
+                    await refreshTrader();
+                    k.displayAccount();
+                    break;
+                case "BID":
+                    console.log(`  - BIDDING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(k.wallet.getCurrencyAmount()/currentPrice)} ${asset}`);
+                    await k.bidAll(asset, currentPrice);
+                    await waitForOrderCompletion();
+                    await k.refreshTrader();
+                    k.displayAccount();
+
+                    break;
+                case "ASK":
+                    console.log(`  - ASKING for ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
+                    await k.askAll(asset, currentPrice);
+                    await waitForOrderCompletion();
+                    await k.refreshTrader();
+                    k.displayAccount();
+                    break;
+                default:
+                    console.error('Trader returned no action !'.red);
+            }
+
+            if (count++ % (5 * nbAssets) == (5 * nbAssets) - 1) {
+                // every once in a while, refresh the trader data and display it's status
                 await refreshTrader();
                 k.displayAccount();
-                break;
-            case "SELL":
-                console.log(`  - SELLING ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
-                await k.sellAll(asset, currentPrice);
-                await sleep(3);
-                await refreshTrader();
-                k.displayAccount();
-                break;
-            case "BID":
-                console.log(`  - BIDDING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(k.wallet.getCurrencyAmount()/currentPrice)} ${asset}`);
-                await k.bidAll(asset, currentPrice);
-                await waitForOrderCompletion();
-                await k.refreshTrader();
-                k.displayAccount();
-
-                break;
-            case "ASK":
-                console.log(`  - ASKING for ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
-                await k.askAll(asset, currentPrice);
-                await waitForOrderCompletion();
-                await k.refreshTrader();
-                k.displayAccount();
-                break;
-            default:
-                console.error('Trader returned no action !'.red);
-        }
-
-        if (count++ % (5 * nbAssets) == (5 * nbAssets) - 1) {
-            // every once in a while, refresh the trader data and display it's status
-            await refreshTrader();
-            k.displayAccount();
+            }
+        } else {
+            console.log(`[*] skipping trader action, ${candles.length}/${analysisIntervalLength} periods necessary for analysis`);
         }
 
         releaseTraderMutex();

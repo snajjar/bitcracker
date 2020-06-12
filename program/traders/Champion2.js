@@ -22,7 +22,7 @@ class ChampionTrader extends Trader {
     }
 
     analysisIntervalLength() {
-        return 720;
+        return 700;
     }
 
     hash() {
