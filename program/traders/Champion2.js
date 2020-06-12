@@ -9,8 +9,8 @@ class ChampionTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.2, 'max': 0.44 };
-        this.emaUpTrigger = { 'min': 0.1, 'max': 0.3 };
+        this.emaDownTrigger = { 'min': 0.3, 'max': 0.44 };
+        this.emaUpTrigger = { 'min': 0.2, 'max': 0.3 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
@@ -75,7 +75,7 @@ class ChampionTrader extends Trader {
         });
     }
 
-    getAllTimeHigh(candles) {
+    getHighest(candles) {
         return _.maxBy(candles, o => o.high).high;
     }
 
@@ -94,17 +94,11 @@ class ChampionTrader extends Trader {
             let emabiddiff = (currentPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
 
             if (!this.isInTrade()) {
-                // compute linear regression for the last 10 ema
-                // filter out trades when EMA has a really bad shape
-                let lastEMAs = ema.slice(ema.length - 10);
-                let [a, b] = dt.linearRegression(_.range(10), lastEMAs);
-                if (a < -3) {
-                    return this.hold();
-                }
 
-                let allTimeHigh = this.getAllTimeHigh(candles);
-                let closeToAllTimeHigh = currentPrice > allTimeHigh * this.dangerZoneRatio;
-                if (closeToAllTimeHigh) {
+
+                let highest = this.getHighest(candles);
+                let closeToHighest = currentPrice > highest * this.dangerZoneRatio;
+                if (closeToHighest) {
                     // console.log('close to all time high, hold');
                     return this.hold();
                 } else {

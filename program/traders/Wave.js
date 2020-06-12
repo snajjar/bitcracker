@@ -10,8 +10,8 @@ class WaveTrader extends Trader {
         this.emaPeriods = 2;
         this.emaTrigger = 0.4;
 
-        this.waveLength = 60 * 24 * 7;
-        this.tolerance = 0.001;
+        this.waveLength = 700;
+        this.dangerZoneRatio = 0.90;
     }
 
     analysisIntervalLength() {
@@ -36,32 +36,31 @@ class WaveTrader extends Trader {
     }
 
     // decide for an action
-    async action(crypto, candles, currentAssetPrice) {
+    async action(crypto, candles, currentPrice) {
 
         // BUY when at the lowest of the wave
         // SELL when at the highest
         try {
-            let lowest = _.minBy(candles, o => o.close).close * (1 + this.tolerance);
-            let highest = _.maxBy(candles, o => o.close).close * (1 - this.tolerance);
+            let lowest = _.minBy(candles, o => o.low).low;
+            let highest = _.maxBy(candles, o => o.high).high;
             // console.log('lowest:', lowest, ' highest:', highest, currentAssetPrice);
+            let priceHasFallen = currentPrice > highest * this.dangerZoneRatio;
+
 
             if (!this.isInTrade()) {
-                if (currentAssetPrice < lowest) {
-                    return this.bid(currentAssetPrice);
+                if (priceHasFallen) {
+                    return this.buy();
                 } else {
                     return this.hold();
                 }
             } else {
-                if (this.getCurrentTradeAsset() == crypto) {
-                    if (currentAssetPrice > highest) {
-                        // SELL conditions are take profit and stop loss
-                        return this.ask(currentAssetPrice);
-                    } else {
-                        return this.hold();
-                    }
-                } else {
-                    return this.hold();
-                }
+                let stopped = this.stopLoss(0.2);
+                if (stopped) return this.sell();
+
+                stopped = this.takeProfit(0.01);
+                if (stopped) return this.sell();
+
+                return this.hold();
             }
         } catch (e) {
             console.error("Err: " + e.stack);
