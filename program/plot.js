@@ -34,8 +34,6 @@ const plotTrader = async function(name, outputFilePath) {
     let key = _.keys(assetsData)[0];
     let candles = assetsData[key];
 
-    console.log('candles: ', candles);
-
     let inputs = candles.slice(0, trader.analysisIntervalLength() - 1);
     for (var j = trader.analysisIntervalLength(); j < candles.length; j++) {
         let candle = candles[j]; // current bitcoin data

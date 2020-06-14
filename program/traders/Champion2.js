@@ -19,6 +19,7 @@ class ChampionTrader extends Trader {
 
         // how close we are to the highest value of the analysis interval
         this.dangerZoneRatio = 0.94;
+        this.volatilityRange = 0.3;
     }
 
     analysisIntervalLength() {
@@ -79,6 +80,10 @@ class ChampionTrader extends Trader {
         return _.maxBy(candles, o => o.high).high;
     }
 
+    getLowest(candles) {
+        return _.minBy(candles, o => o.low).low;
+    }
+
     getBidWinningPrice() {
         return this.enterTradeValue * (1 + this.getBuyTax() + this.getAskTax());
     }
@@ -94,15 +99,15 @@ class ChampionTrader extends Trader {
             let emabiddiff = (currentPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
 
             if (!this.isInTrade()) {
-
-
                 let highest = this.getHighest(candles);
-                let closeToHighest = currentPrice > highest * this.dangerZoneRatio;
-                if (closeToHighest) {
+                let lowest = this.getLowest(candles);
+                let volatility = highest - lowest;
+                let priceTreshold = lowest + volatility * this.volatilityRange;
+                if (currentPrice > priceTreshold) {
                     // console.log('close to all time high, hold');
                     return this.hold();
                 } else {
-                    //console.log('AllTimeHigh:', allTimeHigh, "price:", currentPrice);
+                    //console.log(`price: ${currentPrice}, low: ${lowest}, high: ${highest}`);
                 }
 
                 if (emadiff < -this.adaptativeEMADownTrigger()) {

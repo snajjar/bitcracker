@@ -342,6 +342,12 @@ class Trader {
                 candles[asset].push(nextPeriod);
                 await this.decideAction(asset, candles[asset], _.last(candles[asset]).close);
 
+                if (this.wallet.value() < 20) {
+                    // can't trade anymore
+                    console.log('trader reached low wallet, interrupting trade');
+                    break;
+                }
+
                 candles[asset].shift();
             }
         }
