@@ -14,8 +14,8 @@ class ChampionTrader extends Trader {
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
-        this.winTradePeriod = 60;
-        this.shortScalpProfit = { 'min': 0.001, 'max': 0.0035 };
+        this.winTradePeriod = { 'min': 60, 'max': 120 };
+        this.shortScalpProfit = { 'min': 0.002, 'max': 0.007 };
 
         // how close we are to the highest value of the analysis interval
         this.dangerZoneRatio = 0.94;
@@ -60,6 +60,11 @@ class ChampionTrader extends Trader {
 
     adaptativeScalp() {
         return this.logSlider(this.shortScalpProfit.min, this.shortScalpProfit.max, this.getTaxRatio());
+    }
+
+
+    getAdaptativeWinTradePeriod() {
+        return this.logSlider(this.winTradePeriod.min, this.winTradePeriod.max, this.getTaxRatio());
     }
 
     getEMA(dataPeriods) {
@@ -157,7 +162,8 @@ class ChampionTrader extends Trader {
                     // if both tells us to sell (and it's not winning), sell if we didnt buy less than this.winTradePeriod min ago
                     if (emaBigUp) {
                         // if we're shortly after buy, don't sell at loss
-                        if (!winningTrade && this.timeInTrade <= this.winTradePeriod) {
+                        let winTradePeriod = this.getAdaptativeWinTradePeriod();
+                        if (!winningTrade && this.timeInTrade <= winTradePeriod) {
                             return this.hold();
                         } else {
                             return this.sell();
