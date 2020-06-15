@@ -101,7 +101,7 @@ const trade = async function(name, fake) {
             k.refreshOpenOrders();
 
             if (!k.hasOpenOrders()) {
-                await k.refreshTrader();
+                await refreshTrader();
             }
         }
     }
@@ -201,7 +201,7 @@ const trade = async function(name, fake) {
                     console.log(`  - ASKING for ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
                     await k.askAll(asset, currentPrice);
                     await waitForOrderCompletion();
-                    await k.refreshTrader();
+                    await refreshTrader();
                     k.displayAccount();
                     break;
                 default:
