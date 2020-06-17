@@ -279,13 +279,18 @@ class Trader {
     }
 
     // called on each new period, will call the action() method
-    async decideAction(assetName, candles) {
+    async decideAction(assetName, candles, currentPrice) {
         this.currentAsset = assetName;
         this.volumeExpire();
 
         if (candles.length == this.analysisIntervalLength()) {
             // first check if our bids and asks were fullfilled
             let last = _.last(candles);
+
+            if (!currentPrice) {
+                currentPrice = last.close;
+            }
+
             if (last) {
                 this.checkBidValidation(assetName, last);
                 this.checkAskValidation(assetName, last);
@@ -296,14 +301,14 @@ class Trader {
                 if (this.isInTrade()) {
                     // if we're in a trade, only make SELL/ASK decisions on that asset
                     if (this.currentTrade.asset == assetName) {
-                        let action = await this.action(assetName, candles, last.close);
+                        let action = await this.action(assetName, candles, currentPrice);
                         this.logAction(action);
                         return action;
                     } else {
                         return "HOLD";
                     }
                 } else {
-                    let action = await this.action(assetName, candles, last.close);
+                    let action = await this.action(assetName, candles, currentPrice);
                     this.logAction(action);
                     return action;
                 }

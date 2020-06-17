@@ -170,7 +170,7 @@ const trade = async function(name, fake) {
         if (candles.length >= analysisIntervalLength) {
             let candlesToAnalyse = candles.slice(candles.length - analysisIntervalLength);
             dt.connectCandles(candlesToAnalyse);
-            let action = await trader.decideAction(asset, candlesToAnalyse);
+            let action = await trader.decideAction(asset, candlesToAnalyse, currentPrice);
             displayTraderStatus(action);
 
             switch (action) {
