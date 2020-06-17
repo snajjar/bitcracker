@@ -229,6 +229,7 @@ class KrakenWebSocket extends EventEmitter {
             this.ws.onclose = async e => {
                 console.log(new Date, '[KRAKEN] closed socket');
                 clearInterval(this.clockTimer);
+                this.clockTimer = null;
                 this.reset();
                 if (this._onDisconnect) {
                     this._onDisconnect();
@@ -256,7 +257,14 @@ class KrakenWebSocket extends EventEmitter {
         let diff = moment.duration(now - this.lastMessageAt).asMilliseconds();
         if (diff > 10000) { // after 10s without message we disconnect
             console.log('[*] Connection lost');
-            this.ws.terminate();
+            if (this.ws) {
+                this.ws.terminate();
+            } else {
+                if (this.clockTimer) {
+                    clearInterval(this.clockTimer);
+                    this.clockTimer = null;
+                }
+            }
             return false;
         } else {
             //console.log('[*] Connection is alive');
@@ -660,9 +668,8 @@ class KrakenREST {
         try {
             await this.ws.connect();
         } catch (e) {
-            console.log('[*] Failed to connect to websocket, retrying in 2s...');
-            await sleep(2);
-            setTimeout(() => { this.initSocket(); }, 2000);
+            console.log('[*] Failed to connect to websocket, retrying in 10s...');
+            setTimeout(() => { this.initSocket(); }, 10000);
             return;
         }
 
