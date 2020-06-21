@@ -93,7 +93,7 @@ const getDataForInterval = async function(crypto, interval) {
     }
 
     if (candles.length === 0) {
-        throw 'No bitcoin data is available for the selected period';
+        throw `No ${crypto} data is available for the selected period`;
     }
 
     console.log(`[*] Retrieved ${crypto} history: ${dt.rangeStr(candles)}`);

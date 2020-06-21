@@ -58,7 +58,7 @@ var argv = yargs
         type: 'string',
     })
     .middleware([setOptions])
-    .command('fetch <asset> [currency] [source]', 'Fetch asset history', (yargs) => {
+    .command('fetch [asset] [currency] [source]', 'Fetch asset history', (yargs) => {
         yargs.positional('asset', {
             describe: 'Crypto asset of the pair',
         }).positional('currency', {
@@ -73,8 +73,12 @@ var argv = yargs
         })
     }, async (argv) => {
         const fetch = require('./fetch');
-        argv.asset = argv.asset.toUpperCase();
-        argv.currency = argv.currency.toUpperCase();
+        if (argv.asset) {
+            argv.asset = argv.asset.toUpperCase();
+        }
+        if (argv.currency) {
+            argv.currency = argv.currency.toUpperCase();
+        }
         await fetch(argv.asset, argv.currency, argv.source, argv.continue);
     })
     .command('list', 'list all cryptocurrencies available in history', (yargs) => {}, async (argv) => {

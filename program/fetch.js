@@ -69,7 +69,7 @@ let getRawFilePath = function(pair, source) {
 }
 
 var csvWriter = null;
-const fetch = async function(asset, currency, source, continueFromLast) {
+let fetchAsset = async function(asset, currency, source, continueFromLast) {
     let pair = asset + currency;
     let data = continueFromLast ? await getExistingData(pair, source) : [];
     let lastDataWritten = null;
@@ -157,6 +157,18 @@ const fetch = async function(asset, currency, source, continueFromLast) {
 
     console.log(`[*] removing empty lines`);
     csv.removeBlankLines(filePath);
+}
+
+const fetch = async function(asset, currency, source, continueFromLast) {
+    if (asset !== undefined) {
+        return await fetchAsset(asset, currency, source, continueFromLast);
+    } else {
+        let assets = await csv.getAssets();
+        for (let asset of assets) {
+            console.log(`[*] Fetching data for ${asset}`);
+            await fetchAsset(asset, currency, source, continueFromLast);
+        }
+    }
 }
 
 module.exports = fetch;

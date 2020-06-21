@@ -18,8 +18,7 @@ class ChampionTrader extends Trader {
         this.shortScalpProfit = { 'min': 0.002, 'max': 0.007 };
 
         // how close we are to the highest value of the analysis interval
-        this.dangerZoneRatio = 0.94;
-        this.volatilityRange = 0.3;
+        this.volatilityRange = 0.5;
     }
 
     analysisIntervalLength() {
