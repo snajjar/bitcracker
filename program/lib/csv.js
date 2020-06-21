@@ -28,6 +28,26 @@ const removeBlankLines = function(filePath) {
     fs.writeFileSync(filePath, content);
 }
 
+const getFiles = function(path) {
+    return new Promise((resolve, reject) => {
+        fs.readdir(path, function(err, items) {
+            let assetFiles = [];
+            for (let item of items) {
+                if (item.startsWith('Cex') && item.endsWith('_1m.csv')) {
+                    let s = item.split('_');
+                    assetFiles.push(s[1].replace('EUR', ''));
+                }
+            }
+
+            resolve(assetFiles);
+        });
+    });
+}
+
+const getAssets = async function() {
+    return await getFiles('./data');
+}
+
 const getData = async function() {
     let data = {};
     for (assetName of config.getAssets()) {
@@ -218,6 +238,7 @@ const setTrendPredictionData = async function(csvFilePath, data) {
 
 module.exports = {
     getData,
+    getAssets,
     getFileData,
     setFileData,
     setTradeData,

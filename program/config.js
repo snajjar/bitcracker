@@ -18,6 +18,8 @@ const config = {
     startDate: null,
     endDate: null,
 
+    realTradeSimulation: false,
+
     // fees table
     tradingFees: {
         0: {
@@ -160,6 +162,14 @@ const setTradingFees = function(tf) {
     config.tradingFees = tf;
 }
 
+const setRealTradeSimulation = function(b) {
+    return config.realTradeSimulation = b;
+}
+
+const getRealTradeSimulation = function() {
+    return config.realTradeSimulation;
+}
+
 module.exports = {
     getConfig,
     setConfig,
@@ -183,5 +193,7 @@ module.exports = {
     getStartFund,
     setStartFund,
     getTradingFees,
-    setTradingFees
+    setTradingFees,
+    getRealTradeSimulation,
+    setRealTradeSimulation
 }

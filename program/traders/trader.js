@@ -29,8 +29,13 @@ class Trader {
         this.wallet = new Wallet();
         this.wallet.setAmount("EUR", config.getStartFund());
 
-        this.bidCompletionProba = 1;
-        this.askCompletionProba = 1;
+        if (config.getRealTradeSimulation()) {
+            this.bidCompletionProba = 0.05;
+            this.askCompletionProba = 0.05;
+        } else {
+            this.bidCompletionProba = 1;
+            this.askCompletionProba = 1;
+        }
 
         // trade utils
         this.currentAsset = null;
@@ -50,6 +55,9 @@ class Trader {
         this.tradeVolume30 = null; // trade volume on 30 days. to be set with setTradingVolume()
         this.calculatedTradeVolume30 = null; // used if setTradingVolume() is not used
         this.recomputeTaxes();
+
+        // simulation data
+        let randomSpreadFactor = 1 / 100;
     }
 
     logAction(actionStr) {
@@ -345,7 +353,20 @@ class Trader {
                 let nextPeriod = candlesByasset[asset][i];
 
                 candles[asset].push(nextPeriod);
-                await this.decideAction(asset, candles[asset], _.last(candles[asset]).close);
+
+                let currentPrice = _.last(candles[asset]).close;
+                if (config.getRealTradeSimulation()) {
+                    // alterate the buy/sell price a little bit to adjust to market simulation
+                    // add a 1% random spread
+                    let randomSpread = Math.random() * currentPrice * this.randomSpreadFactor;
+                    if (this.isInTrade()) {
+                        currentPrice -= randomSpread;
+                    } else {
+                        currentPrice += randomSpread;
+                    }
+                }
+
+                await this.decideAction(asset, candles[asset], currentPrice);
 
                 if (this.wallet.value() < 20) {
                     // can't trade anymore
