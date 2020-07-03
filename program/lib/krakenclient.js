@@ -356,6 +356,10 @@ class KrakenWebSocket extends EventEmitter {
                 let found = false;
                 _.each(this.books[asset].as, (ask) => {
                     if (!ask) {
+                        // console.error('this should not happen !');
+                        // _.each(this.books[asset].as, (ask, index) => {
+                        //     console.log(index, ask);
+                        // });
                         return;
                     }
 
@@ -363,12 +367,7 @@ class KrakenWebSocket extends EventEmitter {
                     if (askPrice == priceStr) {
                         // we found the right ask
                         found = true;
-                        if (volume == 0) {
-                            // this is a delete message
-                            _.remove(this.books[asset].as, a => a == ask)
-                        } else {
-                            ask[1] = volumeStr;
-                        }
+                        ask[1] = volumeStr;
                     }
                 });
 
@@ -387,18 +386,15 @@ class KrakenWebSocket extends EventEmitter {
                 let found = false;
                 _.each(this.books[asset].bs, (bid) => {
                     if (!bid) {
+                        // console.error('this should not happen !');
                         return;
                     }
+
                     let bidPrice = bid[0];
                     if (bidPrice == priceStr) {
                         // we found the right ask
                         found = true;
-                        if (volume == 0) {
-                            // this is a delete message
-                            _.remove(this.books[asset].bs, b => b == bid)
-                        } else {
-                            bid[1] = volumeStr;
-                        }
+                        bid[1] = volumeStr;
                     }
                 });
 
@@ -410,6 +406,14 @@ class KrakenWebSocket extends EventEmitter {
                 }
             });
         }
+
+        // remove lines where volume reach 0
+        _.remove(this.books[asset].as, col => parseFloat(col[1]) === 0);
+        _.remove(this.books[asset].bs, col => parseFloat(col[1]) === 0);
+
+        // sort again as and bs
+        this.books[asset].as = _.sortBy(this.books[asset].as, col => parseFloat(col[0]));
+        this.books[asset].bs = _.sortBy(this.books[asset].bs, col => -parseFloat(col[0]));
 
         //this.displayOrderBook(asset);
     }
@@ -431,8 +435,8 @@ class KrakenWebSocket extends EventEmitter {
             console.log(`${bidStr}\t\t${askStr}`);
         }
 
-        console.log('Estimate buy price for 80k€: ', this.estimateBuyPrice("XBT", 80000));
-        console.log('Estimate sell price for 10 BTC: ', this.estimateSellPrice("XBT", 10));
+        console.log('Estimate buy price for 2k€ of ETH: ', this.estimateBuyPrice("ETH", 2000));
+        console.log('Estimate sell price for 10 ETH: ', this.estimateSellPrice("ETH", 10));
     }
 
     // return the top value of bidding price
@@ -703,17 +707,15 @@ class KrakenREST {
         this._onNewCandle = cb;
     }
 
-    estimateSellPrice(asset) {
-        let volume = this.wallet.getAmount(asset);
+    estimateSellPrice(asset, assetAmount) {
+        let volume = assetAmount ? assetAmount : this.wallet.getAmount(asset);
         return this.ws.estimateSellPrice(asset, volume);
     }
 
-    estimateBuyPrice(asset) {
-        let volume = this.wallet.getCurrencyAmount();
+    estimateBuyPrice(asset, currencyAmount) {
+        let volume = currencyAmount ? currencyAmount : this.wallet.getCurrencyAmount();
         return this.ws.estimateBuyPrice(asset, volume);
     }
-
-
 
     // get OHLC data for asset "asset"
     // return true if there is new data, false otherwise
@@ -1342,7 +1344,7 @@ class KrakenREST {
 
 var main = async function() {
     //let assets = ["XBT", "XRP", "DASH"];
-    let assets = ["XBT"];
+    let assets = ["ETH"];
 
     let k = new KrakenREST();
     k.kraken = new KrakenRestAPI();
@@ -1353,47 +1355,14 @@ var main = async function() {
     await k.synchronize(); // get server time delay
     k.setHistorySize(10);
     k.onNewCandle((asset, candle) => {
-        console.log(`${asset} (ws)`);
-        console.log(candle);
+        let lastTraded = candle.close;
+        let marketBuy = k.estimateBuyPrice(asset, 1000);
+        let marketSell = k.estimateSellPrice(asset, 5);
+
+        console.log(`marketSell=${price(marketSell)} lastTraded=${price(lastTraded)} marketBuy=${price(marketBuy)}`);
+        k.ws.displayOrderBook(asset);
     });
     await k.initSocket();
-
-
-    // await k.connect();
-    // k.wallet.setAmount('EUR', 1000);
-    // await k.synchronize(); // get server time delay
-    // k.setHistorySize(10);
-
-    // for (let asset of assets) {
-    //     await k.addAsset(asset);
-    // }
-
-    // k.ws.onNewCandle((asset, candle) => {
-    //     //k.ws.displayLastPrices(asset);
-    //     console.log(`${asset} (ws)`);
-    //     console.log(candle);
-    // });
-    // await k.ws.initClockTimer();
-
-    // while (1) {
-    //     await k.nextMinute();
-
-    //     for (let asset of assets) {
-    //         await k.nextData(asset);
-    //         //k.displayLastPrices(asset);
-    //         console.log(`${asset} (rest)`);
-    //         console.log(_.last(k.prices[asset].candles));
-    //     }
-    // }
-
-    // let krakenws = new KrakenWebSocket();
-    // await krakenws.connect();
-    // krakenws.subscribeBook("XBT");
-
-    // while (1) {
-    //     await sleep(5);
-    //     krakenws.displayOrderBook("XBT");
-    // }
 }
 
 if (require.main === module) {
