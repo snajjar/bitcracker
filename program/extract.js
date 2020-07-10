@@ -76,7 +76,7 @@ const convertToInterval = function(data, interval) {
     // remove the very last element, so we ensure that we don't have an "unfinished" sample
     samples.pop();
 
-    dt.connectCandles(samples);
+    //dt.connectCandles(samples);
     return samples;
 }
 
