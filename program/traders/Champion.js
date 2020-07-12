@@ -8,7 +8,7 @@ class ChampionTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.2, 'max': 0.42 };
+        this.emaDownTrigger = { 'min': 0.2, 'max': 0.4 };
         this.emaUpTrigger = { 'min': 0.15, 'max': 0.3 };
 
         // Trader will also scalp shortly after a buy
@@ -18,7 +18,7 @@ class ChampionTrader extends Trader {
     }
 
     analysisIntervalLength() {
-        return 28;
+        return 1440 * 7;
     }
 
     hash() {
@@ -58,6 +58,7 @@ class ChampionTrader extends Trader {
     }
 
     getEMA(dataPeriods) {
+        let candles = dataPeriods.slice(dataPeriods.length - 28);
         let closePrices = _.map(dataPeriods, p => p.close);
         return new Promise((resolve, reject) => {
             tulind.indicators.ema.indicator([closePrices], [this.emaPeriods], function(err, results) {
@@ -68,6 +69,10 @@ class ChampionTrader extends Trader {
                 }
             });
         });
+    }
+
+    getAllTimeHigh(dataPeriods) {
+        return _.maxBy(dataPeriods, o => o.high);
     }
 
     getBidWinningPrice() {
@@ -83,14 +88,21 @@ class ChampionTrader extends Trader {
             let emadiff = (currentPrice / currEMA * 100) - 100;
             let bidtaxdiff = (this.getBuyTax() + this.getSellTax() - this.getAskTax() - this.getBidTax()) / 2;
             let emabiddiff = (currentPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
+            let closeToAllTimeHigh = currentPrice > this.getAllTimeHigh() * 0.90;
+
+            console.log('AllTime high:', this.getAllTimeHigh());
 
             if (!this.isInTrade()) {
-                if (emadiff < -this.adaptativeEMADownTrigger()) {
-                    // BUY condition
-                    this.timeInTrade = 0;
-                    return this.buy();
-                } else if (emabiddiff < -this.adaptativeEMADownTrigger()) {
-                    return this.bid(currentPrice);
+                if (!closeToAllTimeHigh) {
+                    if (emadiff < -this.adaptativeEMADownTrigger()) {
+                        // BUY condition
+                        this.timeInTrade = 0;
+                        return this.buy();
+                    } else if (emabiddiff < -this.adaptativeEMADownTrigger()) {
+                        return this.bid(currentPrice);
+                    } else {
+                        return this.hold();
+                    }
                 } else {
                     return this.hold();
                 }

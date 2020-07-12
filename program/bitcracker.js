@@ -57,8 +57,13 @@ var argv = yargs
         describe: 'Taker tax (in %)',
         type: 'string',
     })
+    .option('verbose', {
+        alias: 'v',
+        describe: 'verbose mode',
+        type: 'boolean',
+    })
     .middleware([setOptions])
-    .command('fetch <asset> [currency] [source]', 'Fetch', (yargs) => {
+    .command('fetch [asset] [currency] [source]', 'Fetch asset history', (yargs) => {
         yargs.positional('asset', {
             describe: 'Crypto asset of the pair',
         }).positional('currency', {
@@ -73,9 +78,17 @@ var argv = yargs
         })
     }, async (argv) => {
         const fetch = require('./fetch');
-        argv.asset = argv.asset.toUpperCase();
-        argv.currency = argv.currency.toUpperCase();
+        if (argv.asset) {
+            argv.asset = argv.asset.toUpperCase();
+        }
+        if (argv.currency) {
+            argv.currency = argv.currency.toUpperCase();
+        }
         await fetch(argv.asset, argv.currency, argv.source, argv.continue);
+    })
+    .command('list', 'list all cryptocurrencies available in history', (yargs) => {}, async (argv) => {
+        const list = require('./list');
+        await list();
     })
     .command('extract <asset> [currency] [interval]', 'Extract and refine data from a specific granularity. If no arguments specified, extract for all granularities', (yargs) => {
         yargs.positional('interval', {
@@ -154,9 +167,16 @@ var argv = yargs
             describe: 'The trader name. Type "./bitcracker.js list traders" to have the complete list'
         }).positional('resultInterval', {
             describe: 'Gather results for every [interval]. Examples: 5m 5h 5d 5w 5M 5Y',
+        }).option('simulation', {
+            describe: 'Alterate result with randomness to simulate a real-trade environment',
+            type: 'boolean',
         })
     }, async (argv) => {
         const evaluate = require('./evaluate');
+
+        if (argv.simulation) {
+            config.setRealTradeSimulation(argv.simulation);
+        }
 
         let duration = null;
         if (argv.resultInterval) {
@@ -270,6 +290,10 @@ function setOptions(argv) {
         config.setInterval(interval);
     } else {
         config.setInterval(1);
+    }
+
+    if (argv.verbose) {
+        config.setVerbose(true);
     }
 }
 

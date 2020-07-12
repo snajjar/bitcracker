@@ -78,7 +78,7 @@ const trade = async function(name, fake) {
     let trader = await getTrader(name);
     let k = new KrakenClient(fake);
     let assets = getAssets();
-    let priceTolerance = 0.0005;
+    let nbAssets = assets.length;
 
     let refreshTrader = async function() {
         console.log('[*] Refreshing trader data');
@@ -90,7 +90,7 @@ const trade = async function(name, fake) {
     let displayTraderStatus = function(action) {
         let lastTradeStr = trader.inTrade ? ` lastBuy=${k.lastBuyPrice()}€` : ``
         let objectiveStr = trader.getObjective ? ` objective=${trader.getObjective().toFixed(0)}€` : "";
-        console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} inTrade=${trader.isInTrade().toString().cyan}${lastTradeStr}${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
+        console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} asset=${trader.currentAsset} inTrade=${trader.isInTrade().toString().cyan}${lastTradeStr}${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
     }
 
     let waitForOrderCompletion = async function() {
@@ -101,62 +101,76 @@ const trade = async function(name, fake) {
             k.refreshOpenOrders();
 
             if (!k.hasOpenOrders()) {
-                await k.refreshTrader();
+                await refreshTrader();
             }
         }
     }
 
+    // trader mutex to make sure we don't handle 2 assets at the same time
+    // to avoid confusing the trader
+    let traderBusy = false;
+    let takeTraderMutex = async function() {
+        return new Promise((resolve) => {
+            let checkIfTraderReady = () => {
+                if (traderBusy) {
+                    setTimeout(checkIfTraderReady, 1000);
+                } else {
+                    traderBusy = true;
+                    resolve();
+                }
+            }
+            checkIfTraderReady();
+        });
+    };
+    let releaseTraderMutex = function() {
+        traderBusy = false;
+    }
+
+    let count = 0;
+
     // login and display account infos
-    await k.login();
-    await k.synchronize(); // get server time delay
+    k.setHistorySize(trader.analysisIntervalLength());
     for (let asset of assets) {
         k.addAsset(asset);
-        await k.refreshOHLC(asset);
-        await sleep(1);
     }
+    await k.login();
+    await k.synchronize(); // get server time delay
     await refreshTrader();
     k.displayAccount();
 
-    let count = 0;
-    while (1) {
-        await k.nextMinute();
-
-        console.log('');
+    k.onNewCandle(async (asset, newCandle) => {
+        await takeTraderMutex();
         console.log('');
 
-        for (let asset of assets) {
-            console.log('');
+        k.displayLastPrices(asset);
 
-            // wait for the next ohlc tick
-            await k.nextData(asset);
-
-            k.displayLastPrices(asset);
-
-            // resolve current price
-            // give the price of the worst case scenario to our trader
-            let lastTradedPrice = k.getLastTradedPrice(asset)
-            let currentPrice;
-            if (trader.isInTrade()) {
-                let estimatedPrice = k.estimateSellPrice(asset);
-                if (estimatedPrice && !isNaN(estimatedPrice)) {
-                    currentPrice = Math.min(estimatedPrice, lastTradedPrice);
-                } else {
-                    currentPrice = lastTradedPrice;
-                }
+        // resolve current price
+        // give the price of the worst case scenario to our trader
+        let lastTradedPrice = k.getLastTradedPrice(asset)
+        let currentPrice;
+        if (trader.isInTrade()) {
+            let estimatedPrice = k.estimateSellPrice(asset);
+            if (estimatedPrice && !isNaN(estimatedPrice)) {
+                currentPrice = Math.min(estimatedPrice, lastTradedPrice);
             } else {
-                let estimatedPrice = k.estimateBuyPrice(asset);
-                if (estimatedPrice && !isNaN(estimatedPrice)) {
-                    currentPrice = Math.max(estimatedPrice, lastTradedPrice);
-                } else {
-                    currentPrice = lastTradedPrice;
-                }
+                currentPrice = lastTradedPrice;
             }
+        } else {
+            let estimatedPrice = k.estimateBuyPrice(asset);
+            if (estimatedPrice && !isNaN(estimatedPrice)) {
+                currentPrice = Math.max(estimatedPrice, lastTradedPrice);
+            } else {
+                currentPrice = lastTradedPrice;
+            }
+        }
 
-            // time for trader action
-            let candles = k.getPriceCandles(asset);
-            let candlesToAnalyse = candles.slice(candles.length - trader.analysisIntervalLength());
-            dt.connectCandles(candlesToAnalyse);
-            let action = await trader.decideAction(asset, candlesToAnalyse);
+        // time for trader action
+        let analysisIntervalLength = trader.analysisIntervalLength();
+        let candles = k.getPriceCandles(asset);
+        if (candles.length >= analysisIntervalLength) {
+            let candlesToAnalyse = candles.slice(candles.length - analysisIntervalLength);
+            //dt.connectCandles(candlesToAnalyse);
+            let action = await trader.decideAction(asset, candlesToAnalyse, currentPrice);
             displayTraderStatus(action);
 
             switch (action) {
@@ -180,28 +194,30 @@ const trade = async function(name, fake) {
                     console.log(`  - BIDDING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(k.wallet.getCurrencyAmount()/currentPrice)} ${asset}`);
                     await k.bidAll(asset, currentPrice);
                     await waitForOrderCompletion();
-                    await refreshTrader();
                     k.displayAccount();
-
                     break;
                 case "ASK":
                     console.log(`  - ASKING for ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
                     await k.askAll(asset, currentPrice);
                     await waitForOrderCompletion();
-                    await refreshTrader();
                     k.displayAccount();
                     break;
                 default:
                     console.error('Trader returned no action !'.red);
             }
+
+            if (count++ % (5 * nbAssets) == (5 * nbAssets) - 1) {
+                // every once in a while, refresh the trader data and display it's status
+                await refreshTrader();
+                k.displayAccount();
+            }
+        } else {
+            console.log(`[*] skipping trader action, ${candles.length}/${analysisIntervalLength} periods necessary for analysis`);
         }
 
-        if (count++ % 10 == 9) {
-            // every once in a while, refresh the trader data and display it's status
-            await refreshTrader();
-            k.displayAccount();
-        }
-    }
+        releaseTraderMutex();
+    });
+    await k.initSocket(); // connect to websocket
 }
 
 module.exports = trade;

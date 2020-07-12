@@ -9,17 +9,20 @@ class ChampionTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.2, 'max': 0.44 };
-        this.emaUpTrigger = { 'min': 0.1, 'max': 0.3 };
+        this.emaDownTrigger = { 'min': 0.27, 'max': 0.35 };
+        this.emaUpTrigger = { 'min': 0.16, 'max': 0.32 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
-        this.winTradePeriod = 60;
-        this.shortScalpProfit = { 'min': 0.001, 'max': 0.0035 };
+        this.winTradePeriod = { 'min': 60, 'max': 120 };
+        this.shortScalpProfit = { 'min': 0.002, 'max': 0.007 };
+
+        // how close we are to the highest value of the analysis interval
+        this.volatilityRange = 0.5;
     }
 
     analysisIntervalLength() {
-        return 28;
+        return 700;
     }
 
     hash() {
@@ -46,20 +49,29 @@ class ChampionTrader extends Trader {
         return curr / taxRange;
     }
 
-    adaptativeEMADownTrigger() {
-        return this.logSlider(this.emaDownTrigger.min, this.emaDownTrigger.max, this.getTaxRatio());
+    adaptativeEMADownTrigger(candles) {
+        // adjust thoses triggers to the asset volatility
+        let assetVolatility = this.getAssetVolatility(candles);
+        return this.logSlider(this.emaDownTrigger.min + assetVolatility, this.emaDownTrigger.max + assetVolatility, this.getTaxRatio());
     }
 
-    adaptativeEMAUpTrigger() {
-        return this.logSlider(this.emaUpTrigger.min, this.emaUpTrigger.max, this.getTaxRatio());
+    adaptativeEMAUpTrigger(candles) {
+        // adjust thoses triggers to the asset volatility
+        let assetVolatility = this.getAssetVolatility(candles);
+        return this.logSlider(this.emaUpTrigger.min + assetVolatility, this.emaUpTrigger.max + assetVolatility, this.getTaxRatio());
     }
 
     adaptativeScalp() {
         return this.logSlider(this.shortScalpProfit.min, this.shortScalpProfit.max, this.getTaxRatio());
     }
 
+    getAdaptativeWinTradePeriod() {
+        return this.logSlider(this.winTradePeriod.min, this.winTradePeriod.max, this.getTaxRatio());
+    }
+
     getEMA(dataPeriods) {
-        let closePrices = _.map(dataPeriods, p => p.close);
+        let candles = dataPeriods.slice(dataPeriods.length - 28);
+        let closePrices = _.map(candles, p => p.close);
         return new Promise((resolve, reject) => {
             tulind.indicators.ema.indicator([closePrices], [this.emaPeriods], function(err, results) {
                 if (err) {
@@ -71,8 +83,24 @@ class ChampionTrader extends Trader {
         });
     }
 
+    getHighest(candles) {
+        return _.maxBy(candles, o => o.high).high;
+    }
+
+    getLowest(candles) {
+        return _.minBy(candles, o => o.low).low;
+    }
+
     getBidWinningPrice() {
         return this.enterTradeValue * (1 + this.getBuyTax() + this.getAskTax());
+    }
+
+    // return a percentage of how much the action moved compared to it's price
+    getAssetVolatility(candles) {
+        let highest = this.getHighest(candles);
+        let lowest = this.getLowest(candles);
+        let volatility = (highest - lowest) / highest;
+        return volatility;
     }
 
     // decide for an action
@@ -86,19 +114,23 @@ class ChampionTrader extends Trader {
             let emabiddiff = (currentPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
 
             if (!this.isInTrade()) {
-                // compute linear regression for the last 10 ema
-                // filter out trades when EMA has a really bad shape
-                let lastEMAs = ema.slice(ema.length - 10);
-                let [a, b] = dt.linearRegression(_.range(10), lastEMAs);
-                if (a < -3) {
+                let highest = this.getHighest(candles);
+                let lowest = this.getLowest(candles);
+                let volatility = highest - lowest;
+                let priceTreshold = lowest + volatility * this.volatilityRange;
+                if (currentPrice > priceTreshold) {
+                    // console.log('close to all time high, hold');
                     return this.hold();
+                } else {
+                    //console.log(`price: ${currentPrice}, low: ${lowest}, high: ${highest}`);
                 }
 
-                if (emadiff < -this.adaptativeEMADownTrigger()) {
+                if (emadiff < -this.adaptativeEMADownTrigger(candles)) {
                     // BUY condition
                     this.timeInTrade = 0;
-                    return this.buy();
-                } else if (emabiddiff < -this.adaptativeEMADownTrigger()) {
+                    //return this.buy();
+                    return this.bid(currentPrice);
+                } else if (emabiddiff < -this.adaptativeEMADownTrigger(candles)) {
                     return this.bid(currentPrice);
                 } else {
                     return this.hold();
@@ -120,7 +152,8 @@ class ChampionTrader extends Trader {
                     let winningBidScalpTrade = currentPrice > this.getAskWinningPrice() * (1 + scalpProfit);;
 
                     if (winningScalpTrade) {
-                        return this.sell();
+                        //return this.sell();
+                        return this.ask(currentPrice);
                     }
 
                     if (winningBidScalpTrade) {
@@ -128,12 +161,13 @@ class ChampionTrader extends Trader {
                     }
 
                     // if EMA tells us to sell, sell if it's winning
-                    let emaBigUp = emadiff > this.adaptativeEMAUpTrigger();
+                    let emaBigUp = emadiff > this.adaptativeEMAUpTrigger(candles);
                     if (emaBigUp && winningTrade) {
-                        return this.sell();
+                        //return this.sell();
+                        return this.ask(currentPrice);
                     }
 
-                    let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger();
+                    let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger(candles);
                     if (winningAsk) {
                         return this.ask(currentPrice);
                     }
@@ -141,10 +175,12 @@ class ChampionTrader extends Trader {
                     // if both tells us to sell (and it's not winning), sell if we didnt buy less than this.winTradePeriod min ago
                     if (emaBigUp) {
                         // if we're shortly after buy, don't sell at loss
-                        if (!winningTrade && this.timeInTrade <= this.winTradePeriod) {
+                        let winTradePeriod = this.getAdaptativeWinTradePeriod();
+                        if (!winningTrade && this.timeInTrade <= winTradePeriod) {
                             return this.hold();
                         } else {
-                            return this.sell();
+                            return this.ask(currentPrice);
+                            //return this.hold();
                         }
                     }
                 }
