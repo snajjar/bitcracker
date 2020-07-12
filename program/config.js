@@ -18,6 +18,8 @@ const config = {
     startDate: null,
     endDate: null,
 
+    verbose: false,
+
     realTradeSimulation: false,
 
     // fees table
@@ -170,6 +172,15 @@ const getRealTradeSimulation = function() {
     return config.realTradeSimulation;
 }
 
+const setVerbose = function(b) {
+    return config.verbose = b;
+}
+
+const getVerbose = function() {
+    return config.verbose;
+}
+
+
 module.exports = {
     getConfig,
     setConfig,
@@ -195,5 +206,7 @@ module.exports = {
     getTradingFees,
     setTradingFees,
     getRealTradeSimulation,
-    setRealTradeSimulation
+    setRealTradeSimulation,
+    setVerbose,
+    getVerbose,
 }

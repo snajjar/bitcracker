@@ -9,8 +9,8 @@ class ChampionTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.3, 'max': 0.38 };
-        this.emaUpTrigger = { 'min': 0.2, 'max': 0.38 };
+        this.emaDownTrigger = { 'min': 0.28, 'max': 0.36 };
+        this.emaUpTrigger = { 'min': 0.18, 'max': 0.36 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
@@ -49,18 +49,21 @@ class ChampionTrader extends Trader {
         return curr / taxRange;
     }
 
-    adaptativeEMADownTrigger() {
-        return this.logSlider(this.emaDownTrigger.min, this.emaDownTrigger.max, this.getTaxRatio());
+    adaptativeEMADownTrigger(candles) {
+        // adjust thoses triggers to the asset volatility
+        let assetVolatility = this.getAssetVolatility(candles);
+        return this.logSlider(this.emaDownTrigger.min + assetVolatility, this.emaDownTrigger.max + assetVolatility, this.getTaxRatio());
     }
 
-    adaptativeEMAUpTrigger() {
-        return this.logSlider(this.emaUpTrigger.min, this.emaUpTrigger.max, this.getTaxRatio());
+    adaptativeEMAUpTrigger(candles) {
+        // adjust thoses triggers to the asset volatility
+        let assetVolatility = this.getAssetVolatility(candles);
+        return this.logSlider(this.emaUpTrigger.min + assetVolatility, this.emaUpTrigger.max + assetVolatility, this.getTaxRatio());
     }
 
     adaptativeScalp() {
         return this.logSlider(this.shortScalpProfit.min, this.shortScalpProfit.max, this.getTaxRatio());
     }
-
 
     getAdaptativeWinTradePeriod() {
         return this.logSlider(this.winTradePeriod.min, this.winTradePeriod.max, this.getTaxRatio());
@@ -92,6 +95,14 @@ class ChampionTrader extends Trader {
         return this.enterTradeValue * (1 + this.getBuyTax() + this.getAskTax());
     }
 
+    // return a percentage of how much the action moved compared to it's price
+    getAssetVolatility(candles) {
+        let highest = this.getHighest(candles);
+        let lowest = this.getLowest(candles);
+        let volatility = (highest - lowest) / highest;
+        return volatility;
+    }
+
     // decide for an action
     async action(crypto, candles, currentPrice) {
         // calculate sma indicator
@@ -114,11 +125,12 @@ class ChampionTrader extends Trader {
                     //console.log(`price: ${currentPrice}, low: ${lowest}, high: ${highest}`);
                 }
 
-                if (emadiff < -this.adaptativeEMADownTrigger()) {
+                if (emadiff < -this.adaptativeEMADownTrigger(candles)) {
                     // BUY condition
                     this.timeInTrade = 0;
-                    return this.buy();
-                } else if (emabiddiff < -this.adaptativeEMADownTrigger()) {
+                    //return this.buy();
+                    return this.bid(currentPrice);
+                } else if (emabiddiff < -this.adaptativeEMADownTrigger(candles)) {
                     return this.bid(currentPrice);
                 } else {
                     return this.hold();
@@ -140,7 +152,8 @@ class ChampionTrader extends Trader {
                     let winningBidScalpTrade = currentPrice > this.getAskWinningPrice() * (1 + scalpProfit);;
 
                     if (winningScalpTrade) {
-                        return this.sell();
+                        //return this.sell();
+                        return this.ask(currentPrice);
                     }
 
                     if (winningBidScalpTrade) {
@@ -148,12 +161,13 @@ class ChampionTrader extends Trader {
                     }
 
                     // if EMA tells us to sell, sell if it's winning
-                    let emaBigUp = emadiff > this.adaptativeEMAUpTrigger();
+                    let emaBigUp = emadiff > this.adaptativeEMAUpTrigger(candles);
                     if (emaBigUp && winningTrade) {
-                        return this.sell();
+                        //return this.sell();
+                        return this.ask(currentPrice);
                     }
 
-                    let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger();
+                    let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger(candles);
                     if (winningAsk) {
                         return this.ask(currentPrice);
                     }
@@ -165,7 +179,8 @@ class ChampionTrader extends Trader {
                         if (!winningTrade && this.timeInTrade <= winTradePeriod) {
                             return this.hold();
                         } else {
-                            return this.sell();
+                            return this.ask(currentPrice);
+                            //return this.hold();
                         }
                     }
                 }

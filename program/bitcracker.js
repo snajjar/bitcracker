@@ -57,6 +57,11 @@ var argv = yargs
         describe: 'Taker tax (in %)',
         type: 'string',
     })
+    .option('verbose', {
+        alias: 'v',
+        describe: 'verbose mode',
+        type: 'boolean',
+    })
     .middleware([setOptions])
     .command('fetch [asset] [currency] [source]', 'Fetch asset history', (yargs) => {
         yargs.positional('asset', {
@@ -285,6 +290,10 @@ function setOptions(argv) {
         config.setInterval(interval);
     } else {
         config.setInterval(1);
+    }
+
+    if (argv.verbose) {
+        config.setVerbose(true);
     }
 }
 
