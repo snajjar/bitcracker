@@ -128,8 +128,8 @@ class ChampionTrader extends Trader {
                 if (emadiff < -this.adaptativeEMADownTrigger(candles)) {
                     // BUY condition
                     this.timeInTrade = 0;
-                    //return this.buy();
-                    return this.bid(currentPrice);
+                    return this.buy();
+                    //return this.bid(currentPrice);
                 } else if (emabiddiff < -this.adaptativeEMADownTrigger(candles)) {
                     return this.bid(currentPrice);
                 } else {
@@ -152,8 +152,8 @@ class ChampionTrader extends Trader {
                     let winningBidScalpTrade = currentPrice > this.getAskWinningPrice() * (1 + scalpProfit);;
 
                     if (winningScalpTrade) {
-                        //return this.sell();
-                        return this.ask(currentPrice);
+                        return this.sell();
+                        //return this.ask(currentPrice);
                     }
 
                     if (winningBidScalpTrade) {
@@ -163,8 +163,8 @@ class ChampionTrader extends Trader {
                     // if EMA tells us to sell, sell if it's winning
                     let emaBigUp = emadiff > this.adaptativeEMAUpTrigger(candles);
                     if (emaBigUp && winningTrade) {
-                        //return this.sell();
-                        return this.ask(currentPrice);
+                        return this.sell();
+                        //return this.ask(currentPrice);
                     }
 
                     let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger(candles);
