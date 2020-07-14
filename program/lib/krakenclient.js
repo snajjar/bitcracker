@@ -10,6 +10,7 @@ const KrakenRestAPI = require('kraken-api');
 const moment = require('moment');
 const dotenv = require('dotenv');
 const dt = require('./datatools');
+const CRC32 = require('crc-32');
 
 const extractFieldsFromKrakenData = function(arr) {
     return {
@@ -75,6 +76,8 @@ class KrakenWebSocket extends EventEmitter {
         this.clockTimer = null;
         this._onNewCandle = null; // cb
         this._onDisconnect = null; // cb
+        this._onSubscriptionChanged = null; // cb
+        this._onFirstBookUpdate = null; // cb
     }
 
     setHistorySize(n) {
@@ -174,12 +177,12 @@ class KrakenWebSocket extends EventEmitter {
         this._onNewCandle = cb;
     }
 
-    addAsset(asset) {
+    async addAsset(asset) {
         if (!this.assets.includes(asset)) {
             this.assets.push(asset);
         }
-        this.subscribeOHLC(asset);
-        this.subscribeBook(asset);
+        await this.subscribeOHLC(asset);
+        await this.subscribeBook(asset);
     }
 
     initOHLC(asset, candles, currentCandle, since) {
@@ -247,8 +250,8 @@ class KrakenWebSocket extends EventEmitter {
         console.log('[*] Reconnecting to websocket');
         await this.connect();
         for (let asset of this.assets) {
-            this.subscribeBook(asset);
-            this.subscribeOHLC(asset);
+            await this.subscribeBook(asset);
+            await this.subscribeOHLC(asset);
         }
     }
 
@@ -290,13 +293,21 @@ class KrakenWebSocket extends EventEmitter {
                 case "heartbeat":
                     this.onHeartBeat(payload);
                     break;
+                case "subscriptionStatus":
+                    this.onSubscriptionChanged(payload);
                 default:
-                    // console.log(JSON.stringify(payload, null, 2));
+                    //console.log(JSON.stringify(payload, null, 2));
             }
         }
     }
 
-    _handleSubscriptionMessage(msg) {
+    onSubscriptionChanged(payload) {
+        if (this._onSubscriptionChanged) {
+            this._onSubscriptionChanged(payload);
+        }
+    }
+
+    async _handleSubscriptionMessage(msg) {
         // console.log(JSON.stringify(msg, null, 2));
         let asset;
 
@@ -307,7 +318,7 @@ class KrakenWebSocket extends EventEmitter {
                 break;
             case "book-10":
                 asset = msg.pair.split('/')[0];
-                this._handleBookUpdate(asset, msg);
+                await this._handleBookUpdate(asset, msg);
                 break;
             default:
                 // console.log(JSON.stringify(msg, null, 2));
@@ -340,18 +351,29 @@ class KrakenWebSocket extends EventEmitter {
         }
     }
 
-    _handleBookUpdate(asset, msg) {
+    async _handleBookUpdate(asset, msg) {
         let book = _.get(this.books, [asset]);
+        let checksum = null;
         if (!book) {
             // book init
             this.books[asset] = msg.data;
             console.log(`[*] ${asset} book init`);
+
+            if (this._onFirstBookUpdate) {
+                this._onFirstBookUpdate(asset);
+            }
+
+            //console.log('Init book with message: ' + JSON.stringify(msg.data));
+            this.displayOrderBook(asset);
         } else {
+            checksum = msg.data.c;
+
+            // console.log(JSON.stringify(msg, null, 2));
+
             // book update
             _.each(msg.data.a, (newAsk) => {
                 let priceStr = newAsk[0];
                 let volumeStr = newAsk[1];
-                let volume = parseFloat(volumeStr);
 
                 let found = false;
                 _.each(this.books[asset].as, (ask) => {
@@ -381,7 +403,6 @@ class KrakenWebSocket extends EventEmitter {
             _.each(msg.data.b, (newBid) => {
                 let priceStr = newBid[0];
                 let volumeStr = newBid[1];
-                let volume = parseFloat(volumeStr);
 
                 let found = false;
                 _.each(this.books[asset].bs, (bid) => {
@@ -415,7 +436,59 @@ class KrakenWebSocket extends EventEmitter {
         this.books[asset].as = _.sortBy(this.books[asset].as, col => parseFloat(col[0]));
         this.books[asset].bs = _.sortBy(this.books[asset].bs, col => -parseFloat(col[0]));
 
-        //this.displayOrderBook(asset);
+        let bookChecksum = this.getBookChecksum(asset);
+        if (checksum && checksum !== bookChecksum) {
+            this.displayOrderBook(asset);
+            console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
+            console.log('[*] When receiving payload: ' + JSON.stringify(msg));
+            await this.unsubscribeBook(asset);
+            await this.subscribeBook(asset);
+        }
+    }
+
+    getBookChecksum(asset, bookContent) {
+        let book = bookContent ? bookContent : this.books[asset];
+
+        let crcInput = "";
+
+        // build the CRC32 key
+        // check here: https://docs.kraken.com/websockets/#book-checksum
+        // 1. get the top10 ask prices, sorted from low to high
+        // 2. Remove dots and leading zeros
+        // 3. Add formatted price to string concatenation
+        // 4. Repeat step 1->3 but for the volume
+        for (var i = 0; i < Math.min(10, book.as.length); i++) {
+            let line = book.as[i];
+            let price = line[0];
+            let priceWithoutDots = price.replace('.', '');
+            let priceWithoutTrailingZeros = Number(priceWithoutDots).toString();
+            crcInput += priceWithoutTrailingZeros;
+
+            let volume = line[1];
+            let volumeWithoutDots = volume.replace('.', '');
+            let volumeWithoutTrailingZeros = Number(volumeWithoutDots).toString();
+            crcInput += volumeWithoutTrailingZeros;
+        }
+
+        // same as before, but for the top10 bids, from high prices to low
+        for (var i = 0; i < Math.min(10, book.bs.length); i++) {
+            let line = book.bs[i];
+            let price = line[0];
+            let priceWithoutDots = price.replace('.', '');
+            let priceWithoutTrailingZeros = Number(priceWithoutDots).toString();
+            crcInput += priceWithoutTrailingZeros;
+
+            let volume = line[1];
+            let volumeWithoutDots = volume.replace('.', '');
+            let volumeWithoutTrailingZeros = Number(volumeWithoutDots).toString();
+            crcInput += volumeWithoutTrailingZeros;
+        }
+
+        let crcResult = CRC32.str(crcInput);
+
+        let Uint32Crc = (new Uint32Array([crcResult]))[0]; // cast signed int32 into uint32
+        let checksum = Uint32Crc.toString();
+        return checksum;
     }
 
     displayOrderBook(asset) {
@@ -493,8 +566,8 @@ class KrakenWebSocket extends EventEmitter {
             });
 
             // console.log(JSON.stringify(sellers, null, 2));
-
-            return sum / volume;
+            let estimatedBuyPrice = sum / volume || null;
+            return estimatedBuyPrice;
         } else {
             return null;
         }
@@ -538,7 +611,8 @@ class KrakenWebSocket extends EventEmitter {
 
             // console.log(JSON.stringify(buyers, null, 2));
 
-            return sum / volume;
+            let estimatedSellPrice = sum / volume || null;
+            return estimatedSellPrice;
         } else {
             return null;
         }
@@ -546,31 +620,81 @@ class KrakenWebSocket extends EventEmitter {
 
     onHeartBeat() {}
 
+    unsubscribeBook(asset) {
+        return new Promise(resolve => {
+            // console.log(`[*] Unsubscribing from asset ${asset} book order`);
+            this.ws.send(JSON.stringify({
+                "event": "unsubscribe",
+                "pair": [
+                    `${asset}/EUR`
+                ],
+                "subscription": {
+                    "name": "book",
+                    //"depth": 50,
+                }
+            }));
+
+            this._onSubscriptionChanged = (payload) => {
+                if (payload.status === "unsubscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
+                    this._onSubscriptionChanged = null; // free the cb
+                    resolve();
+                }
+            };
+        });
+    }
+
     subscribeBook(asset) {
-        // console.log(`[*] Subscribing to asset ${asset} book order`);
-        this.ws.send(JSON.stringify({
-            "event": "subscribe",
-            "pair": [
-                `${asset}/EUR`
-            ],
-            "subscription": {
-                "name": "book",
-                //"depth": 50,
-            }
-        }));
+        return new Promise(resolve => {
+            // console.log(`[*] Subscribing to asset ${asset} book order`);
+            this.ws.send(JSON.stringify({
+                "event": "subscribe",
+                "pair": [
+                    `${asset}/EUR`
+                ],
+                "subscription": {
+                    "name": "book",
+                    //"depth": 50,
+                }
+            }));
+
+            this._onSubscriptionChanged = (payload) => {
+                if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
+                    this._onSubscriptionChanged = null; // free the cb
+
+                    // reset the asset book
+                    this.books[asset] = null;
+
+                    this._onFirstBookUpdate = (bookAsset) => {
+                        if (bookAsset == asset) {
+                            this._onFirstBookUpdate = null; // free the cb
+                            resolve();
+                        }
+                    };
+                }
+            };
+        });
     }
 
     subscribeOHLC(asset) {
-        this.ws.send(JSON.stringify({
-            "event": "subscribe",
-            "pair": [
-                `${asset}/EUR`
-            ],
-            "subscription": {
-                "interval": 1,
-                "name": "ohlc"
-            }
-        }));
+        return new Promise(resolve => {
+            this.ws.send(JSON.stringify({
+                "event": "subscribe",
+                "pair": [
+                    `${asset}/EUR`
+                ],
+                "subscription": {
+                    "interval": 1,
+                    "name": "ohlc"
+                }
+            }));
+
+            this._onSubscriptionChanged = (payload) => {
+                if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "ohlc") {
+                    this._onSubscriptionChanged = null; // free the cb
+                    resolve();
+                }
+            };
+        });
     }
 
     displayLastPrices(asset) {
@@ -681,7 +805,7 @@ class KrakenREST {
             console.log('[*] Initializing asset: ', asset);
             await this.refreshOHLC(asset);
             this.ws.initOHLC(asset, this.prices[asset].candles, this.prices[asset].currCandle, this.prices[asset].since);
-            this.ws.addAsset(asset);
+            await this.ws.addAsset(asset);
             await sleep(1);
         }
         this.ws.onDisconnect(async () => {
@@ -1349,7 +1473,7 @@ var main = async function() {
     let k = new KrakenREST();
     k.kraken = new KrakenRestAPI();
     for (let asset of assets) {
-        k.addAsset(asset);
+        await k.addAsset(asset);
     }
     k.wallet.setAmount('EUR', 1000);
     await k.synchronize(); // get server time delay
@@ -1363,6 +1487,34 @@ var main = async function() {
         k.ws.displayOrderBook(asset);
     });
     await k.initSocket();
+
+    // k.ws.getBookChecksum("ETH", {
+    //     "as": [
+    //         ["0.05005", "0.00000500", "1582905487.684110"],
+    //         ["0.05010", "0.00000500", "1582905486.187983"],
+    //         ["0.05015", "0.00000500", "1582905484.480241"],
+    //         ["0.05020", "0.00000500", "1582905486.645658"],
+    //         ["0.05025", "0.00000500", "1582905486.859009"],
+    //         ["0.05030", "0.00000500", "1582905488.601486"],
+    //         ["0.05035", "0.00000500", "1582905488.357312"],
+    //         ["0.05040", "0.00000500", "1582905488.785484"],
+    //         ["0.05045", "0.00000500", "1582905485.302661"],
+    //         ["0.05050", "0.00000500", "1582905486.157467"]
+    //     ],
+    //     "bs": [
+    //         ["0.05000", "0.00000500", "1582905487.439814"],
+    //         ["0.04995", "0.00000500", "1582905485.119396"],
+    //         ["0.04990", "0.00000500", "1582905486.432052"],
+    //         ["0.04980", "0.00000500", "1582905480.609351"],
+    //         ["0.04975", "0.00000500", "1582905476.793880"],
+    //         ["0.04970", "0.00000500", "1582905486.767461"],
+    //         ["0.04965", "0.00000500", "1582905481.767528"],
+    //         ["0.04960", "0.00000500", "1582905487.378907"],
+    //         ["0.04955", "0.00000500", "1582905483.626664"],
+    //         ["0.04950", "0.00000500", "1582905488.509872"]
+    //     ]
+    // });
+
 }
 
 if (require.main === module) {
