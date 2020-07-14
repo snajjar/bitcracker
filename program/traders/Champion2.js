@@ -9,16 +9,17 @@ class ChampionTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.27, 'max': 0.35 };
-        this.emaUpTrigger = { 'min': 0.16, 'max': 0.32 };
+        this.emaDownTrigger = { 'min': 0.25, 'max': 0.35 };
+        this.emaUpTrigger = { 'min': 0.16, 'max': 0.31 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
-        this.winTradePeriod = { 'min': 60, 'max': 120 };
+        this.winTradePeriod = { 'min': 60, 'max': 300 };
         this.shortScalpProfit = { 'min': 0.002, 'max': 0.007 };
 
         // how close we are to the highest value of the analysis interval
         this.volatilityRange = 0.5;
+        this.volatilityFactor = 2.9;
     }
 
     analysisIntervalLength() {
@@ -100,7 +101,7 @@ class ChampionTrader extends Trader {
         let highest = this.getHighest(candles);
         let lowest = this.getLowest(candles);
         let volatility = (highest - lowest) / highest;
-        return volatility;
+        return volatility * this.volatilityFactor;
     }
 
     // decide for an action
