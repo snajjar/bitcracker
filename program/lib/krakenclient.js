@@ -357,14 +357,14 @@ class KrakenWebSocket extends EventEmitter {
         if (!book) {
             // book init
             this.books[asset] = msg.data;
-            console.log(`[*] ${asset} book init`);
+            //console.log(`[*] ${asset} book init`);
 
             if (this._onFirstBookUpdate) {
                 this._onFirstBookUpdate(asset);
             }
 
             //console.log('Init book with message: ' + JSON.stringify(msg.data));
-            this.displayOrderBook(asset);
+            //this.displayOrderBook(asset);
         } else {
             checksum = msg.data.c;
 
@@ -438,9 +438,9 @@ class KrakenWebSocket extends EventEmitter {
 
         let bookChecksum = this.getBookChecksum(asset);
         if (checksum && checksum !== bookChecksum) {
-            this.displayOrderBook(asset);
-            console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
-            console.log('[*] When receiving payload: ' + JSON.stringify(msg));
+            //this.displayOrderBook(asset);
+            //console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
+            //console.log('[*] When receiving payload: ' + JSON.stringify(msg));
             await this.unsubscribeBook(asset);
             await this.subscribeBook(asset);
         }
