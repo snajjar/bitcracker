@@ -9,17 +9,17 @@ class ChampionTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.25, 'max': 0.35 };
-        this.emaUpTrigger = { 'min': 0.16, 'max': 0.31 };
+        this.emaDownTrigger = { 'min': 0.23, 'max': 0.4 };
+        this.emaUpTrigger = { 'min': 0.15, 'max': 0.33 };
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
         this.winTradePeriod = { 'min': 60, 'max': 300 };
-        this.shortScalpProfit = { 'min': 0.002, 'max': 0.007 };
+        this.shortScalpProfit = { 'min': 0.0015, 'max': 0.0064 };
 
         // how close we are to the highest value of the analysis interval
         this.volatilityRange = 0.5;
-        this.volatilityFactor = 2.9;
+        this.volatilityFactor = 3.9; // to power of 4
     }
 
     analysisIntervalLength() {
@@ -53,13 +53,15 @@ class ChampionTrader extends Trader {
     adaptativeEMADownTrigger(candles) {
         // adjust thoses triggers to the asset volatility
         let assetVolatility = this.getAssetVolatility(candles);
-        return this.logSlider(this.emaDownTrigger.min + assetVolatility, this.emaDownTrigger.max + assetVolatility, this.getTaxRatio());
+        let volatilityFactor = Math.pow(assetVolatility, this.volatilityFactor);
+        return this.logSlider(this.emaDownTrigger.min * volatilityFactor, this.emaDownTrigger.max * volatilityFactor, this.getTaxRatio());
     }
 
     adaptativeEMAUpTrigger(candles) {
         // adjust thoses triggers to the asset volatility
         let assetVolatility = this.getAssetVolatility(candles);
-        return this.logSlider(this.emaUpTrigger.min + assetVolatility, this.emaUpTrigger.max + assetVolatility, this.getTaxRatio());
+        let volatilityFactor = Math.pow(assetVolatility, this.volatilityFactor);
+        return this.logSlider(this.emaUpTrigger.min * volatilityFactor, this.emaUpTrigger.max * volatilityFactor, this.getTaxRatio());
     }
 
     adaptativeScalp() {
@@ -100,8 +102,8 @@ class ChampionTrader extends Trader {
     getAssetVolatility(candles) {
         let highest = this.getHighest(candles);
         let lowest = this.getLowest(candles);
-        let volatility = (highest - lowest) / highest;
-        return volatility * this.volatilityFactor;
+        let volatility = 1 + (highest - lowest) / highest;
+        return volatility;
     }
 
     // decide for an action
