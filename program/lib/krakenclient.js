@@ -675,7 +675,6 @@ class KrakenWebSocket extends EventEmitter {
             }));
 
             this._onSubscriptionChanged = (payload) => {
-                console.log(payload);
                 if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
                     this._onSubscriptionChanged = null; // free the cb
 
@@ -710,7 +709,7 @@ class KrakenWebSocket extends EventEmitter {
 
             this._onSubscriptionChanged = (payload) => {
                 if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "ohlc") {
-                    console.log(`subscribed to ${asset} book`);
+                    //console.log(`subscribed to ${asset} book`);
                     _.set(this.subscriptions, [asset, "ohlc"], payload.channelID);
                     this._onSubscriptionChanged = null; // free the cb
                     resolve();
