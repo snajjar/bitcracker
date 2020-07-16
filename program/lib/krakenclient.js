@@ -72,6 +72,7 @@ class KrakenWebSocket extends EventEmitter {
         this.historySize = 1000; // default value
 
         this.ws = null;
+        this.subscriptions = {};
 
         this.clockTimer = null;
         this._onNewCandle = null; // cb
@@ -181,6 +182,7 @@ class KrakenWebSocket extends EventEmitter {
         if (!this.assets.includes(asset)) {
             this.assets.push(asset);
         }
+
         await this.subscribeOHLC(asset);
         await this.subscribeBook(asset);
     }
@@ -442,8 +444,14 @@ class KrakenWebSocket extends EventEmitter {
             //this.displayOrderBook(asset);
             //console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
             //console.log('[*] When receiving payload: ' + JSON.stringify(msg));
-            await this.unsubscribeBook(asset);
-            await this.subscribeBook(asset);
+            if (this.isSubscribed(asset, "book")) {
+                //console.log(`[*] Error in ${asset} book subscription: reseting book`);
+                await this.unsubscribeBook(asset);
+                await sleep(2);
+                await this.subscribeBook(asset);
+            } else {
+                // re-subscription must be currently ongoing, do nothing
+            }
         }
     }
 
@@ -621,6 +629,11 @@ class KrakenWebSocket extends EventEmitter {
 
     onHeartBeat() {}
 
+    isSubscribed(asset, subType) {
+        let sub = _.get(this.subscriptions, [asset, subType]);
+        return sub !== null && sub !== undefined;
+    }
+
     unsubscribeBook(asset) {
         return new Promise(resolve => {
             // console.log(`[*] Unsubscribing from asset ${asset} book order`);
@@ -634,6 +647,9 @@ class KrakenWebSocket extends EventEmitter {
                     //"depth": 50,
                 }
             }));
+
+            // delete subscription channelId
+            _.set(this.subscriptions, [asset, "book"], null);
 
             this._onSubscriptionChanged = (payload) => {
                 if (payload.status === "unsubscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
@@ -665,6 +681,8 @@ class KrakenWebSocket extends EventEmitter {
                     // reset the asset book
                     this.books[asset] = null;
 
+                    _.set(this.subscriptions, [asset, "book"], payload.channelID);
+
                     this._onFirstBookUpdate = (bookAsset) => {
                         if (bookAsset == asset) {
                             this._onFirstBookUpdate = null; // free the cb
@@ -691,6 +709,8 @@ class KrakenWebSocket extends EventEmitter {
 
             this._onSubscriptionChanged = (payload) => {
                 if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "ohlc") {
+                    //console.log(`subscribed to ${asset} book`);
+                    _.set(this.subscriptions, [asset, "ohlc"], payload.channelID);
                     this._onSubscriptionChanged = null; // free the cb
                     resolve();
                 }
