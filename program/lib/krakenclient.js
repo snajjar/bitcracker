@@ -235,6 +235,7 @@ class KrakenWebSocket extends EventEmitter {
                 this.clockTimer = null;
                 this.reset();
                 if (this._onDisconnect) {
+                    console.log('[*] Activating disconnection procedure');
                     this._onDisconnect();
                 }
             }
@@ -800,14 +801,6 @@ class KrakenREST {
             setTimeout(() => { this.initSocket(); }, 10000);
             return;
         }
-
-        for (let asset of this.assets) {
-            console.log('[*] Initializing asset: ', asset);
-            await this.refreshOHLC(asset);
-            this.ws.initOHLC(asset, this.prices[asset].candles, this.prices[asset].currCandle, this.prices[asset].since);
-            await this.ws.addAsset(asset);
-            await sleep(1);
-        }
         this.ws.onDisconnect(async () => {
             console.log('[*] Reconnecting to websocket');
             await sleep(2);
@@ -818,6 +811,13 @@ class KrakenREST {
                 this._onNewCandle(asset, candle);
             }
         });
+        for (let asset of this.assets) {
+            console.log('[*] Initializing asset: ', asset);
+            await this.refreshOHLC(asset);
+            this.ws.initOHLC(asset, this.prices[asset].candles, this.prices[asset].currCandle, this.prices[asset].since);
+            await this.ws.addAsset(asset);
+            await sleep(1);
+        }
         await this.ws.initClockTimer();
     }
 
