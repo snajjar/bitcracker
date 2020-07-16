@@ -826,11 +826,6 @@ class KrakenREST {
             await sleep(2);
             await this.initSocket();
         });
-        this.ws.onNewCandle((asset, candle) => {
-            if (this._onNewCandle) {
-                this._onNewCandle(asset, candle);
-            }
-        });
         for (let asset of this.assets) {
             console.log('[*] Initializing asset: ', asset);
             await this.refreshOHLC(asset);
@@ -838,6 +833,11 @@ class KrakenREST {
             await this.ws.addAsset(asset);
             await sleep(1);
         }
+        this.ws.onNewCandle((asset, candle) => {
+            if (this._onNewCandle) {
+                this._onNewCandle(asset, candle);
+            }
+        });
         await this.ws.initClockTimer();
     }
 
