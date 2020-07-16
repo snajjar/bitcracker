@@ -138,9 +138,6 @@ class KrakenWebSocket extends EventEmitter {
     async initClockTimer() {
         await this.waitNextMinute();
         this.clockTimer = setInterval(() => {
-            console.log('###############################################');
-            console.log('#                    BOUM                     #');
-            console.log('###############################################');
             this.onClockTick();
         }, 60000);
         this.onClockTick();
@@ -187,10 +184,7 @@ class KrakenWebSocket extends EventEmitter {
         }
 
         await this.subscribeOHLC(asset);
-        console.log(`[*] Subscribed to OHLC for asset ${asset}`);
-
         await this.subscribeBook(asset);
-        console.log(`[*] Subscribed to book for asset ${asset}`);
     }
 
     initOHLC(asset, candles, currentCandle, since) {
@@ -311,7 +305,6 @@ class KrakenWebSocket extends EventEmitter {
     }
 
     onSubscriptionChanged(payload) {
-        console.log(payload);
         if (this._onSubscriptionChanged) {
             this._onSubscriptionChanged(payload);
         }
@@ -452,7 +445,7 @@ class KrakenWebSocket extends EventEmitter {
             //console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
             //console.log('[*] When receiving payload: ' + JSON.stringify(msg));
             if (this.isSubscribed(asset, "book")) {
-                console.log(`[*] Error in ${asset} book subscription: reseting book`);
+                //console.log(`[*] Error in ${asset} book subscription: reseting book`);
                 await this.unsubscribeBook(asset);
                 await sleep(2);
                 await this.subscribeBook(asset);
