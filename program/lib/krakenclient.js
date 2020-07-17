@@ -184,7 +184,9 @@ class KrakenWebSocket extends EventEmitter {
         }
 
         await this.subscribeOHLC(asset);
+        console.log(`[*] subscribed to ${asset} OHLC`);
         await this.subscribeBook(asset);
+        console.log(`[*] subscribed to ${asset} book`);
     }
 
     initOHLC(asset, candles, currentCandle, since) {
@@ -319,12 +321,12 @@ class KrakenWebSocket extends EventEmitter {
                 asset = msg.pair.split('/')[0];
                 this._handlePriceUpdate(asset, msg);
                 break;
-            case "book-10":
+            case "book-25":
                 asset = msg.pair.split('/')[0];
                 await this._handleBookUpdate(asset, msg);
                 break;
             default:
-                // console.log(JSON.stringify(msg, null, 2));
+                //console.log(JSON.stringify(msg, null, 2));
         }
     }
 
@@ -370,7 +372,6 @@ class KrakenWebSocket extends EventEmitter {
             //this.displayOrderBook(asset);
         } else {
             checksum = msg.data.c;
-
             // console.log(JSON.stringify(msg, null, 2));
 
             // book update
@@ -380,13 +381,10 @@ class KrakenWebSocket extends EventEmitter {
 
                 let found = false;
                 _.each(this.books[asset].as, (ask) => {
-                    if (!ask) {
-                        // console.error('this should not happen !');
-                        // _.each(this.books[asset].as, (ask, index) => {
-                        //     console.log(index, ask);
-                        // });
-                        return;
-                    }
+                    // if (!ask) {
+                    //     console.error('this should not happen !');
+                    //     return;
+                    // }
 
                     let askPrice = ask[0];
                     if (askPrice == priceStr) {
@@ -409,10 +407,10 @@ class KrakenWebSocket extends EventEmitter {
 
                 let found = false;
                 _.each(this.books[asset].bs, (bid) => {
-                    if (!bid) {
-                        // console.error('this should not happen !');
-                        return;
-                    }
+                    // if (!bid) {
+                    //     console.error('this should not happen !');
+                    //     return;
+                    // }
 
                     let bidPrice = bid[0];
                     if (bidPrice == priceStr) {
@@ -442,10 +440,8 @@ class KrakenWebSocket extends EventEmitter {
         let bookChecksum = this.getBookChecksum(asset);
         if (checksum && checksum !== bookChecksum) {
             //this.displayOrderBook(asset);
-            //console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
-            //console.log('[*] When receiving payload: ' + JSON.stringify(msg));
+            console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
             if (this.isSubscribed(asset, "book")) {
-                //console.log(`[*] Error in ${asset} book subscription: reseting book`);
                 await this.unsubscribeBook(asset);
                 await sleep(2);
                 await this.subscribeBook(asset);
@@ -644,7 +640,6 @@ class KrakenWebSocket extends EventEmitter {
                 ],
                 "subscription": {
                     "name": "book",
-                    //"depth": 50,
                 }
             }));
 
@@ -670,7 +665,7 @@ class KrakenWebSocket extends EventEmitter {
                 ],
                 "subscription": {
                     "name": "book",
-                    //"depth": 50,
+                    "depth": 25,
                 }
             }));
 

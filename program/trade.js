@@ -30,13 +30,13 @@ const sleep = function(s) {
 
 const priceStr = function(p) {
     if (p > 1000) {
-        return (p.toFixed(0) + '€')
-    } else if (p > 100) {
         return (p.toFixed(1) + '€')
-    } else if (p > 10) {
+    } else if (p > 100) {
         return (p.toFixed(2) + '€')
-    } else {
+    } else if (p > 10) {
         return (p.toFixed(3) + '€')
+    } else {
+        return (p.toFixed(4) + '€')
     }
 };
 
