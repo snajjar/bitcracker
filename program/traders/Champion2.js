@@ -20,6 +20,9 @@ class ChampionTrader extends Trader {
         // how close we are to the highest value of the analysis interval
         this.volatilityRange = 0.5;
         this.volatilityFactor = 3.9; // to power of 4
+
+        // if we get to the lowest 4% of the price amplitude of history, let's take action
+        this.zoneTreshold = 0.04;
     }
 
     analysisIntervalLength() {
@@ -116,11 +119,12 @@ class ChampionTrader extends Trader {
             let bidtaxdiff = (this.getBuyTax() - this.getBidTax());
             let emabiddiff = (currentPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
 
+            let highest = this.getHighest(candles);
+            let lowest = this.getLowest(candles);
+            let amplitude = highest - lowest;
+
             if (!this.isInTrade()) {
-                let highest = this.getHighest(candles);
-                let lowest = this.getLowest(candles);
-                let volatility = highest - lowest;
-                let priceTreshold = lowest + volatility * this.volatilityRange;
+                let priceTreshold = lowest + amplitude * this.volatilityRange;
                 if (currentPrice > priceTreshold) {
                     // console.log('close to all time high, hold');
                     return this.hold();
@@ -136,7 +140,13 @@ class ChampionTrader extends Trader {
                 } else if (emabiddiff < -this.adaptativeEMADownTrigger(candles)) {
                     return this.bid(currentPrice);
                 } else {
-                    return this.hold();
+                    let inBuyZone = currentPrice < lowest + amplitude * this.zoneTreshold;
+                    if (inBuyZone) {
+                        return this.bid(currentPrice);
+                    } else {
+                        return this.hold();
+                    }
+                    // return this.hold();
                 }
             } else {
                 // stopped = this.takeProfit(this.takeProfitRatio);
@@ -172,6 +182,13 @@ class ChampionTrader extends Trader {
 
                     let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger(candles);
                     if (winningAsk) {
+                        return this.ask(currentPrice);
+                    }
+
+                    let inSellZone = currentPrice > lowest + amplitude * (1 - this.zoneTreshold);
+                    if (winningTrade && inSellZone) {
+                        return this.sell();
+                    } else if (winningAsk && inSellZone) {
                         return this.ask(currentPrice);
                     }
 
