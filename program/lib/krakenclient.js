@@ -440,11 +440,9 @@ class KrakenWebSocket extends EventEmitter {
         let bookChecksum = this.getBookChecksum(asset);
         if (checksum && checksum !== bookChecksum) {
             //this.displayOrderBook(asset);
-            console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
             if (this.isSubscribed(asset, "book")) {
-                await this.unsubscribeBook(asset);
-                await sleep(2);
-                await this.subscribeBook(asset);
+                //console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
+                await this.resetBook(asset);
             } else {
                 // re-subscription must be currently ongoing, do nothing
             }
@@ -687,6 +685,13 @@ class KrakenWebSocket extends EventEmitter {
                 }
             };
         });
+    }
+
+    async resetBook(asset) {
+        await this.unsubscribeBook(asset);
+        await sleep(2);
+        await this.subscribeBook(asset);
+        this.displayOrderBook(asset);
     }
 
     subscribeOHLC(asset) {
