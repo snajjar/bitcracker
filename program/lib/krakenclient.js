@@ -69,6 +69,7 @@ class KrakenWebSocket extends EventEmitter {
         this.cb = {};
         this.prices = {};
         this.books = {};
+        this.lastBookMessage = {};
         this.historySize = 1000; // default value
 
         this.ws = null;
@@ -144,7 +145,7 @@ class KrakenWebSocket extends EventEmitter {
     }
 
     // end of current candle, start of a new one
-    onClockTick() {
+    async onClockTick() {
         if (this.checkConnectionAlive()) {
             let currentMinuteTimestamp = moment().startOf('minute').unix();
             let lastMinuteTimestamp = moment().subtract(1, 'minute').startOf('minute').unix();
@@ -171,6 +172,8 @@ class KrakenWebSocket extends EventEmitter {
                     }
                 }
             }
+
+            await this.checkBooksAlive(); // check if all books are still alive
         }
     }
 
@@ -206,6 +209,7 @@ class KrakenWebSocket extends EventEmitter {
         this.lastMessageAt = 0;
         this.prices = {};
         this.books = {};
+        this.lastBookMessage = {};
         this.ws = null;
     }
 
@@ -280,6 +284,18 @@ class KrakenWebSocket extends EventEmitter {
         }
     }
 
+    // check that books received at least 1 update in the last 5 minutes
+    async checkBooksAlive() {
+        let now = moment();
+        for (let asset of this.assets) {
+            let diff = moment.duration(now - this.lastBookMessage[asset]).asMilliseconds();
+            if (diff > 5 * 60000) {
+                console.log(`[*] ${asset}: received no book update in 5 minutes. Resetting book`);
+                await this.resetBook(asset);
+            }
+        }
+    }
+
     _handleMessage = e => {
         this.lastMessageAt = moment();
         const payload = JSON.parse(e.data);
@@ -347,7 +363,7 @@ class KrakenWebSocket extends EventEmitter {
         if (endTime < this.prices[asset].currCandle.timestamp) {
             // old candle, sent for verification when no new candle was sent during 1 minute
             // ditch this one
-            console.log(`[*] Ignoring 1 verification candle for asset ${asset}`);
+            //console.log(`[*] Ignoring 1 verification candle for asset ${asset}`);
         } else if (endTime == this.prices[asset].currCandle.timestamp) {
             //console.log('THATS THE LAST MINUTE !');
         } else {
@@ -358,6 +374,7 @@ class KrakenWebSocket extends EventEmitter {
 
     async _handleBookUpdate(asset, msg) {
         let book = _.get(this.books, [asset]);
+        this.lastBookMessage[asset] = moment();
         let checksum = null;
         if (!book) {
             // book init
@@ -670,6 +687,7 @@ class KrakenWebSocket extends EventEmitter {
             this._onSubscriptionChanged = (payload) => {
                 if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
                     this._onSubscriptionChanged = null; // free the cb
+                    delete this.lastBookMessage[asset];
 
                     // reset the asset book
                     this.books[asset] = null;
