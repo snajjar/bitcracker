@@ -187,9 +187,7 @@ class KrakenWebSocket extends EventEmitter {
         }
 
         await this.subscribeOHLC(asset);
-        console.log(`[*] subscribed to ${asset} OHLC`);
         await this.subscribeBook(asset);
-        console.log(`[*] subscribed to ${asset} book`);
     }
 
     initOHLC(asset, candles, currentCandle, since) {
@@ -289,8 +287,8 @@ class KrakenWebSocket extends EventEmitter {
         let now = moment();
         for (let asset of this.assets) {
             let diff = moment.duration(now - this.lastBookMessage[asset]).asMilliseconds();
-            if (diff > 5 * 60000) {
-                console.log(`[*] ${asset}: received no book update in 5 minutes. Resetting book`);
+            if (diff > 2 * 60000) {
+                console.log(`[*] ${asset}: received no book update in 2 minutes. Resetting book`);
                 await this.resetBook(asset);
             }
         }
@@ -339,7 +337,12 @@ class KrakenWebSocket extends EventEmitter {
                 break;
             case "book-25":
                 asset = msg.pair.split('/')[0];
-                await this._handleBookUpdate(asset, msg);
+                if (!this.assets.includes(asset)) {
+                    console.log('unknown asset for book update: ' + asset);
+                    console.log(JSON.stringify(msg, null, 2));
+                } else {
+                    await this._handleBookUpdate(asset, msg);
+                }
                 break;
             default:
                 //console.log(JSON.stringify(msg, null, 2));
@@ -458,7 +461,7 @@ class KrakenWebSocket extends EventEmitter {
         if (checksum && checksum !== bookChecksum) {
             //this.displayOrderBook(asset);
             if (this.isSubscribed(asset, "book")) {
-                //console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
+                console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
                 await this.resetBook(asset);
             } else {
                 // re-subscription must be currently ongoing, do nothing
@@ -546,11 +549,6 @@ class KrakenWebSocket extends EventEmitter {
     }
 
     estimateBuyPrice(asset, currencyVolume) {
-        if (!this.books[asset]) {
-            console.log(`${asset} is not in the book !`);
-            console.log(`We have ${_.keys(this.books)} in it`);
-        }
-
         let asks = this.books[asset].as;
         if (asks) {
             let sellers = [];
@@ -697,6 +695,7 @@ class KrakenWebSocket extends EventEmitter {
                     this._onFirstBookUpdate = (bookAsset) => {
                         if (bookAsset == asset) {
                             this._onFirstBookUpdate = null; // free the cb
+                            console.log(`[*] subscribed to ${asset} book`);
                             resolve();
                         }
                     };
@@ -730,6 +729,7 @@ class KrakenWebSocket extends EventEmitter {
                     //console.log(`subscribed to ${asset} book`);
                     _.set(this.subscriptions, [asset, "ohlc"], payload.channelID);
                     this._onSubscriptionChanged = null; // free the cb
+                    console.log(`[*] subscribed to ${asset} OHLC`);
                     resolve();
                 }
             };
