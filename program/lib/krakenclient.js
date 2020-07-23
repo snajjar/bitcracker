@@ -644,7 +644,12 @@ class KrakenWebSocket extends EventEmitter {
     }
 
     unsubscribeBook(asset) {
-        return new Promise(resolve => {
+        return new Promise(async resolve => {
+            // delete subscription channelId
+            _.set(this.subscriptions, [asset, "book"], null);
+
+            await sleep(2);
+
             // console.log(`[*] Unsubscribing from asset ${asset} book order`);
             this.ws.send(JSON.stringify({
                 "event": "unsubscribe",
@@ -656,9 +661,6 @@ class KrakenWebSocket extends EventEmitter {
                 }
             }));
 
-            // delete subscription channelId
-            _.set(this.subscriptions, [asset, "book"], null);
-
             this._onSubscriptionChanged = (payload) => {
                 if (payload.status === "unsubscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
                     this._onSubscriptionChanged = null; // free the cb
@@ -669,7 +671,9 @@ class KrakenWebSocket extends EventEmitter {
     }
 
     subscribeBook(asset) {
-        return new Promise(resolve => {
+        return new Promise(async resolve => {
+            await sleep(2);
+
             // console.log(`[*] Subscribing to asset ${asset} book order`);
             this.ws.send(JSON.stringify({
                 "event": "subscribe",
@@ -712,7 +716,9 @@ class KrakenWebSocket extends EventEmitter {
     }
 
     subscribeOHLC(asset) {
-        return new Promise(resolve => {
+        return new Promise(async resolve => {
+            await sleep(2);
+
             this.ws.send(JSON.stringify({
                 "event": "subscribe",
                 "pair": [
