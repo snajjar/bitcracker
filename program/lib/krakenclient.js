@@ -78,8 +78,8 @@ class KrakenWebSocket extends EventEmitter {
         this.clockTimer = null;
         this._onNewCandle = null; // cb
         this._onDisconnect = null; // cb
-        this._onSubscriptionChanged = null; // cb
-        this._onFirstBookUpdate = null; // cb
+        this._onSubscriptionChanged = {}; // cb on subscription changed for each asset
+        this._onFirstBookUpdate = {}; // cb on first book update, for each asset
     }
 
     setHistorySize(n) {
@@ -321,8 +321,11 @@ class KrakenWebSocket extends EventEmitter {
     }
 
     onSubscriptionChanged(payload) {
-        if (this._onSubscriptionChanged) {
-            this._onSubscriptionChanged(payload);
+        let pair = _.get(payload, ["pair"]);
+        let asset = pair.replace('/EUR', '').replace('EUR', '');
+
+        if (this._onSubscriptionChanged[asset]) {
+            this._onSubscriptionChanged[asset](payload);
         }
     }
 
@@ -383,8 +386,8 @@ class KrakenWebSocket extends EventEmitter {
             this.books[asset] = msg.data;
             //console.log(`[*] ${asset} book init`);
 
-            if (this._onFirstBookUpdate) {
-                this._onFirstBookUpdate(asset);
+            if (this._onFirstBookUpdate[asset]) {
+                this._onFirstBookUpdate[asset](asset);
             }
 
             //console.log('Init book with message: ' + JSON.stringify(msg.data));
@@ -670,7 +673,7 @@ class KrakenWebSocket extends EventEmitter {
                     }
                 }));
 
-                this._onSubscriptionChanged = (payload) => {
+                this._onSubscriptionChanged[asset] = (payload) => {
                     let isRightPair = _.get(payload, ["pair"]) == `${asset}/EUR` || _.get(payload, ["pair"]) == `${asset}EUR`;
                     let isBook = _.get(payload, ["subscription", "name"]) == "book";
                     let status = _.get(payload, ["status"]);
@@ -714,9 +717,9 @@ class KrakenWebSocket extends EventEmitter {
                     }
                 }));
 
-                this._onSubscriptionChanged = (payload) => {
+                this._onSubscriptionChanged[asset] = (payload) => {
                     if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
-                        this._onSubscriptionChanged = null; // free the cb
+                        this._onSubscriptionChanged[asset] = null; // free the cb
                         delete this.lastBookMessage[asset];
 
                         // reset the asset book
@@ -724,9 +727,9 @@ class KrakenWebSocket extends EventEmitter {
 
                         _.set(this.subscriptions, [asset, "book"], payload.channelID);
 
-                        this._onFirstBookUpdate = (bookAsset) => {
+                        this._onFirstBookUpdate[asset] = (bookAsset) => {
                             if (bookAsset == asset) {
-                                this._onFirstBookUpdate = null; // free the cb
+                                this._onFirstBookUpdate[asset] = null; // free the cb
                                 console.log(`[*] subscribed to ${asset} book`);
                                 resolve();
                             }
@@ -782,11 +785,11 @@ class KrakenWebSocket extends EventEmitter {
                     }
                 }));
 
-                this._onSubscriptionChanged = (payload) => {
+                this._onSubscriptionChanged[asset] = (payload) => {
                     if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "ohlc") {
                         //console.log(`subscribed to ${asset} book`);
                         _.set(this.subscriptions, [asset, "ohlc"], payload.channelID);
-                        this._onSubscriptionChanged = null; // free the cb
+                        this._onSubscriptionChanged[asset] = null; // free the cb
                         console.log(`[*] subscribed to ${asset} OHLC`);
                         resolve();
                     }
@@ -817,7 +820,7 @@ class KrakenWebSocket extends EventEmitter {
                     }
                 }));
 
-                this._onSubscriptionChanged = (payload) => {
+                this._onSubscriptionChanged[asset] = (payload) => {
                     console.log(payload);
                     let isRightPair = _.get(payload, ["pair"]) == `${asset}/EUR` || _.get(payload, ["pair"]) == `${asset}EUR`;
                     let isOHLC = _.get(payload, ["subscription", "name"]) == "ohlc";
