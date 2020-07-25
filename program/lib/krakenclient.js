@@ -327,7 +327,6 @@ class KrakenWebSocket extends EventEmitter {
     }
 
     async _handleSubscriptionMessage(msg) {
-        // console.log(JSON.stringify(msg, null, 2));
         let asset;
 
         switch (msg.channelName) {
@@ -636,6 +635,14 @@ class KrakenWebSocket extends EventEmitter {
         }
     }
 
+    timeout(n) {
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                reject();
+            }, n);
+        })
+    }
+
     onHeartBeat() {}
 
     isSubscribed(asset, subType) {
@@ -643,103 +650,219 @@ class KrakenWebSocket extends EventEmitter {
         return sub !== null && sub !== undefined;
     }
 
-    unsubscribeBook(asset) {
-        return new Promise(async resolve => {
-            // delete subscription channelId
-            _.set(this.subscriptions, [asset, "book"], null);
+    // basic book unsubscription with 5s timeout
+    _unsubscribeBook(asset) {
+        return Promise.race([
+            new Promise(async (resolve, reject) => {
+                // delete subscription channelId
+                _.set(this.subscriptions, [asset, "book"], null);
 
-            await sleep(2);
+                await sleep(2);
 
-            // console.log(`[*] Unsubscribing from asset ${asset} book order`);
-            this.ws.send(JSON.stringify({
-                "event": "unsubscribe",
-                "pair": [
-                    `${asset}/EUR`
-                ],
-                "subscription": {
-                    "name": "book",
-                }
-            }));
+                // console.log(`[*] Unsubscribing from asset ${asset} book order`);
+                this.ws.send(JSON.stringify({
+                    "event": "unsubscribe",
+                    "pair": [
+                        `${asset}/EUR`
+                    ],
+                    "subscription": {
+                        "name": "book",
+                    }
+                }));
 
-            this._onSubscriptionChanged = (payload) => {
-                if (payload.status === "unsubscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
-                    this._onSubscriptionChanged = null; // free the cb
-                    resolve();
-                }
-            };
-        });
+                this._onSubscriptionChanged = (payload) => {
+                    let isRightPair = _.get(payload, ["pair"]) == `${asset}/EUR` || _.get(payload, ["pair"]) == `${asset}EUR`;
+                    let isBook = _.get(payload, ["subscription", "name"]) == "book";
+                    let status = _.get(payload, ["status"]);
+
+                    if (isRightPair && isBook) {
+                        if (status === "unsubscribed") {
+                            resolve();
+                            return;
+                        } else if (status === "error") {
+                            let errorMessage = _.get(payload, ["errorMessage"]);
+                            if (errorMessage.toLowerCase().includes("not found")) {
+                                resolve(); // we are already unsubscribed
+                                return;
+                            }
+                        }
+                    }
+
+                    console.error('Unexpected subscription message: ' + JSON.stringify(payload, null, 2));
+                    reject();
+                };
+            }),
+            this.timeout(5000)
+        ]);
     }
 
-    subscribeBook(asset) {
-        return new Promise(async resolve => {
-            await sleep(2);
+    // basic book subscription with 5s timeout
+    _subscribeBook(asset) {
+        return Promise.race([
+            new Promise(async resolve => {
+                await sleep(2);
 
-            // console.log(`[*] Subscribing to asset ${asset} book order`);
-            this.ws.send(JSON.stringify({
-                "event": "subscribe",
-                "pair": [
-                    `${asset}/EUR`
-                ],
-                "subscription": {
-                    "name": "book",
-                    "depth": 25,
-                }
-            }));
+                // console.log(`[*] Subscribing to asset ${asset} book order`);
+                this.ws.send(JSON.stringify({
+                    "event": "subscribe",
+                    "pair": [
+                        `${asset}/EUR`
+                    ],
+                    "subscription": {
+                        "name": "book",
+                        "depth": 25,
+                    }
+                }));
 
-            this._onSubscriptionChanged = (payload) => {
-                if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
-                    this._onSubscriptionChanged = null; // free the cb
-                    delete this.lastBookMessage[asset];
+                this._onSubscriptionChanged = (payload) => {
+                    if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
+                        this._onSubscriptionChanged = null; // free the cb
+                        delete this.lastBookMessage[asset];
 
-                    // reset the asset book
-                    this.books[asset] = null;
+                        // reset the asset book
+                        this.books[asset] = null;
 
-                    _.set(this.subscriptions, [asset, "book"], payload.channelID);
+                        _.set(this.subscriptions, [asset, "book"], payload.channelID);
 
-                    this._onFirstBookUpdate = (bookAsset) => {
-                        if (bookAsset == asset) {
-                            this._onFirstBookUpdate = null; // free the cb
-                            console.log(`[*] subscribed to ${asset} book`);
-                            resolve();
-                        }
-                    };
-                }
-            };
-        });
+                        this._onFirstBookUpdate = (bookAsset) => {
+                            if (bookAsset == asset) {
+                                this._onFirstBookUpdate = null; // free the cb
+                                console.log(`[*] subscribed to ${asset} book`);
+                                resolve();
+                            }
+                        };
+                    }
+                };
+            }),
+            this.timeout(5000)
+        ]);
     }
 
     async resetBook(asset) {
         await this.unsubscribeBook(asset);
         await sleep(2);
         await this.subscribeBook(asset);
-        this.displayOrderBook(asset);
+        //this.displayOrderBook(asset);
     }
 
-    subscribeOHLC(asset) {
-        return new Promise(async resolve => {
-            await sleep(2);
+    // call this._subscribeBook until it works (in case of disconnection)
+    async subscribeBook(asset) {
+        try {
+            await this._subscribeBook(asset);
+        } catch (e) {
+            console.log(`[*] retrying book subscription for ${asset}`);
+            await this.unsubscribeBook(asset);
+            await this.subscribeBook(asset);
+        }
+    }
 
-            this.ws.send(JSON.stringify({
-                "event": "subscribe",
-                "pair": [
-                    `${asset}/EUR`
-                ],
-                "subscription": {
-                    "interval": 1,
-                    "name": "ohlc"
-                }
-            }));
+    // call this._unsubscribeBook until it works (in case of disconnection)
+    async unsubscribeBook(asset) {
+        try {
+            await this._unsubscribeBook(asset);
+        } catch (e) {
+            console.log(`[*] retrying book unsubscription for ${asset}`);
+            await this.unsubscribeBook(asset);
+        }
+    }
 
-            this._onSubscriptionChanged = (payload) => {
-                if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "ohlc") {
-                    //console.log(`subscribed to ${asset} book`);
-                    _.set(this.subscriptions, [asset, "ohlc"], payload.channelID);
-                    this._onSubscriptionChanged = null; // free the cb
-                    console.log(`[*] subscribed to ${asset} OHLC`);
-                    resolve();
-                }
-            };
-        });
+    _subscribeOHLC(asset) {
+        return Promise.race([
+            new Promise(async resolve => {
+                await sleep(2);
+
+                this.ws.send(JSON.stringify({
+                    "event": "subscribe",
+                    "pair": [
+                        `${asset}/EUR`
+                    ],
+                    "subscription": {
+                        "interval": 1,
+                        "name": "ohlc"
+                    }
+                }));
+
+                this._onSubscriptionChanged = (payload) => {
+                    if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "ohlc") {
+                        //console.log(`subscribed to ${asset} book`);
+                        _.set(this.subscriptions, [asset, "ohlc"], payload.channelID);
+                        this._onSubscriptionChanged = null; // free the cb
+                        console.log(`[*] subscribed to ${asset} OHLC`);
+                        resolve();
+                    }
+                };
+            }),
+            this.timeout(5000)
+        ]);
+    }
+
+    // basic book unsubscription with 5s timeout
+    _unsubscribeOHLC(asset) {
+        return Promise.race([
+            new Promise(async (resolve, reject) => {
+                // delete subscription channelId
+                _.set(this.subscriptions, [asset, "book"], null);
+
+                await sleep(2);
+
+                // console.log(`[*] Unsubscribing from asset ${asset} book order`);
+                this.ws.send(JSON.stringify({
+                    "event": "unsubscribe",
+                    "pair": [
+                        `${asset}/EUR`
+                    ],
+                    "subscription": {
+                        "interval": 1,
+                        "name": "ohlc"
+                    }
+                }));
+
+                this._onSubscriptionChanged = (payload) => {
+                    console.log(payload);
+                    let isRightPair = _.get(payload, ["pair"]) == `${asset}/EUR` || _.get(payload, ["pair"]) == `${asset}EUR`;
+                    let isOHLC = _.get(payload, ["subscription", "name"]) == "ohlc";
+                    let status = _.get(payload, ["status"]);
+
+                    if (isRightPair && isOHLC) {
+                        if (status === "unsubscribed") {
+                            resolve();
+                            return;
+                        } else if (status === "error") {
+                            let errorMessage = _.get(payload, ["errorMessage"]);
+                            if (errorMessage.toLowerCase().includes("not found")) {
+                                resolve(); // we are already unsubscribed
+                                return;
+                            }
+                        }
+                    }
+
+                    console.error('Unexpected subscription message: ' + JSON.stringify(payload, null, 2));
+                    reject();
+                };
+            }),
+            this.timeout(5000)
+        ]);
+    }
+
+    // call this._subscribeOHLC until it works (in case of disconnection)
+    async subscribeOHLC(asset) {
+        try {
+            await this._subscribeOHLC(asset);
+        } catch (e) {
+            console.log(`[*] retrying book subscription for ${asset}`);
+            await this._unsubscribeOHLC(asset);
+            await this.subscribeOHLC(asset);
+        }
+    }
+
+    // call this._unsubscribeBook until it works (in case of disconnection)
+    async unsubscribeOHLC(asset) {
+        try {
+            await this._unsubscribeOHLC(asset);
+        } catch (e) {
+            console.log(`[*] retrying book unsubscription for ${asset}`);
+            await this.unsubscribeOHLC(asset);
+        }
     }
 
     displayLastPrices(asset) {
