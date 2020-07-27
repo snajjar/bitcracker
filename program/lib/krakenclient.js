@@ -12,6 +12,9 @@ const dotenv = require('dotenv');
 const dt = require('./datatools');
 const CRC32 = require('crc-32');
 
+
+class SocketNotConnected extends Error {}
+
 const extractFieldsFromKrakenData = function(arr) {
     return {
         "timestamp": arr[0],
@@ -144,6 +147,11 @@ class KrakenWebSocket extends EventEmitter {
         this.onClockTick();
     }
 
+    async stopClockTimer() {
+        console.log('[*] Stopping clock timer');
+        clearInterval(this.clockTimer);
+    }
+
     // end of current candle, start of a new one
     async onClockTick() {
         if (this.checkConnectionAlive()) {
@@ -237,7 +245,7 @@ class KrakenWebSocket extends EventEmitter {
             }
             this.ws.onclose = async e => {
                 console.log(new Date, '[KRAKEN] closed socket');
-                clearInterval(this.clockTimer);
+                this.stopClockTimer();
                 this.clockTimer = null;
                 this.reset();
                 if (this._onDisconnect) {
@@ -660,6 +668,11 @@ class KrakenWebSocket extends EventEmitter {
                 // delete subscription channelId
                 _.set(this.subscriptions, [asset, "book"], null);
 
+                if (!this.ws) {
+                    reject(new SocketNotConnected());
+                    return;
+                }
+
                 await sleep(2);
 
                 // console.log(`[*] Unsubscribing from asset ${asset} book order`);
@@ -703,6 +716,11 @@ class KrakenWebSocket extends EventEmitter {
     _subscribeBook(asset) {
         return Promise.race([
             new Promise(async resolve => {
+                if (!this.ws) {
+                    reject(new SocketNotConnected());
+                    return;
+                }
+
                 await sleep(2);
 
                 // console.log(`[*] Subscribing to asset ${asset} book order`);
@@ -753,9 +771,13 @@ class KrakenWebSocket extends EventEmitter {
         try {
             await this._subscribeBook(asset);
         } catch (e) {
-            console.log(`[*] retrying book subscription for ${asset}`);
-            await this.unsubscribeBook(asset);
-            await this.subscribeBook(asset);
+            if (e instanceof SocketNotConnected) {
+                console.log('[*] Giving up book connection: socket closed');
+            } else {
+                console.log(`[*] retrying book subscription for ${asset}`);
+                await this.unsubscribeBook(asset);
+                await this.subscribeBook(asset);
+            }
         }
     }
 
@@ -764,8 +786,12 @@ class KrakenWebSocket extends EventEmitter {
         try {
             await this._unsubscribeBook(asset);
         } catch (e) {
-            console.log(`[*] retrying book unsubscription for ${asset}`);
-            await this.unsubscribeBook(asset);
+            if (e instanceof SocketNotConnected) {
+                console.log('[*] Giving up book connection: socket closed');
+            } else {
+                console.log(`[*] retrying book unsubscription for ${asset}`);
+                await this.unsubscribeBook(asset);
+            }
         }
     }
 

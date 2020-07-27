@@ -33,7 +33,7 @@ var argv = yargs
         type: 'string',
     })
     .option('assets', {
-        alias: 'p',
+        alias: 'a',
         describe: 'Crypto assets to trade on (ex: BTC, ETH, BTH, XRP, ...)',
         type: 'string',
     })
