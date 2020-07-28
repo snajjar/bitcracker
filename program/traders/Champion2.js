@@ -109,6 +109,11 @@ class ChampionTrader extends Trader {
         return volatility;
     }
 
+    // expected more than 87.5% return, set stoploss at 8x gain (counting taxes too)
+    getStopLossRatio(targetProfit) {
+        return targetProfit * 8 - this.getBidTax() * 2;
+    }
+
     // decide for an action
     async action(crypto, candles, currentPrice) {
         // calculate sma indicator
@@ -154,13 +159,19 @@ class ChampionTrader extends Trader {
 
                 // check if the trade started on this crypto, otherwise hold
                 if (this.getCurrentTradeAsset() == crypto) {
-                    let stopped = this.stopLoss(0.2);
+                    let scalpProfit = this.adaptativeScalp();
+
+                    //if (crypto === "XBT" || crypto === "ETH") {
+                    // for "stable" assets like BTC and ETH, set a stoploss
+                    // if stoploss is broken, it may be a market crash
+                    let stopLossRatio = this.getStopLossRatio(scalpProfit);
+                    let stopped = this.stopLoss(stopLossRatio);
                     if (stopped) return this.sell();
+                    //}
 
                     this.timeInTrade++;
                     let winningTrade = currentPrice > this.getSellWinningPrice();
 
-                    let scalpProfit = this.adaptativeScalp();
                     let winningScalpTrade = currentPrice > this.getSellWinningPrice() * (1 + scalpProfit);
                     let winningBidScalpTrade = currentPrice > this.getAskWinningPrice() * (1 + scalpProfit);;
 
