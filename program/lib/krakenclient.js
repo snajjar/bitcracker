@@ -715,7 +715,7 @@ class KrakenWebSocket extends EventEmitter {
     // basic book subscription with 5s timeout
     _subscribeBook(asset) {
         return Promise.race([
-            new Promise(async resolve => {
+            new Promise(async (resolve, reject) => {
                 if (!this.ws) {
                     reject(new SocketNotConnected());
                     return;
@@ -797,7 +797,7 @@ class KrakenWebSocket extends EventEmitter {
 
     _subscribeOHLC(asset) {
         return Promise.race([
-            new Promise(async resolve => {
+            new Promise(async (resolve, reject) => {
                 await sleep(2);
 
                 this.ws.send(JSON.stringify({
