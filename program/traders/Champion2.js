@@ -133,8 +133,6 @@ class ChampionTrader extends Trader {
                 if (currentPrice > priceTreshold) {
                     // console.log('close to all time high, hold');
                     return this.hold();
-                } else {
-                    //console.log(`price: ${currentPrice}, low: ${lowest}, high: ${highest}`);
                 }
 
                 if (emadiff < -this.adaptativeEMADownTrigger(candles)) {
@@ -145,7 +143,9 @@ class ChampionTrader extends Trader {
                 } else if (emabiddiff < -this.adaptativeEMADownTrigger(candles)) {
                     return this.bid(currentPrice);
                 } else {
-                    let inBuyZone = currentPrice < lowest + amplitude * this.zoneTreshold;
+                    let assetVolatility = this.getAssetVolatility(candles);
+                    // console.log(`${asset} volatility: ${assetVolatility}`);
+                    let inBuyZone = assetVolatility > 1.02 && currentPrice < lowest + amplitude * this.zoneTreshold;
                     if (inBuyZone) {
                         return this.bid(currentPrice);
                     } else {
@@ -211,7 +211,7 @@ class ChampionTrader extends Trader {
                             return this.hold();
                         } else {
                             return this.ask(currentPrice);
-                            //return this.hold();
+                            //return this.sell();
                         }
                     }
                 }
