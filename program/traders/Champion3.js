@@ -231,15 +231,18 @@ class ChampionTrader extends Trader {
                 if (emadiff < -this.adaptativeEMADownTrigger(candles)) {
                     // BUY condition
                     this.timeInTrade = 0;
+                    console.log('BUY after price drop');
                     return this.buy();
                     //return this.bid(currentPrice);
                 } else if (emabiddiff < -this.adaptativeEMADownTrigger(candles)) {
+                    console.log('BID after small price drop');
                     return this.bid(currentPrice);
                 } else {
                     let assetVolatility = this.getAssetVolatility(candles);
                     // console.log(`${asset} volatility: ${assetVolatility}`);
                     let inBuyZone = assetVolatility > 1.02 && currentPrice < lowest + amplitude * this.zoneTreshold;
                     if (inBuyZone) {
+                        console.log('BID when price range in buy zone');
                         return this.bid(currentPrice);
                     } else {
                         return this.hold();
@@ -259,8 +262,10 @@ class ChampionTrader extends Trader {
                     // if stoploss is broken, it may be a market crash
                     let stopLossRatio = this.getStopLossRatio(scalpProfit);
                     let stopped = this.stopLoss(stopLossRatio);
-                    if (stopped) return this.sell();
-                    //}
+                    if (stopped) {
+                        console.log('SELL when Price hit stoploss');
+                        return this.sell();
+                    }
 
                     this.timeInTrade++;
                     let winningTrade = currentPrice > this.getSellWinningPrice();
@@ -269,28 +274,34 @@ class ChampionTrader extends Trader {
                     let winningBidScalpTrade = currentPrice > this.getAskWinningPrice() * (1 + scalpProfit);;
 
                     if (winningScalpTrade) {
+                        console.log('SELL Procedure on winning scalp');
                         return await this.sellProcedure(crypto, candles, currentPrice);
                         //return this.ask(currentPrice);
                     } else if (winningBidScalpTrade) {
+                        console.log('ASK on winning scalp');
                         return this.ask(currentPrice);
                     }
 
                     // if EMA tells us to sell, sell if it's winning
                     let emaBigUp = emadiff > this.adaptativeEMAUpTrigger(candles);
                     if (emaBigUp && winningTrade) {
+                        console.log('SELL on winning trade (after a big up)');
                         return this.sell();
                         //return this.ask(currentPrice);
                     }
 
                     let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger(candles);
                     if (winningAsk) {
+                        console.log('ASK on winning trade (after a big up)');
                         return this.ask(currentPrice);
                     }
 
                     let inSellZone = currentPrice > lowest + amplitude * (1 - this.zoneTreshold);
                     if (winningTrade && inSellZone) {
+                        console.log('SELL Procedure when price in sell zone');
                         return await this.sellProcedure(crypto, candles, currentPrice);
                     } else if (winningAsk && inSellZone) {
+                        console.log('ASK when price in sell zone');
                         return this.ask(currentPrice);
                     }
 
@@ -301,6 +312,7 @@ class ChampionTrader extends Trader {
                         if (!winningTrade && this.timeInTrade <= winTradePeriod) {
                             return this.hold();
                         } else {
+                            console.log('Loosing sell after EMA big up');
                             return this.ask(currentPrice);
                             //return this.sell();
                         }

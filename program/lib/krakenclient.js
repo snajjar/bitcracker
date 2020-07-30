@@ -140,6 +140,9 @@ class KrakenWebSocket extends EventEmitter {
     }
 
     async initClockTimer() {
+        if (this.clockTimer) {
+            this.stopClockTimer();
+        }
         await this.waitNextMinute();
         this.clockTimer = setInterval(() => {
             this.onClockTick();
@@ -150,6 +153,7 @@ class KrakenWebSocket extends EventEmitter {
     async stopClockTimer() {
         console.log('[*] Stopping clock timer');
         clearInterval(this.clockTimer);
+        this.clockTimer = null;
     }
 
     // end of current candle, start of a new one
@@ -246,11 +250,12 @@ class KrakenWebSocket extends EventEmitter {
             this.ws.onclose = async e => {
                 console.log(new Date, '[KRAKEN] closed socket');
                 this.stopClockTimer();
-                this.clockTimer = null;
                 this.reset();
                 if (this._onDisconnect) {
-                    console.log('[*] Activating disconnection procedure');
-                    this._onDisconnect();
+                    setTimeout(() => {
+                        console.log('[*] Activating disconnection procedure');
+                        this._onDisconnect();
+                    }, 0);
                 }
             }
 
@@ -1014,6 +1019,7 @@ class KrakenREST {
                 this._onNewCandle(asset, candle);
             }
         });
+        console.log('[*] Initializing clock timer: showing price update every minute');
         await this.ws.initClockTimer();
     }
 
