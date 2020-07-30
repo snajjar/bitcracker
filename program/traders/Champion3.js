@@ -143,24 +143,24 @@ class ChampionTrader extends Trader {
     }
 
     // sell when the derivative of EMA200 is negative (EMA200 starting to go down)
-    async sellProcedure(asset, candles, currentPrice) {
-        // use MACD indicator to determine if the current upward trend is strong
-        // if yes, hold our position a little bit longer
-        // if no, sell now
-        //let mergedCandles = dt.mergeCandlesBy(candles, 5);
-        let ema = await this.getEMA(candles);
-        let last3EMA = ema.slice(ema.length - 3);
-        let [a, b] = dt.linearRegression(_.range(last3EMA.length), last3EMA);
-        let trendUp = a > 0.2 && a < 1.5;
+    // async sellProcedure(asset, candles, currentPrice) {
+    //     // use MACD indicator to determine if the current upward trend is strong
+    //     // if yes, hold our position a little bit longer
+    //     // if no, sell now
+    //     //let mergedCandles = dt.mergeCandlesBy(candles, 5);
+    //     let ema = await this.getEMA(candles);
+    //     let last3EMA = ema.slice(ema.length - 3);
+    //     let [a, b] = dt.linearRegression(_.range(last3EMA.length), last3EMA);
+    //     let trendUp = a > 0.2 && a < 1.5;
 
-        if (trendUp) {
-            //console.log(`should sell at ${currentPrice} but hold`);
-            return this.hold();
-        } else {
-            //console.log(`finally sell at ${currentPrice}`);
-            return this.sell();
-        }
-    }
+    //     if (trendUp) {
+    //         //console.log(`should sell at ${currentPrice} but hold`);
+    //         return this.hold();
+    //     } else {
+    //         //console.log(`finally sell at ${currentPrice}`);
+    //         return this.sell();
+    //     }
+    // }
 
     // async sellProcedure(asset, candles, currentPrice) {
     //     // use MACD indicator to determine if the current upward trend is strong
@@ -182,30 +182,44 @@ class ChampionTrader extends Trader {
     //     }
     // }
 
-    // async sellProcedure(asset, candles, currentPrice) {
-    //     // use ADX indicator to determine if the current upward trend is strong
-    //     // if yes, hold our position a little bit longer
-    //     // if no, sell now
+    async isTrendStrong(candles) {
+        let merged = dt.mergeCandlesBy(candles, 5);
+        let adx = await this.getADX(merged);
+        let lastADX = _.last(adx);
+        let ADXTrendSeemsStrong = !isNaN(lastADX) && lastADX > 50;
 
-    //     let merged = dt.mergeCandlesBy(candles, 5);
-    //     let adx = await this.getADX(merged);
-    //     let lastADX = _.last(adx);
-    //     let ADXTrendSeemsStrong = !isNaN(lastADX) && lastADX > 50;
+        let [macd, signal, histo] = await this.getMACD(candles);
+        let lastMACD = _.last(macd);
+        let lastSignal = _.last(signal);
+        let MACDTrendSeemsStrong = Math.abs(lastMACD - lastSignal) > 2;
 
-    //     let [macd, signal, histo] = await this.getMACD(candles);
-    //     let lastMACD = _.last(macd);
-    //     let lastSignal = _.last(signal);
-    //     let MACDTrendSeemsStrong = Math.abs(lastMACD - lastSignal) > 2;
-    //     //console.log(asset, 'lastMACD:',
+        return ADXTrendSeemsStrong && MACDTrendSeemsStrong;
+    }
 
-    //     if (ADXTrendSeemsStrong && MACDTrendSeemsStrong) {
-    //         // console.log(`should sell at ${currentPrice} but hold`);
-    //         return this.hold();
-    //     } else {
-    //         // console.log(`finally sell at ${currentPrice}`);
-    //         return this.sell();
-    //     }
-    // }
+    async sellProcedure(asset, candles, currentPrice) {
+        // use ADX indicator to determine if the current upward trend is strong
+        // if yes, hold our position a little bit longer
+        // if no, sell now
+
+        let merged = dt.mergeCandlesBy(candles, 5);
+        let adx = await this.getADX(merged);
+        let lastADX = _.last(adx);
+        let ADXTrendSeemsStrong = !isNaN(lastADX) && lastADX > 50;
+
+        let [macd, signal, histo] = await this.getMACD(candles);
+        let lastMACD = _.last(macd);
+        let lastSignal = _.last(signal);
+        let MACDTrendSeemsStrong = Math.abs(lastMACD - lastSignal) > 2;
+        //console.log(asset, 'lastMACD:',
+
+        if (ADXTrendSeemsStrong && MACDTrendSeemsStrong) {
+            // console.log(`should sell at ${currentPrice} but hold`);
+            return this.hold();
+        } else {
+            // console.log(`finally sell at ${currentPrice}`);
+            return this.sell();
+        }
+    }
 
     // decide for an action
     async action(crypto, candles, currentPrice) {
