@@ -200,19 +200,8 @@ class ChampionTrader extends Trader {
         // use ADX indicator to determine if the current upward trend is strong
         // if yes, hold our position a little bit longer
         // if no, sell now
-
-        let merged = dt.mergeCandlesBy(candles, 5);
-        let adx = await this.getADX(merged);
-        let lastADX = _.last(adx);
-        let ADXTrendSeemsStrong = !isNaN(lastADX) && lastADX > 50;
-
-        let [macd, signal, histo] = await this.getMACD(candles);
-        let lastMACD = _.last(macd);
-        let lastSignal = _.last(signal);
-        let MACDTrendSeemsStrong = Math.abs(lastMACD - lastSignal) > 2;
-        //console.log(asset, 'lastMACD:',
-
-        if (ADXTrendSeemsStrong && MACDTrendSeemsStrong) {
+        let strongTrend = await this.isTrendStrong(candles);
+        if (strongTrend) {
             // console.log(`should sell at ${currentPrice} but hold`);
             return this.hold();
         } else {
