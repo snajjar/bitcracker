@@ -11,7 +11,22 @@ const moment = require('moment');
 const HRNumbers = require('human-readable-numbers');
 const Statistics = require('./lib/statistics');
 
-const evaluateTrader = async function(trader, duration) {
+const getTrader = async function(name) {
+    let TraderConstructor = require('./traders/' + name);
+    if (!TraderConstructor) {
+        console.error(`Trader ${name} is not implemented (yet!)`);
+        process.exit(-1);
+    }
+
+    let trader = new TraderConstructor();
+    await trader.initialize(config.getInterval());
+    return trader;
+}
+
+
+const evaluateTrader = async function(name, duration, plot) {
+    let trader = await getTrader(name);
+
     let candlesByAsset = await csv.getData();
     if (duration) {
         let candleSetsByAssets = _.mapValues(candlesByAsset, (v, k) => {
@@ -88,20 +103,88 @@ const evaluateTrader = async function(trader, duration) {
         }
     }
 
-    trader.stats.display();
-    trader.wallet.display();
+    await trader.stats.display();
+    await trader.wallet.display();
+    await csv.plotTrader(trader);
 }
 
-const evaluate = async function(name, duration) {
+// like evaluate trader, but start trade again from each period
+const splitEvaluateTrader = async function(name, duration) {
+    let candlesByAsset = await csv.getData();
+    if (duration) {
+        let candleSetsByAssets = _.mapValues(candlesByAsset, (v, k) => {
+            let set = dt.splitByDuration(v, duration);
+            console.log(`[*] splitted ${k} set into ${set.length} sets of ${set[0].length} candles`);
+            return set;
+        });
+
+        // since our trader need the last n=trader.analysisIntervalLength() periods to decide an action
+        // we need to connect the different set by adding the last n-1 periods to it
+        let t = await getTrader(name);
+        let analysisIntervalLength = t.analysisIntervalLength();
+        _.each(candleSetsByAssets, (candleset, asset) => {
+            for (var i = 0; i < candleset.length; i++) {
+                if (i > 0) {
+                    let previousSet = candleset[i - 1];
+                    let endPeriodData = previousSet.slice(previousSet.length - analysisIntervalLength - 1);
+                    candleset[i] = endPeriodData.concat(candleset[i]);
+                }
+            }
+        });
+
+        let assets = _.keys(candlesByAsset);
+        let nbPeriods = candleSetsByAssets[assets[0]].length
+
+        let results = {};
+        let traders = [];
+        for (let i = 0; i < nbPeriods; i++) {
+            let trader = await getTrader(name);
+            traders.push(trader);
+            let start = moment.unix(candleSetsByAssets[assets[0]][i][analysisIntervalLength].timestamp);
+
+            // build the dataset for this period
+            let dataset = {};
+            for (asset of assets) {
+                dataset[asset] = candleSetsByAssets[asset][i];
+            }
+
+            await trader.trade(dataset);
+
+            // add a statistic object to log data related to this period
+            if (trader.isInTrade()) {
+                trader.closePositions();
+            }
+        }
+
+        _.each(traders, t => {
+            t.stats.display();
+        });
+
+        await csv.plotTraders(traders);
+    } else {
+        let trader = await getTrader(name);
+        await trader.trade(candlesByAsset);
+
+        // sell if trader still has assets
+        if (trader.isInTrade()) {
+            trader.closePositions();
+        }
+    }
+
+}
+
+const evaluate = async function(name, duration, split) {
     let TraderConstructor = require('./traders/' + name);
     if (!TraderConstructor) {
         console.error(`Trader ${name} is not implemented (yet!)`);
         process.exit(-1);
     }
 
-    let trader = new TraderConstructor();
-    await trader.initialize(config.getInterval());
-    return await evaluateTrader(trader, duration);
+    if (split) {
+        return await splitEvaluateTrader(name, duration);
+    } else {
+        return await evaluateTrader(name, duration);
+    }
 }
 
 module.exports = evaluate;

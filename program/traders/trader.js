@@ -404,14 +404,20 @@ class Trader {
             let assetName = assets[j];
             this.currentAsset = assetName;
             let last = candlesByAsset[assetName][currentIndex];
-
-            //console.log(`processing ${assetName} validation with candle ${JSON.stringify(last)}`);
-
-            this.checkBidValidation(assetName, last);
-            this.checkAskValidation(assetName, last);
-            this.wallet.setPrice(assetName, last.open);
-            this.checkBuyValidation(assetName);
-            this.checkSellValidation(assetName);
+            if (!last || _.isEmpty(last)) {
+                let prevValue = candlesByAsset[assetName][currentIndex - 1];
+                if (prevValue && !_.isEmpty(prevValue)) {
+                    console.log(`asset ${assetName} price is undefined, may not have processed orders`);
+                    console.log(`last seen value at ${moment.unix(prevValue.timestamp).format('DD/MM/YYYY hh:mm')}`);
+                }
+            } else {
+                //console.log(`processing ${assetName} validation with candle ${JSON.stringify(last)}`);
+                this.checkBidValidation(assetName, last);
+                this.checkAskValidation(assetName, last);
+                this.wallet.setPrice(assetName, last.open);
+                this.checkBuyValidation(assetName);
+                this.checkSellValidation(assetName);
+            }
         }
     }
 
@@ -434,31 +440,32 @@ class Trader {
             for (var j = 0; j < assets.length; j++) {
                 let asset = assets[j];
                 let nextPeriod = candlesByAsset[asset][i];
+                if (nextPeriod !== undefined) {
+                    candles[asset].push(nextPeriod);
 
-                candles[asset].push(nextPeriod);
-
-                let currentPrice = _.last(candles[asset]).close;
-                if (config.getRealTradeSimulation()) {
-                    // alterate the buy/sell price a little bit to adjust to market simulation
-                    // add a 1% random spread
-                    let randomSpread = Math.random() * currentPrice * this.randomSpreadFactor;
-                    if (this.isInTrade()) {
-                        currentPrice -= randomSpread;
-                    } else {
-                        currentPrice += randomSpread;
+                    let currentPrice = _.last(candles[asset]).close;
+                    if (config.getRealTradeSimulation()) {
+                        // alterate the buy/sell price a little bit to adjust to market simulation
+                        // add a 1% random spread
+                        let randomSpread = Math.random() * currentPrice * this.randomSpreadFactor;
+                        if (this.isInTrade()) {
+                            currentPrice -= randomSpread;
+                        } else {
+                            currentPrice += randomSpread;
+                        }
                     }
+
+                    await this.decideAction(asset, candles[asset], currentPrice);
+
+                    if (this.wallet.value() < 20) {
+                        // can't trade anymore
+                        console.log('trader reached low wallet, interrupting trade');
+                        this.wallet.display();
+                        return;
+                    }
+
+                    candles[asset].shift();
                 }
-
-                await this.decideAction(asset, candles[asset], currentPrice);
-
-                if (this.wallet.value() < 20) {
-                    // can't trade anymore
-                    console.log('trader reached low wallet, interrupting trade');
-                    this.wallet.display();
-                    return;
-                }
-
-                candles[asset].shift();
             }
         }
     }

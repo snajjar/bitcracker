@@ -15,7 +15,11 @@ class ChampionTrader extends Trader {
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;
         this.winTradePeriod = { 'min': 60, 'max': 60 * 24 };
-        this.shortScalpProfit = { 'min': 0.0015, 'max': 0.0064 };
+
+        // scalp profit for short time trades and long times
+        // ie: if we can sell quickly, use shortWindowScalpProfit, else use longWindowScalpProfit
+        this.shortWindowScalpProfit = { 'min': 0.0011, 'max': 0.0016 };
+        this.longWindowScalpProfit = { 'min': 0.0015, 'max': 0.0064 };
 
         // how close we are to the highest value of the analysis interval
         this.volatilityRange = 0.5;
@@ -23,6 +27,15 @@ class ChampionTrader extends Trader {
 
         // if we get to the lowest 4% of the price amplitude of history, let's take action
         this.zoneTreshold = 0.04;
+    }
+
+    getScalpProfit() {
+        // if (this.timeInTrade !== null && this.timeInTrade < 60) {
+        //     return this.shortWindowScalpProfit;
+        // } else {
+        //     return this.longWindowScalpProfit;
+        // }
+        return this.longWindowScalpProfit;
     }
 
     analysisIntervalLength() {
@@ -68,7 +81,8 @@ class ChampionTrader extends Trader {
     }
 
     adaptativeScalp() {
-        return this.logSlider(this.shortScalpProfit.min, this.shortScalpProfit.max, this.getTaxRatio());
+        let scalpProfit = this.getScalpProfit();
+        return this.logSlider(scalpProfit.min, scalpProfit.max, this.getTaxRatio());
     }
 
     getAdaptativeWinTradePeriod() {
@@ -141,46 +155,6 @@ class ChampionTrader extends Trader {
             });
         });
     }
-
-    // sell when the derivative of EMA200 is negative (EMA200 starting to go down)
-    // async sellProcedure(asset, candles, currentPrice) {
-    //     // use MACD indicator to determine if the current upward trend is strong
-    //     // if yes, hold our position a little bit longer
-    //     // if no, sell now
-    //     //let mergedCandles = dt.mergeCandlesBy(candles, 5);
-    //     let ema = await this.getEMA(candles);
-    //     let last3EMA = ema.slice(ema.length - 3);
-    //     let [a, b] = dt.linearRegression(_.range(last3EMA.length), last3EMA);
-    //     let trendUp = a > 0.2 && a < 1.5;
-
-    //     if (trendUp) {
-    //         //console.log(`should sell at ${currentPrice} but hold`);
-    //         return this.hold();
-    //     } else {
-    //         //console.log(`finally sell at ${currentPrice}`);
-    //         return this.sell();
-    //     }
-    // }
-
-    // async sellProcedure(asset, candles, currentPrice) {
-    //     // use MACD indicator to determine if the current upward trend is strong
-    //     // if yes, hold our position a little bit longer
-    //     // if no, sell now
-    //     //let mergedCandles = dt.mergeCandlesBy(candles, this.candlePeriod);
-
-    //     let [macd, signal, histo] = await this.getMACD(candles);
-    //     let lastMACD = _.last(macd);
-    //     let lastSignal = _.last(signal);
-    //     //console.log(asset, 'lastMACD:', lastMACD, "lastSignal:", lastSignal);
-
-    //     if (Math.abs(lastMACD - lastSignal) > 2.5) {
-    //         console.log(`should sell at ${currentPrice} but hold`);
-    //         return this.hold();
-    //     } else {
-    //         console.log(`finally sell at ${currentPrice}`);
-    //         return this.sell();
-    //     }
-    // }
 
     async isTrendStrong(candles) {
         let merged = dt.mergeCandlesBy(candles, 5);

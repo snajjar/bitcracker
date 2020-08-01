@@ -81,12 +81,23 @@ const convertToInterval = function(data, interval) {
 }
 
 var extract = async function(asset, currency, interval) {
-    console.log(`[*] Extracting ${asset}/${currency} data for interval ${utils.intervalToStr(interval)}`);
-    let pair = asset + currency;
-    let data1m = await csv.getFileData(`./data/Cex_${pair}_1m.csv`);
-    let cleanedData = dt.removePriceAnomalies(data1m)
-    let data = convertToInterval(cleanedData, interval);
-    await csv.setFileData(`./data/Cex_${pair}_${utils.intervalToStr(interval)}_Refined.csv`, data);
+    let extractAsset = async function(asset) {
+        console.log(`[*] Extracting ${asset}/${currency} data for interval ${utils.intervalToStr(interval)}`);
+        let pair = asset + currency;
+        let data1m = await csv.getFileData(`./data/Cex_${pair}_1m.csv`);
+        let cleanedData = dt.removePriceAnomalies(data1m)
+        let data = convertToInterval(cleanedData, interval);
+        await csv.setFileData(`./data/Cex_${pair}_${utils.intervalToStr(interval)}_Refined.csv`, data);
+    }
+
+    if (asset) {
+        await extractAsset(asset);
+    } else {
+        let assets = await csv.getAssets();
+        for (let asset of assets) {
+            await extractAsset(asset);
+        }
+    }
 }
 
 module.exports = extract;

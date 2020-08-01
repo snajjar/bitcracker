@@ -236,6 +236,121 @@ const setTrendPredictionData = async function(csvFilePath, data) {
     return csvWriter.writeRecords(records); // promise
 }
 
+const plotTrader = async function(trader) {
+    let initialCapital = config.getStartFund();
+    let startTimestamp = moment.unix(config.getStartDate());
+    let endTimestamp = moment.unix(config.getEndDate());
+    let filePath = `${trader.hash()}-${startTimestamp.format('DD-MM-YYYY')}-${endTimestamp.format('DD-MM-YYYY')}.csv`;
+
+    let csvWriter = createCsvWriter({
+        path: filePath,
+        header: [
+            { id: 'time', title: 'time' },
+            { id: 'capital', title: 'capital' },
+        ]
+    });
+
+
+    let trades = trader.stats.getTrades();
+    let capital = initialCapital;
+
+    var records = [];
+    _.each(trades, trade => {
+        capital = capital * trade.roi;
+        let tradeTime = moment.unix(trade.timestamp).diff(startTimestamp) / 1000;
+        records.push({
+            time: tradeTime,
+            capital: capital / initialCapital
+        });
+    });
+
+    console.log(`[*] Extracted trader log in file: ${filePath}`);
+
+    return csvWriter.writeRecords(records); // promise
+}
+
+const plotTraders = async function(traders) {
+    let nbTrader = traders.length;
+
+    let initialCapital = config.getStartFund();
+    let startTimestamp = moment.unix(config.getStartDate());
+    let endTimestamp = moment.unix(config.getEndDate());
+    let filePath = `${traders[0].hash()}-${startTimestamp.format('DD-MM-YYYY')}-${endTimestamp.format('DD-MM-YYYY')}.csv`;
+
+    let header = [{ 'id': 'time', title: 'time' }];
+    _.each(traders, (trader, index) => {
+        header.push({
+            'id': 'period-' + index,
+            'title': 'period-' + index
+        });
+    });
+    let csvWriter = createCsvWriter({
+        path: filePath,
+        header: header
+    });
+
+    var records = {};
+
+    // get all traders records
+    _.each(traders, (trader, index) => {
+        let trades = trader.stats.getTrades();
+        let capital = initialCapital;
+        records['period-' + index] = {};
+        let firstTimestamp = null; // take the first trade as reference timestamp
+
+        _.each(trades, (trade, tradeIndex) => {
+            if (tradeIndex == 0) {
+                firstTimestamp = trade.timestamp;
+            }
+
+            capital = capital * trade.roi;
+            let tradeTime = Math.floor(moment.unix(trade.timestamp).diff(moment.unix(firstTimestamp)) / (60 * 1000));
+            records['period-' + index][tradeTime] = capital / initialCapital
+        });
+    });
+
+    // merge records
+    // 1) merge all record into 1 object
+    let mergedRecords = [];
+    _.each(records, (traderRecords, traderName) => {
+        _.each(traderRecords, (capital, time) => {
+            let existingRecord = _.find(mergedRecords, (r) => { r.time == time });
+            if (existingRecord) {
+                existingRecord[traderName] = capital;
+            } else {
+                let newRecord = {
+                    time: time
+                };
+                for (var i = 0; i < nbTrader; i++) {
+                    newRecord['period-' + i] = 1;
+                }
+                newRecord[traderName] = capital;
+                mergedRecords.push(
+                    newRecord
+                );
+            }
+        });
+    });
+
+    // sort records
+    mergeRecords = mergedRecords.sort((r1, r2) => r1.time - r2.time);
+
+    // for all records, instead of "1", assign previous value
+    _.each(mergedRecords, (r, index) => {
+        if (index > 0) {
+            _.each(r, (v, k) => {
+                if (k !== "time" && v == 1) {
+                    mergedRecords[index][k] = mergedRecords[index - 1][k];
+                }
+            });
+        }
+    });
+
+    console.log(`[*] Extracted trader log in file: ${filePath}`);
+
+    return csvWriter.writeRecords(mergedRecords); // promise
+}
+
 module.exports = {
     getData,
     getAssets,
@@ -245,5 +360,7 @@ module.exports = {
     setPricePredictionData,
     setTrendPredictionData,
     getDataForInterval,
-    removeBlankLines
+    removeBlankLines,
+    plotTrader,
+    plotTraders
 }

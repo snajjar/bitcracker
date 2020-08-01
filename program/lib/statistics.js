@@ -105,7 +105,8 @@ class Statistics {
                         taxRatio: lastAction.tax + action.tax,
                         totalTax: totalTax,
                         gain: afterTrade - beforeTrade,
-                        roi: roi
+                        roi: roi,
+                        timestamp: action.timestamp
                     };
 
                     // console.log('beforeTrader:', beforeTrade, 'afterTrade:', afterTrade);

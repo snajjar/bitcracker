@@ -90,7 +90,7 @@ var argv = yargs
         const list = require('./list');
         await list();
     })
-    .command('extract <asset> [currency] [interval]', 'Extract and refine data from a specific granularity. If no arguments specified, extract for all granularities', (yargs) => {
+    .command('extract [asset] [currency] [interval]', 'Extract and refine data from a specific granularity. If no arguments specified, extract for all granularities', (yargs) => {
         yargs.positional('interval', {
             describe: 'optional time interval: Allowed: "1m", "5m", "15m", "30m", "1h", "4h", "1d", "7d", "15d"',
             default: "1m",
@@ -102,7 +102,7 @@ var argv = yargs
         })
     }, async (argv) => {
         const extract = require('./extract');
-        argv.asset = argv.asset.toUpperCase();
+        argv.asset = argv.asset ? argv.asset.toUpperCase() : null;
         argv.currency = argv.currency.toUpperCase();
         await extract(argv.asset, argv.currency, utils.strToInterval(argv.interval));
     })
@@ -170,6 +170,9 @@ var argv = yargs
         }).option('simulation', {
             describe: 'Alterate result with randomness to simulate a real-trade environment',
             type: 'boolean',
+        }).option('split', {
+            describe: 'reset trader at the end of each period',
+            type: 'boolean',
         })
     }, async (argv) => {
         const evaluate = require('./evaluate');
@@ -185,7 +188,7 @@ var argv = yargs
             duration = moment.duration(n, unit);
         }
 
-        await evaluate(argv.name, duration);
+        await evaluate(argv.name, duration, argv.split);
     })
     .command('accuracy <name>', 'Evaluate a model accuracy on a price interval', (yargs) => {
         yargs.positional('model', {
