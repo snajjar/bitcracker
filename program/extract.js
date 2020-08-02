@@ -8,6 +8,7 @@ const _ = require('lodash');
 const moment = require('moment');
 const dt = require('./lib/datatools');
 const config = require('./config');
+const db = require('./lib/db');
 
 // debug
 const hasNaN = function(o) {
@@ -86,8 +87,14 @@ var extract = async function(asset, currency, interval) {
         let pair = asset + currency;
         let data1m = await csv.getFileData(`./data/Cex_${pair}_1m.csv`);
         let cleanedData = dt.removePriceAnomalies(data1m)
-        let data = convertToInterval(cleanedData, interval);
-        await csv.setFileData(`./data/Cex_${pair}_${utils.intervalToStr(interval)}_Refined.csv`, data);
+        let candles = convertToInterval(cleanedData, interval);
+        //await csv.setFileData(`./data/Cex_${pair}_${utils.intervalToStr(interval)}_Refined.csv`, data);
+
+        db.connect();
+        await db.build();
+        await db.addAsset(asset);
+        await db.upsert(asset, candles);
+        db.close();
     }
 
     if (asset) {
