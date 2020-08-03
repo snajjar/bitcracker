@@ -92,6 +92,7 @@ class Database {
     }
 
     async getData() {
+        console.log('[*] Fetching assets data from database');
         await this.connect();
 
         let assets = config.getAssets();

@@ -12,3 +12,4 @@ program/data/
 logs.txt
 logs.text
 .env
+*.csv

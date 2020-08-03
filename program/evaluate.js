@@ -104,9 +104,9 @@ const evaluateTrader = async function(name, duration, plot) {
 
 // like evaluate trader, but start trade again from each period
 const splitEvaluateTrader = async function(name, duration) {
-    let data = await csv.getData();
+    let data = await db.getData();
     if (duration) {
-        let splittedData = dt.splitByDuration(splittedData, duration);
+        let splittedData = dt.splitByDuration(data, duration);
 
         // since our trader need the last n=trader.analysisIntervalLength() periods to decide an action
         // we need to connect the different set by adding the last n-1 periods to it
@@ -142,6 +142,7 @@ const splitEvaluateTrader = async function(name, duration) {
             t.stats.display();
         });
 
+        console.log('[*] Plotting traders');
         await csv.plotTraders(traders);
     } else {
         let trader = await getTrader(name);

@@ -32,6 +32,7 @@
         "moment": "^2.24.0",
         "object-hash": "^2.0.3",
         "prompts": "^2.3.2",
+        "sqlite3": "^5.0.0",
         "sweetalert2": "^9.7.0",
         "tulind": "^0.8.18",
         "vue": "^2.6.11",

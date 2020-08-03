@@ -177,27 +177,31 @@ const trade = async function(name, fake) {
                 case "HOLD":
                     break;
                 case "BUY":
-                    console.log(`  - BUYING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(k.wallet.getCurrencyAmount()/currentPrice)} ${asset}`);
+                    let expectedAmount = (k.wallet.getCurrencyAmount() / currentPrice * (1 - trader.getBuyTax()));
+                    console.log(`  - BUYING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(expectedAmount)} ${asset}`);
                     await k.buyAll(asset, currentPrice);
                     await sleep(3);
                     await refreshTrader();
                     k.displayAccount();
                     break;
                 case "SELL":
-                    console.log(`  - SELLING ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
+                    let expectedPrice = currentPrice * k.wallet.getAmount(asset) * (1 - trader.getSellTax());
+                    console.log(`  - SELLING ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(expectedPrice)}`);
                     await k.sellAll(asset, currentPrice);
                     await sleep(3);
                     await refreshTrader();
                     k.displayAccount();
                     break;
                 case "BID":
-                    console.log(`  - BIDDING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(k.wallet.getCurrencyAmount()/currentPrice)} ${asset}`);
+                    let expectedAmount = k.wallet.getCurrencyAmount() / currentPrice * (1 - trader.getBidTax());
+                    console.log(`  - BIDDING for ${price(k.wallet.getCurrencyAmount())} of ${asset} at expected price ${price(currentPrice)}: ${amount(expectedAmount)} ${asset}`);
                     await k.bidAll(asset, currentPrice);
                     await waitForOrderCompletion();
                     k.displayAccount();
                     break;
                 case "ASK":
-                    console.log(`  - ASKING for ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(currentPrice * k.wallet.getAmount(asset))}`);
+                    let expectedPrice = currentPrice * k.wallet.getAmount(asset) * (1 - trader.getAskTax());
+                    console.log(`  - ASKING for ${amount(k.wallet.getAmount(asset))} ${asset} at expected price ${price(expectedPrice)}`);
                     await k.askAll(asset, currentPrice);
                     await waitForOrderCompletion();
                     k.displayAccount();
