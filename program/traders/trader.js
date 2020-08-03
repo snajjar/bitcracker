@@ -398,14 +398,14 @@ class Trader {
     }
 
     // process SELLs, BUYs, ASKs and BIDs
-    processOrders(candlesByAsset, currentIndex) {
-        let assets = _.keys(candlesByAsset);
+    processOrders(priceData, currentIndex) {
+        let assets = config.getAssets();
         for (var j = 0; j < assets.length; j++) {
             let assetName = assets[j];
             this.currentAsset = assetName;
-            let last = candlesByAsset[assetName][currentIndex];
+            let last = priceData[currentIndex][assetName];
             if (!last || _.isEmpty(last)) {
-                let prevValue = candlesByAsset[assetName][currentIndex - 1];
+                let prevValue = priceData[currentIndex - 1][assetName];
                 if (prevValue && !_.isEmpty(prevValue)) {
                     console.log(`asset ${assetName} price is undefined, may not have processed orders`);
                     console.log(`last seen value at ${moment.unix(prevValue.timestamp).format('DD/MM/YYYY hh:mm')}`);
@@ -422,25 +422,37 @@ class Trader {
     }
 
     // trade on the whole data
-    async trade(candlesByAsset) {
+    async trade(priceData) {
         let analysisIntervalLength = this.analysisIntervalLength();
         if (!analysisIntervalLength) {
             throw "analysisIntervalLength is not defined for trader " + this.hash();
         }
 
+        let assets = config.getAssets();
         let candles = {};
-        _.each(candlesByAsset, (periods, asset) => {
-            candles[asset] = periods.slice(0, analysisIntervalLength - 1); // no trades in this area
-        });
 
-        let assets = _.keys(candlesByAsset);
-        for (var i = analysisIntervalLength; i < candlesByAsset[assets[0]].length; i++) {
-            this.processOrders(candlesByAsset, i);
+        for (var j = 0; j < assets.length; j++) {
+            let asset = assets[j];
+            candles[asset] = [];
+            if (!candles[asset]) {
+                candles[asset] = [];
+            }
+
+            for (var i = 0; i < analysisIntervalLength - 1; i++) {
+                let candle = priceData[i][asset];
+                if (candle !== null) {
+                    candles[asset].push(candle);
+                }
+            }
+        }
+
+        for (var i = analysisIntervalLength; i < priceData.length; i++) {
+            this.processOrders(priceData, i);
 
             for (var j = 0; j < assets.length; j++) {
                 let asset = assets[j];
-                let nextPeriod = candlesByAsset[asset][i];
-                if (nextPeriod !== undefined) {
+                let nextPeriod = priceData[i][asset];
+                if (candles[asset].length >= analysisIntervalLength - 1 && nextPeriod !== undefined && nextPeriod !== null) {
                     candles[asset].push(nextPeriod);
 
                     let currentPrice = _.last(candles[asset]).close;

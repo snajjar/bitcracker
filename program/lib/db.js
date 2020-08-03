@@ -3,6 +3,7 @@ const sqlite3 = require('sqlite3').verbose();
 // const sqlite3 = require('better-sqlite3');
 const fs = require('fs-extra');
 const moment = require('moment');
+const config = require('../config');
 
 class Database {
     constructor() {
@@ -11,27 +12,32 @@ class Database {
     }
 
     connect() {
-        this.db = new sqlite3.Database('./data/db/assets.db', sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-            if (err) {
-                console.error(err.message);
-            } else {
-                console.log('[*] Connected to the asset database.');
-            }
-
-            this.db.exec('PRAGMA page_size=512;', function(error) {
-                if (error) {
-                    console.error("Pragma statement didn't work.")
+        return new Promise((resolve, reject) => {
+            this.db = new sqlite3.Database('./data/db/assets.db', sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+                if (err) {
+                    reject(err.message);
+                } else {
+                    this.db.exec('PRAGMA page_size=512;', function(error) {
+                        if (error) {
+                            reject("Pragma statement didn't work.")
+                        } else {
+                            resolve();
+                        }
+                    });
                 }
             });
         });
     }
 
     close() {
-        this.db.close((err) => {
-            if (err) {
-                console.error(err.message);
-            }
-            console.log('[*] Closed the database connection.');
+        return new Promise((resolve, reject) => {
+            this.db.close((err) => {
+                if (err) {
+                    reject(err.message);
+                } else {
+                    resolve();
+                }
+            });
         });
     }
 
@@ -83,6 +89,46 @@ class Database {
                 });
             });
         });
+    }
+
+    async getData() {
+        await this.connect();
+
+        let assets = config.getAssets();
+        let start = moment.unix(config.getStartDate()).format('YYYY-MM-DD hh:mm:ss');
+        let end = moment.unix(config.getEndDate()).format('YYYY-MM-DD hh:mm:ss');
+        let query = `SELECT * FROM assets WHERE timestamp BETWEEN DATETIME("${start}") AND DATETIME("${end}") ORDER BY timestamp`;
+        // console.log(query);
+        let results = await this.all(query);
+        await this.close();
+
+        let data = [];
+        for (let r of results) {
+            let row = {};
+            row.timestamp = moment(r.timestamp, 'YYYY-MM-DD hh:mm:ss').unix();
+            for (let asset of assets) {
+                if (r[`${asset}_OPEN`]) {
+                    // we have data
+                    let candle = {
+                        'timestamp': moment(r.timestamp, 'YYYY-MM-DD hh:mm:ss').unix(),
+                        'open': r[`${asset}_OPEN`],
+                        'high': r[`${asset}_HIGH`],
+                        'low': r[`${asset}_LOW`],
+                        'close': r[`${asset}_CLOSE`],
+                        'volume': r[`${asset}_VOLUME`],
+                    }
+                    row[asset] = candle;
+                } else {
+                    row[asset] = null;
+                }
+            }
+
+            data.push(row);
+        }
+
+        // console.log(data.slice(0, 10));
+
+        return data;
     }
 
     run(command) {

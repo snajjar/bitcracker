@@ -90,11 +90,11 @@ var extract = async function(asset, currency, interval) {
         let candles = convertToInterval(cleanedData, interval);
         //await csv.setFileData(`./data/Cex_${pair}_${utils.intervalToStr(interval)}_Refined.csv`, data);
 
-        db.connect();
+        await db.connect();
         await db.build();
         await db.addAsset(asset);
         await db.upsert(asset, candles);
-        db.close();
+        await db.close();
     }
 
     if (asset) {

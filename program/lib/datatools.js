@@ -1,5 +1,6 @@
 const _ = require('lodash');
 const moment = require('moment');
+const config = require('../config');
 
 // cap variation between 0.5 and 1.5 to avoid absurd data effects
 const capVariation = function(variation, maxVariance) {
@@ -197,28 +198,29 @@ const cutDataAfter = function(endTimestamp, data) {
     return data.slice(0, endIndex);
 }
 
-const splitByDuration = function(candles, duration) {
+const splitByDuration = function(rows, duration) {
     let results = [];
     let durationMs = duration.asMilliseconds();
 
     let startIndex = 0;
-    let startTime = moment.unix(candles[0].timestamp);
+    let assets = config.getAssets();
 
-    for (var i = 1; i < candles.length; i++) {
-        let candle = candles[i];
+    let startTime = moment.unix(rows[0].timestamp);
 
-        let now = moment.unix(candle.timestamp);
+    for (var i = 1; i < rows.length; i++) {
+        let timestamp = rows[i].timestamp;
+        let now = moment.unix(timestamp);
         let mdiff = moment.duration(now.diff(startTime)).asMilliseconds();
         if (mdiff >= durationMs) {
             // we reached the end of a period
-            results.push(candles.slice(startIndex, i - 1));
+            results.push(rows.slice(startIndex, i - 1));
             startTime = now;
             startIndex = i;
         }
     }
 
     // push the last "period" too
-    results.push(candles.slice(startIndex));
+    results.push(rows.slice(startIndex));
     return results;
 }
 

@@ -10,6 +10,7 @@ const dt = require('./lib/datatools');
 const moment = require('moment');
 const HRNumbers = require('human-readable-numbers');
 const Statistics = require('./lib/statistics');
+const db = require('./lib/db');
 
 const getTrader = async function(name) {
     let TraderConstructor = require('./traders/' + name);
@@ -27,39 +28,32 @@ const getTrader = async function(name) {
 const evaluateTrader = async function(name, duration, plot) {
     let trader = await getTrader(name);
 
-    let candlesByAsset = await csv.getData();
+    // fetch data from db
+    let data = await db.getData();
+
     if (duration) {
-        let candleSetsByAssets = _.mapValues(candlesByAsset, (v, k) => {
-            let set = dt.splitByDuration(v, duration);
-            console.log(`[*] splitted ${k} set into ${set.length} sets of ${set[0].length} candles`);
-            return set;
-        });
+        let splittedData = dt.splitByDuration(data, duration);
 
         // since our trader need the last n=trader.analysisIntervalLength() periods to decide an action
         // we need to connect the different set by adding the last n-1 periods to it
-        let analysisIntervalLength = trader.analysisIntervalLength();
-        _.each(candleSetsByAssets, (candleset, asset) => {
-            for (var i = 0; i < candleset.length; i++) {
-                if (i > 0) {
-                    let previousSet = candleset[i - 1];
-                    let endPeriodData = previousSet.slice(previousSet.length - analysisIntervalLength - 1);
-                    candleset[i] = endPeriodData.concat(candleset[i]);
-                }
+        let t = await getTrader(name);
+        let analysisIntervalLength = t.analysisIntervalLength();
+        _.each(splittedData, (candles, index) => {
+            if (index > 0) {
+                let endPeriodData = splittedData[index - 1].slice(splittedData[index - 1].length - analysisIntervalLength - 1);
+                splittedData[index] = endPeriodData.concat(splittedData[index]);
             }
         });
 
-        let assets = _.keys(candlesByAsset);
-        let nbPeriods = candleSetsByAssets[assets[0]].length
+        let assets = config.getAssets();
+        let nbPeriods = splittedData.length;
 
         let results = {};
         for (let i = 0; i < nbPeriods; i++) {
-            let start = moment.unix(candleSetsByAssets[assets[0]][i][analysisIntervalLength].timestamp);
+            let start = moment.unix(splittedData[i][analysisIntervalLength].timestamp);
 
             // build the dataset for this period
-            let dataset = {};
-            for (asset of assets) {
-                dataset[asset] = candleSetsByAssets[asset][i];
-            }
+            let dataset = splittedData[i];
 
             // add a statistic object to log data related to this period
             let periodStat = new Statistics(trader);
@@ -95,7 +89,7 @@ const evaluateTrader = async function(name, duration, plot) {
             stats.display();
         });
     } else {
-        await trader.trade(candlesByAsset);
+        await trader.trade(data);
 
         // sell if trader still has assets
         if (trader.isInTrade()) {
@@ -110,44 +104,32 @@ const evaluateTrader = async function(name, duration, plot) {
 
 // like evaluate trader, but start trade again from each period
 const splitEvaluateTrader = async function(name, duration) {
-    let candlesByAsset = await csv.getData();
+    let data = await csv.getData();
     if (duration) {
-        let candleSetsByAssets = _.mapValues(candlesByAsset, (v, k) => {
-            let set = dt.splitByDuration(v, duration);
-            console.log(`[*] splitted ${k} set into ${set.length} sets of ${set[0].length} candles`);
-            return set;
-        });
+        let splittedData = dt.splitByDuration(splittedData, duration);
 
         // since our trader need the last n=trader.analysisIntervalLength() periods to decide an action
         // we need to connect the different set by adding the last n-1 periods to it
         let t = await getTrader(name);
         let analysisIntervalLength = t.analysisIntervalLength();
-        _.each(candleSetsByAssets, (candleset, asset) => {
-            for (var i = 0; i < candleset.length; i++) {
-                if (i > 0) {
-                    let previousSet = candleset[i - 1];
-                    let endPeriodData = previousSet.slice(previousSet.length - analysisIntervalLength - 1);
-                    candleset[i] = endPeriodData.concat(candleset[i]);
-                }
+        _.each(splittedData, (candles, index) => {
+            if (index > 0) {
+                let endPeriodData = splittedData[index - 1].slice(splittedData[index - 1].length - analysisIntervalLength - 1);
+                splittedData[index] = endPeriodData.concat(splittedData[index]);
             }
         });
 
-        let assets = _.keys(candlesByAsset);
-        let nbPeriods = candleSetsByAssets[assets[0]].length
+        let assets = config.getAssets();
+        let nbPeriods = splittedData.length;
 
         let results = {};
         let traders = [];
         for (let i = 0; i < nbPeriods; i++) {
             let trader = await getTrader(name);
             traders.push(trader);
-            let start = moment.unix(candleSetsByAssets[assets[0]][i][analysisIntervalLength].timestamp);
 
             // build the dataset for this period
-            let dataset = {};
-            for (asset of assets) {
-                dataset[asset] = candleSetsByAssets[asset][i];
-            }
-
+            let dataset = splittedData[i];
             await trader.trade(dataset);
 
             // add a statistic object to log data related to this period
@@ -163,7 +145,7 @@ const splitEvaluateTrader = async function(name, duration) {
         await csv.plotTraders(traders);
     } else {
         let trader = await getTrader(name);
-        await trader.trade(candlesByAsset);
+        await trader.trade(data);
 
         // sell if trader still has assets
         if (trader.isInTrade()) {
