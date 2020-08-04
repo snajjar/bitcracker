@@ -1644,14 +1644,14 @@ class KrakenREST {
     }
 
     lastBuyPrice() {
-        let buys = _.sortBy(this.closedOrders, o => o.descr.type == "buy");
+        let buys = _.filter(this.closedOrders, o => o.descr.type == "buy");
         let sortedBuys = _.sortBy(buys, o => o.closetm);
         let lastBuy = _.last(sortedBuys);
         return lastBuy.price;
     }
 
     lastSellPrice() {
-        let buys = _.sortBy(this.closedOrders, o => o.descr.type == "sell");
+        let buys = _.filter(this.closedOrders, o => o.descr.type == "sell");
         let sortedBuys = _.sortBy(buys, o => o.closetm);
         let lastSell = _.last(sortedBuys);
         return lastSell.price;

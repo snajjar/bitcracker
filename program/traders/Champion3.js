@@ -179,6 +179,10 @@ class ChampionTrader extends Trader {
         }
     }
 
+    getObjective() {
+        return this.getSellWinningPrice() * (1 + scalpProfit)
+    }
+
     // decide for an action
     async action(crypto, candles, currentPrice) {
         // calculate sma indicator

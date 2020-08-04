@@ -83,12 +83,13 @@ const trade = async function(name, fake) {
     let refreshTrader = async function() {
         console.log('[*] Refreshing trader data');
         await k.refreshAccount();
+        // console.log('[*] Last buy price=', k.lastBuyPrice());
         trader.setBalance(k.wallet, k.lastBuyPrice());
         trader.setTradeVolume(k.tradeVolume);
     }
 
     let displayTraderStatus = function(action) {
-        let lastTradeStr = trader.inTrade ? ` lastBuy=${k.lastBuyPrice()}€` : ``
+        let lastTradeStr = trader.isInTrade() ? ` lastBuy=${k.lastBuyPrice()}€` : ``
         let objectiveStr = trader.getObjective ? ` objective=${trader.getObjective().toFixed(0)}€` : "";
         console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} asset=${trader.currentAsset} inTrade=${trader.isInTrade().toString().cyan}${lastTradeStr}${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
     }
