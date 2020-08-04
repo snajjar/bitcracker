@@ -18,23 +18,17 @@ class ChampionTrader extends Trader {
 
         // scalp profit for short time trades and long times
         // ie: if we can sell quickly, use shortWindowScalpProfit, else use longWindowScalpProfit
-        this.shortWindowScalpProfit = { 'min': 0.0011, 'max': 0.0016 };
-        this.longWindowScalpProfit = { 'min': 0.0015, 'max': 0.0064 };
+        this.longWindowScalpProfit = { 'min': 0.003, 'max': 0.006 };
 
         // how close we are to the highest value of the analysis interval
         this.volatilityRange = 0.5;
-        this.volatilityFactor = 3.9; // to power of 4
+        this.volatilityFactor = 4.2; // to power of 4
 
         // if we get to the lowest 4% of the price amplitude of history, let's take action
         this.zoneTreshold = 0.04;
     }
 
     getScalpProfit() {
-        // if (this.timeInTrade !== null && this.timeInTrade < 60) {
-        //     return this.shortWindowScalpProfit;
-        // } else {
-        //     return this.longWindowScalpProfit;
-        // }
         return this.longWindowScalpProfit;
     }
 
@@ -208,18 +202,24 @@ class ChampionTrader extends Trader {
                 if (emadiff < -this.adaptativeEMADownTrigger(candles)) {
                     // BUY condition
                     this.timeInTrade = 0;
-                    console.log('BUY after price drop');
+                    if (this.verbose) {
+                        console.log('BUY after price drop');
+                    }
                     return this.buy();
                     //return this.bid(currentPrice);
                 } else if (emabiddiff < -this.adaptativeEMADownTrigger(candles)) {
-                    console.log('BID after small price drop');
+                    if (this.verbose) {
+                        console.log('BID after small price drop');
+                    }
                     return this.bid(currentPrice);
                 } else {
                     let assetVolatility = this.getAssetVolatility(candles);
                     // console.log(`${asset} volatility: ${assetVolatility}`);
                     let inBuyZone = assetVolatility > 1.02 && currentPrice < lowest + amplitude * this.zoneTreshold;
                     if (inBuyZone) {
-                        console.log('BID when price range in buy zone');
+                        if (this.verbose) {
+                            console.log('BID when price range in buy zone');
+                        }
                         return this.bid(currentPrice);
                     } else {
                         return this.hold();
@@ -240,7 +240,9 @@ class ChampionTrader extends Trader {
                     let stopLossRatio = this.getStopLossRatio(scalpProfit);
                     let stopped = this.stopLoss(stopLossRatio);
                     if (stopped) {
-                        console.log('SELL when Price hit stoploss');
+                        if (this.verbose) {
+                            console.log('SELL when Price hit stoploss');
+                        }
                         return this.sell();
                     }
 
@@ -251,34 +253,46 @@ class ChampionTrader extends Trader {
                     let winningBidScalpTrade = currentPrice > this.getAskWinningPrice() * (1 + scalpProfit);;
 
                     if (winningScalpTrade) {
-                        console.log('SELL Procedure on winning scalp');
+                        if (this.verbose) {
+                            console.log('SELL Procedure on winning scalp');
+                        }
                         return await this.sellProcedure(crypto, candles, currentPrice);
                         //return this.ask(currentPrice);
                     } else if (winningBidScalpTrade) {
-                        console.log('ASK on winning scalp');
+                        if (this.verbose) {
+                            console.log('ASK on winning scalp');
+                        }
                         return this.ask(currentPrice);
                     }
 
                     // if EMA tells us to sell, sell if it's winning
                     let emaBigUp = emadiff > this.adaptativeEMAUpTrigger(candles);
                     if (emaBigUp && winningTrade) {
-                        console.log('SELL on winning trade (after a big up)');
+                        if (this.verbose) {
+                            console.log('SELL on winning trade (after a big up)');
+                        }
                         return this.sell();
                         //return this.ask(currentPrice);
                     }
 
                     let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger(candles);
                     if (winningAsk) {
-                        console.log('ASK on winning trade (after a big up)');
+                        if (this.verbose) {
+                            console.log('ASK on winning trade (after a big up)');
+                        }
                         return this.ask(currentPrice);
                     }
 
                     let inSellZone = currentPrice > lowest + amplitude * (1 - this.zoneTreshold);
                     if (winningTrade && inSellZone) {
-                        console.log('SELL Procedure when price in sell zone');
+                        if (this.verbose) {
+                            console.log('SELL Procedure when price in sell zone');
+                        }
                         return await this.sellProcedure(crypto, candles, currentPrice);
                     } else if (winningAsk && inSellZone) {
-                        console.log('ASK when price in sell zone');
+                        if (this.verbose) {
+                            console.log('ASK when price in sell zone');
+                        }
                         return this.ask(currentPrice);
                     }
 
@@ -289,7 +303,9 @@ class ChampionTrader extends Trader {
                         if (!winningTrade && this.timeInTrade <= winTradePeriod) {
                             return this.hold();
                         } else {
-                            console.log('Loosing sell after EMA big up');
+                            if (this.verbose) {
+                                console.log('Loosing sell after EMA big up');
+                            }
                             return this.ask(currentPrice);
                             //return this.sell();
                         }

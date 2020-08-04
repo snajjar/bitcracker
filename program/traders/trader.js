@@ -20,7 +20,7 @@ class Trader {
 
     constructor() {
         this.number = Trader.count++;
-        this.logActions = config.getVerbose();
+        this.verbose = config.getVerbose();
 
         this.stats = new Statistics(this);
         this.assetStats = {};
@@ -310,7 +310,7 @@ class Trader {
                     timestamp: this.lastTimestamp
                 }
 
-                if (this.logActions) {
+                if (this.verbose) {
                     console.log(`- BUY for ${_price(currencyAmount)} of ${this.currentAsset.cyan} at ${_price(assetPrice)}`);
                 }
 
@@ -340,7 +340,7 @@ class Trader {
 
                 this.currentTrade = null;
 
-                if (this.logActions) {
+                if (this.verbose) {
                     console.log(`- SELL ${_amount(assetAmount)} of ${this.currentAsset.cyan} at ${_price(assetPrice)}: ${_price(newCurrencyAmount)}`);
                 }
 
@@ -550,7 +550,7 @@ class Trader {
             }
             this.currentBid = null;
 
-            if (this.logActions) {
+            if (this.verbose) {
                 console.log(`- BID for ${_price(currencyAmount)} of ${asset.cyan} at ${_price(assetPrice)}`);
             }
         }
@@ -574,7 +574,7 @@ class Trader {
 
             this.currentTrade = null;
 
-            if (this.logActions) {
+            if (this.verbose) {
                 console.log(`- ASK ${_amount(assetAmount)} of ${asset.cyan} at ${_price(assetPrice)}:  ${_price(newCurrencyAmount)}`);
             }
         }
