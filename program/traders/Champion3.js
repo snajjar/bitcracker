@@ -24,7 +24,8 @@ class ChampionTrader extends Trader {
         this.volatilityRange = 0.5;
         this.volatilityFactor = 4.2; // to power of 4
 
-        // if we get to the lowest 4% of the price amplitude of history, let's take action
+        // if we get to the lowest 4% of the price amplitude of history (and if the asset is volatile enough), let's buy
+        this.minZoneVolatility = 1.025;
         this.zoneTreshold = 0.04;
     }
 
@@ -215,7 +216,7 @@ class ChampionTrader extends Trader {
                 } else {
                     let assetVolatility = this.getAssetVolatility(candles);
                     // console.log(`${asset} volatility: ${assetVolatility}`);
-                    let inBuyZone = assetVolatility > 1.02 && currentPrice < lowest + amplitude * this.zoneTreshold;
+                    let inBuyZone = assetVolatility > this.minZoneVolatility && currentPrice < lowest + amplitude * this.zoneTreshold;
                     if (inBuyZone) {
                         if (this.verbose) {
                             console.log('BID when price range in buy zone');
