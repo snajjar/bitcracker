@@ -136,7 +136,6 @@ const trade = async function(name, fake) {
     }
     await k.login();
     await k.synchronize(); // get server time delay
-    await refreshTrader();
     k.displayAccount();
 
     k.onNewCandle(async (asset, newCandle) => {
@@ -224,6 +223,7 @@ const trade = async function(name, fake) {
         releaseTraderMutex();
     });
     await k.initSocket(); // connect to websocket
+    await refreshTrader();
 }
 
 module.exports = trade;
