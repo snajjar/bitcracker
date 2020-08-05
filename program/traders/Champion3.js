@@ -180,7 +180,7 @@ class ChampionTrader extends Trader {
     }
 
     getObjective() {
-        return this.getSellWinningPrice() * (1 + scalpProfit)
+        return this.getSellWinningPrice() * (1 + this.adaptativeScalp());
     }
 
     // decide for an action

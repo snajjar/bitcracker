@@ -142,7 +142,7 @@ class Trader {
     }
 
     getCurrentTradeEnterPrice() {
-        return this.currentTrade.enterPrice;
+        return _.get(this.currentTrade, ["enterPrice"]) || +Infinity;
     }
 
     setTradeVolume(v) {
@@ -244,8 +244,10 @@ class Trader {
         let maxAsset = this.wallet.getMaxAsset();
 
         if (maxAsset == this.wallet.getMainCurrency()) {
+            console.log(`Trader is not trading`);
             this.currentTrade = null;
         } else {
+            console.log(`Trader is trading ${maxAsset}, entered at ${lastEnterTrade}`);
             this.currentTrade = {
                 asset: maxAsset,
                 enterPrice: lastEnterTrade,

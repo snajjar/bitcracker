@@ -1019,6 +1019,7 @@ class KrakenREST {
                 this._onNewCandle(asset, candle);
             }
         });
+
         console.log('[*] Initializing clock timer: showing price update every minute');
         await this.ws.initClockTimer();
     }
@@ -1089,6 +1090,7 @@ class KrakenREST {
                 this.prices[asset].since = lastCandle ? lastCandle.timestamp + 1 : 0; // set the new "since" period
                 //console.log(`SET PRICE ${lastCandle.close} for ASSET ${asset}`);
                 this.wallet.setPrice(asset, lastCandle.close); // refresh wallet price
+                console.log(`[*] ${asset} current price: ${price(lastCandle.close)}`);
 
                 if (!_.isEmpty(candles) && isNewData(candles)) {
                     // there is new data
@@ -1647,14 +1649,14 @@ class KrakenREST {
         let buys = _.filter(this.closedOrders, o => o.descr.type == "buy");
         let sortedBuys = _.sortBy(buys, o => o.closetm);
         let lastBuy = _.last(sortedBuys);
-        return lastBuy.price;
+        return parseFloat(lastBuy.price);
     }
 
     lastSellPrice() {
         let buys = _.filter(this.closedOrders, o => o.descr.type == "sell");
         let sortedBuys = _.sortBy(buys, o => o.closetm);
         let lastSell = _.last(sortedBuys);
-        return lastSell.price;
+        return parseFloat(lastSell.price);
     }
 
     displayAccount() {

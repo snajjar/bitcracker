@@ -88,9 +88,15 @@ const trade = async function(name, fake) {
         trader.setTradeVolume(k.tradeVolume);
     }
 
-    let displayTraderStatus = function(action) {
-        let lastTradeStr = trader.isInTrade() ? ` lastBuy=${k.lastBuyPrice()}€` : ``
-        let objectiveStr = trader.getObjective ? ` objective=${trader.getObjective().toFixed(0)}€` : "";
+    let displayTraderStatus = function(action, asset) {
+        let lastTradeStr, objectiveStr;
+        if (trader.isInTrade() && trader.getCurrentTradeAsset() == asset) {
+            lastTradeStr = ` lastBuy=${price(k.lastBuyPrice() || 0)}`;
+            objectiveStr = trader.getObjective ? ` objective=${price(trader.getObjective())}` : "";
+        } else {
+            lastTradeStr = "";
+            objectiveStr = "";
+        }
         console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} asset=${trader.currentAsset} inTrade=${trader.isInTrade().toString().cyan}${lastTradeStr}${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
     }
 
@@ -136,8 +142,9 @@ const trade = async function(name, fake) {
     }
     await k.login();
     await k.synchronize(); // get server time delay
+    await k.initSocket(); // connect to websocket
+    await refreshTrader();
     k.displayAccount();
-
     k.onNewCandle(async (asset, newCandle) => {
         await takeTraderMutex();
         console.log('');
@@ -171,7 +178,7 @@ const trade = async function(name, fake) {
             let candlesToAnalyse = candles.slice(candles.length - analysisIntervalLength);
             //dt.connectCandles(candlesToAnalyse);
             let action = await trader.decideAction(asset, candlesToAnalyse, currentPrice);
-            displayTraderStatus(action);
+            displayTraderStatus(action, asset);
 
             let expectedAmount, expectedPrice;
             switch (action) {
@@ -222,8 +229,6 @@ const trade = async function(name, fake) {
 
         releaseTraderMutex();
     });
-    await k.initSocket(); // connect to websocket
-    await refreshTrader();
 }
 
 module.exports = trade;
