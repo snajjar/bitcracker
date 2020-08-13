@@ -242,7 +242,10 @@ class ChampionTrader extends Trader {
                     //if (crypto === "XBT" || crypto === "ETH") {
                     // for "stable" assets like BTC and ETH, set a stoploss
                     // if stoploss is broken, it may be a market crash
-                    let stopLossRatio = this.getStopLossRatio(scalpProfit);
+                    // let stopLossRatio = this.getStopLossRatio(scalpProfit);
+
+                    // 1:1 risk to reward ratio
+                    let stopLossRatio = this.getObjective() / this.currentTrade.enterPrice - 1;
                     let stopped = this.stopLoss(stopLossRatio);
                     if (stopped) {
                         if (this.verbose) {
