@@ -245,7 +245,7 @@ class ChampionTrader extends Trader {
                     // let stopLossRatio = this.getStopLossRatio(scalpProfit);
 
                     // 1:1 risk to reward ratio
-                    let stopLossRatio = this.getObjective() / this.currentTrade.enterPrice - 1;
+                    let stopLossRatio = (this.getObjective() / this.currentTrade.enterPrice - 1);
                     let stopped = this.stopLoss(stopLossRatio);
                     if (stopped) {
                         if (this.verbose) {

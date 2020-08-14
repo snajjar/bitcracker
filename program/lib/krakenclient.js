@@ -81,7 +81,8 @@ class KrakenWebSocket extends EventEmitter {
         this.clockTimer = null;
         this._onNewCandle = null; // cb
         this._onDisconnect = null; // cb
-        this._onSubscriptionChanged = {}; // cb on subscription changed for each asset
+        this._onBookSubscriptionChanged = {}; // cb on Book subscription changed for each asset
+        this._onOHLCSubscriptionChanged = {}; // cb on OHLC subscription changed for each asset
         this._onFirstBookUpdate = {}; // cb on first book update, for each asset
     }
 
@@ -336,9 +337,12 @@ class KrakenWebSocket extends EventEmitter {
     onSubscriptionChanged(payload) {
         let pair = _.get(payload, ["pair"]);
         let asset = pair.replace('/EUR', '').replace('EUR', '');
+        let type = _.get(payload, ["subscription", "name"]);
 
-        if (this._onSubscriptionChanged[asset]) {
-            this._onSubscriptionChanged[asset](payload);
+        if (type == "book" && this._onBookSubscriptionChanged[asset]) {
+            this._onBookSubscriptionChanged[asset](payload);
+        } else if (type == "ohlc" && this._onOHLCSubscriptionChanged[asset]) {
+            this._onOHLCSubscriptionChanged[asset](payload);
         }
     }
 
@@ -691,7 +695,7 @@ class KrakenWebSocket extends EventEmitter {
                     }
                 }));
 
-                this._onSubscriptionChanged[asset] = (payload) => {
+                this._onBookSubscriptionChanged[asset] = (payload) => {
                     let isRightPair = _.get(payload, ["pair"]) == `${asset}/EUR` || _.get(payload, ["pair"]) == `${asset}EUR`;
                     let isBook = _.get(payload, ["subscription", "name"]) == "book";
                     let status = _.get(payload, ["status"]);
@@ -709,7 +713,7 @@ class KrakenWebSocket extends EventEmitter {
                         }
                     }
 
-                    console.error('Unexpected subscription message: ' + JSON.stringify(payload, null, 2));
+                    console.error('Unexpected book subscription message: ' + JSON.stringify(payload, null, 2));
                     reject();
                 };
             }),
@@ -740,9 +744,9 @@ class KrakenWebSocket extends EventEmitter {
                     }
                 }));
 
-                this._onSubscriptionChanged[asset] = (payload) => {
+                this._onBookSubscriptionChanged[asset] = (payload) => {
                     if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "book") {
-                        this._onSubscriptionChanged[asset] = null; // free the cb
+                        this._onBookSubscriptionChanged[asset] = null; // free the cb
                         delete this.lastBookMessage[asset];
 
                         // reset the asset book
@@ -816,11 +820,11 @@ class KrakenWebSocket extends EventEmitter {
                     }
                 }));
 
-                this._onSubscriptionChanged[asset] = (payload) => {
+                this._onOHLCSubscriptionChanged[asset] = (payload) => {
                     if (payload.status === "subscribed" && payload.pair == `${asset}/EUR` && payload.subscription.name == "ohlc") {
                         //console.log(`subscribed to ${asset} book`);
                         _.set(this.subscriptions, [asset, "ohlc"], payload.channelID);
-                        this._onSubscriptionChanged[asset] = null; // free the cb
+                        this._onOHLCSubscriptionChanged[asset] = null; // free the cb
                         console.log(`[*] subscribed to ${asset} OHLC`);
                         resolve();
                     }
@@ -851,7 +855,7 @@ class KrakenWebSocket extends EventEmitter {
                     }
                 }));
 
-                this._onSubscriptionChanged[asset] = (payload) => {
+                this._onOHLCSubscriptionChanged[asset] = (payload) => {
                     console.log(payload);
                     let isRightPair = _.get(payload, ["pair"]) == `${asset}/EUR` || _.get(payload, ["pair"]) == `${asset}EUR`;
                     let isOHLC = _.get(payload, ["subscription", "name"]) == "ohlc";
@@ -870,7 +874,7 @@ class KrakenWebSocket extends EventEmitter {
                         }
                     }
 
-                    console.error('Unexpected subscription message: ' + JSON.stringify(payload, null, 2));
+                    console.error('Unexpected OHLC subscription message: ' + JSON.stringify(payload, null, 2));
                     reject();
                 };
             }),
