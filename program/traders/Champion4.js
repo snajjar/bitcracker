@@ -38,7 +38,7 @@ class ChampionTrader extends Trader {
     }
 
     hash() {
-        return "Algo_Champion3";
+        return "Algo_Champion4";
     }
 
     // return the current value for position (between 0 and 1), on a logarithmic scale from min to max
@@ -155,14 +155,32 @@ class ChampionTrader extends Trader {
         let merged = dt.mergeCandlesBy(candles, 5);
         let adx = await this.getADX(merged);
         let lastADX = _.last(adx);
-        let ADXTrendSeemsStrong = !isNaN(lastADX) && lastADX > 50;
+        let ADXTrendSeemsStrong = !isNaN(lastADX) && lastADX > 25;
 
         let [macd, signal, histo] = await this.getMACD(candles);
         let lastMACD = _.last(macd);
         let lastSignal = _.last(signal);
-        let MACDTrendSeemsStrong = Math.abs(lastMACD - lastSignal) > 2;
+        let MACDTrendSeemsStrong = Math.abs(lastMACD - lastSignal) > 1.3;
 
         return ADXTrendSeemsStrong && MACDTrendSeemsStrong;
+    }
+
+    updateTrailingStopLoss(price) {
+        let trailingStopLoss = _.get(this.currentTrade, ["trailingStopLoss"]);
+        if (!trailingStopLoss || price > trailingStopLoss) {
+            if (this.verbose) {
+                console.log('Update trailing stoploss on winning scalp');
+            }
+            _.set(this.currentTrade, ["trailingStopLoss"], price);
+        }
+    }
+
+    // return true if we hit the trailing stoploss
+    belowTrailingStopLoss(price) {
+        let trailingStopLossTolerance = 0.5;
+        let trailingStopLoss = _.get(this.currentTrade, ["trailingStopLoss"]);
+        let tolerance = trailingStopLossTolerance * this.adaptativeScalp();
+        return price < trailingStopLoss * (1 - tolerance);
     }
 
     async sellProcedure(asset, candles, currentPrice) {
@@ -172,9 +190,10 @@ class ChampionTrader extends Trader {
         let strongTrend = await this.isTrendStrong(candles);
         if (strongTrend) {
             // console.log(`should sell at ${currentPrice} but hold`);
+            this.updateTrailingStopLoss(currentPrice);
             return this.hold();
         } else {
-            // console.log(`finally sell at ${currentPrice}`);
+            console.log(`SELLING as trend doesn't look strong`);
             return this.sell();
         }
     }
@@ -249,6 +268,13 @@ class ChampionTrader extends Trader {
                 if (stopped) {
                     if (this.verbose) {
                         console.log('SELL when Price hit stoploss');
+                    }
+                    return this.sell();
+                }
+
+                if (this.belowTrailingStopLoss(currentPrice)) {
+                    if (this.verbose) {
+                        console.log('SELL when Price hit trailing stoploss');
                     }
                     return this.sell();
                 }

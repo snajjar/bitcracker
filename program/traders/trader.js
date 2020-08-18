@@ -312,9 +312,7 @@ class Trader {
                     timestamp: this.lastTimestamp
                 }
 
-                if (this.verbose) {
-                    console.log(`- BUY for ${_price(currencyAmount)} of ${this.currentAsset.cyan} at ${_price(assetPrice)}`);
-                }
+                this.log(`- BUY for ${_price(currencyAmount)} of ${this.currentAsset.cyan} at ${_price(assetPrice)}`);
 
                 return "BUY";
             } else {
@@ -341,10 +339,7 @@ class Trader {
                 this.wallet.setAmount(this.currentAsset, 0);
 
                 this.currentTrade = null;
-
-                if (this.verbose) {
-                    console.log(`- SELL ${_amount(assetAmount)} of ${this.currentAsset.cyan} at ${_price(assetPrice)}: ${_price(newCurrencyAmount)}`);
-                }
+                this.log(`- SELL ${_amount(assetAmount)} of ${this.currentAsset.cyan} at ${_price(assetPrice)}: ${_price(newCurrencyAmount)}`);
 
                 return "SELL";
             } else {
@@ -551,10 +546,7 @@ class Trader {
                 timestamp: this.lastTimestamp
             }
             this.currentBid = null;
-
-            if (this.verbose) {
-                console.log(`- BID for ${_price(currencyAmount)} of ${asset.cyan} at ${_price(assetPrice)}`);
-            }
+            this.log(`- BID for ${_price(currencyAmount)} of ${asset.cyan} at ${_price(assetPrice)}`);
         }
 
         this._clearBid();
@@ -575,10 +567,7 @@ class Trader {
             this.wallet.setAmount(asset, 0);
 
             this.currentTrade = null;
-
-            if (this.verbose) {
-                console.log(`- ASK ${_amount(assetAmount)} of ${asset.cyan} at ${_price(assetPrice)}:  ${_price(newCurrencyAmount)}`);
-            }
+            this.log(`- ASK ${_amount(assetAmount)} of ${asset.cyan} at ${_price(assetPrice)}:  ${_price(newCurrencyAmount)}`);
         }
 
         this._clearAsk();
@@ -682,6 +671,12 @@ class Trader {
         if (isNaN(this.score())) {
             this.debug();
             process.exit(-1);
+        }
+    }
+
+    log(...args) {
+        if (this.verbose) {
+            console.log(...args);
         }
     }
 
