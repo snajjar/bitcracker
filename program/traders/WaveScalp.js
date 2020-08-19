@@ -13,10 +13,10 @@ class WaveTrader extends Trader {
 
         this.risk = 0.012; // 1.2% risk per trade
 
-        // if we get to the lowest 4% of the price amplitude of history (and if the asset is volatile enough), let's buy
-        this.zoneTreshold = 0.04;
-        this.minZoneVolatility = 1.035; // we want to observe at least 3.5% volatility on the period history (150 candles)
-        this.zoneMinTrend = -0.7; // if price are doing worse than something like f(x) = -0.7x + b (on a 5 min candle), don't buy
+        // We buy if:
+        this.zoneTreshold = 0.04; // - we are on the lowest 4% of price amplitude of history
+        this.minZoneVolatility = 1.035; // - we observe at least 3.5% volatility on the period history (150 candles)
+        this.zoneMinTrend = -0.7; // - if price are not doing worse than something like f(x) = -0.7x + b (on a 5 min candle), don't buy
     }
 
     analysisIntervalLength() {
@@ -78,6 +78,16 @@ class WaveTrader extends Trader {
 
         // console.log(frameTrendDirections);
         return frameTrendDirections;
+    }
+
+    getObjective() {
+        let taxes = this.getBuyTax() + this.getSellTax();
+        return this.currentTrade.enterPrice * (1 + this.risk + taxes);
+    }
+
+    getStopLoss() {
+        let taxes = this.getBuyTax() + this.getSellTax();
+        return this.currentTrade.enterPrice * (1 - this.risk + taxes);
     }
 
     // decide for an action

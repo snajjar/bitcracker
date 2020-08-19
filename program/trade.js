@@ -89,15 +89,15 @@ const trade = async function(name, fake) {
     }
 
     let displayTraderStatus = function(action, asset) {
-        let lastTradeStr, objectiveStr;
+        let lastTradeStr = "",
+            objectiveStr = "",
+            stopLossStr = "";
         if (trader.isInTrade() && trader.getCurrentTradeAsset() == asset) {
             lastTradeStr = ` lastBuy=${price(k.lastBuyPrice() || 0)}`;
             objectiveStr = trader.getObjective ? ` objective=${price(trader.getObjective())}` : "";
-        } else {
-            lastTradeStr = "";
-            objectiveStr = "";
+            stoplossStr = trader.getStopLoss ? ` sl=${price(trader.getStopLoss())}` : "";
         }
-        console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} asset=${trader.currentAsset} inTrade=${trader.isInTrade().toString().cyan}${lastTradeStr}${objectiveStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
+        console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} asset=${trader.currentAsset} inTrade=${trader.isInTrade().toString().cyan}${lastTradeStr}${objectiveStr}${stopLossStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
     }
 
     let waitForOrderCompletion = async function() {
@@ -170,6 +170,9 @@ const trade = async function(name, fake) {
                 currentPrice = lastTradedPrice;
             }
         }
+
+        // important: update price on the trader wallet
+        trader.wallet.setPrice(asset, currentPrice);
 
         // time for trader action
         let analysisIntervalLength = trader.analysisIntervalLength();
