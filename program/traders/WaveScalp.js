@@ -15,8 +15,8 @@ class WaveTrader extends Trader {
 
         // if we get to the lowest 4% of the price amplitude of history (and if the asset is volatile enough), let's buy
         this.zoneTreshold = 0.04;
-        this.minZoneVolatility = 1.025;
-        this.zoneMinTrend = -0.7; // if price are doing worse than something like f(x) = -0.7x + b, don't buy
+        this.minZoneVolatility = 1.035; // we want to observe at least 3.5% volatility on the period history (150 candles)
+        this.zoneMinTrend = -0.7; // if price are doing worse than something like f(x) = -0.7x + b (on a 5 min candle), don't buy
     }
 
     analysisIntervalLength() {
@@ -106,9 +106,12 @@ class WaveTrader extends Trader {
                 }
                 // return this.hold();
             } else {
-                if (this.stopLoss(this.risk)) {
+                let taxes = this.getBuyTax() + this.getSellTax();
+                if (this.stopLoss(this.risk - taxes)) {
+                    this.log('Position hit stoploss');
                     return this.sell();
-                } else if (this.takeProfit(this.risk)) {
+                } else if (this.takeProfit(this.risk + taxes)) {
+                    this.log('Position hit take profit');
                     return this.sell();
                 } else {
                     return this.hold();
