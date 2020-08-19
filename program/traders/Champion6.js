@@ -14,7 +14,7 @@ class ChampionTrader extends Trader {
         this.emaUpTrigger = { 'min': 0.15, 'max': 0.33 };
 
         // SMA
-        this.smaPeriods = 7;
+        this.smaPeriods = 3;
 
         // Trader will also scalp shortly after a buy
         this.timeInTrade = null;

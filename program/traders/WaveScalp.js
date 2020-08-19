@@ -9,7 +9,7 @@ class WaveTrader extends Trader {
 
         // parameters
         this.candleSize = 5;
-        this.smaPeriods = 7;
+        this.smaPeriods = 3;
 
         this.risk = 0.012; // 1.2% risk per trade
 
