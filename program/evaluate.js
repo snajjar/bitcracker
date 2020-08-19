@@ -30,6 +30,12 @@ const evaluateTrader = async function(name, duration, plot) {
 
     // fetch data from db
     let data = await db.getData();
+    if (_.isEmpty(data)) {
+        console.log("Dataset is empty !");
+        return;
+    }
+
+    console.log('[*] Start trader evaluation');
 
     if (duration) {
         let splittedData = dt.splitByDuration(data, duration);
@@ -105,6 +111,8 @@ const evaluateTrader = async function(name, duration, plot) {
 // like evaluate trader, but start trade again from each period
 const splitEvaluateTrader = async function(name, duration) {
     let data = await db.getData();
+    console.log('[*] Start trader evaluation');
+
     if (duration) {
         let splittedData = dt.splitByDuration(data, duration);
 

@@ -16,7 +16,7 @@ class WaveTrader extends Trader {
     }
 
     hash() {
-        return "Algo_Wave";
+        return "Algo_Wave2";
     }
 
     // decide for an action

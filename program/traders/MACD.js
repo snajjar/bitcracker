@@ -9,7 +9,7 @@ class MACDTrader extends Trader {
 
         // parameters
         this.emaPeriods = 200;
-        this.candlePeriod = 60;
+        this.candlePeriod = 5;
     }
 
     analysisIntervalLength() {
@@ -47,7 +47,7 @@ class MACDTrader extends Trader {
     }
 
     // decide for an action
-    async action(crypto, candles, currentBitcoinPrice) {
+    async action(asset, candles, currentPrice) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -59,10 +59,10 @@ class MACDTrader extends Trader {
             // Use MACD to determine buy and sell signals
             let mergedCandles = dt.mergeCandlesBy(candles, this.candlePeriod);
             let [macd, signal, histo] = await this.getMACD(mergedCandles);
-            let lastMACD = _.last(macd);
-            let lastSignal = _.last(signal);
-            let prevMACD = macd[macd.length - 2];
-            let prevSignal = signal[signal.length - 2];
+            let lastMACD = macd[macd.length - 2];
+            let prevMACD = macd[macd.length - 3];
+            let lastSignal = signal[signal.length - 2];
+            let prevSignal = signal[signal.length - 3];
             let lastHisto = _.last(histo);
 
             // console.log(lastMACD);
@@ -70,19 +70,30 @@ class MACDTrader extends Trader {
             // console.log(prevMACD);
             // console.log(prevSignal);
 
+
             // console.log("histo: " + _.last(histo));
 
             // the MACD buy signal is when MACD cross the signal line
             // but we only take that signal when crossing happens way below the histo line
-            let treshold = 0.4;
-            let macdBuySignal = prevMACD < prevSignal && lastMACD >= lastSignal && lastMACD < -treshold;
-            let macdSellSignal = prevMACD > prevSignal && lastMACD <= lastSignal && lastMACD > treshold;
+
+            let treshold = 0.01;
+            let macdBuySignal = prevMACD < prevSignal && lastMACD >= lastSignal;
+            let macdSellSignal = prevMACD > prevSignal && lastMACD <= lastSignal;
+
+            console.log(`MACD: ${prevMACD} -> ${lastMACD}`);
+            console.log(`Sig : ${prevSignal} -> ${lastSignal}`);
+            // if (macdBuySignal) {
+            //     console.log('BUY SIGNAL');
+            // }
+            // if (macdSellSignal) {
+            //     console.log('SELL SIGNAL');
+            // }
 
             // We want to trade in the direction of the market. Filter trades with 200 ema
             // check if we are currently in uptrend or downtrend
             let ema = await this.getEMA(candles);
             let lastEMA = _.last(ema);
-            let trendUp = currentBitcoinPrice > lastEMA;
+            let trendUp = currentPrice > lastEMA;
 
             if (!this.isInTrade()) {
                 if (macdBuySignal && trendUp) {
