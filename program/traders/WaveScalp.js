@@ -12,7 +12,7 @@ class WaveTrader extends Trader {
         this.smaPeriods = 3;
 
         // If we lower this value we are loosing more trades than we win.
-        this.risk = 0.012; // 2% risk per trade
+        this.risk = 0.01; // 2% risk per trade
 
         // We buy if:
         this.zoneTreshold = 0.04; // - we are on the lowest 4% of price amplitude of history
@@ -124,7 +124,7 @@ class WaveTrader extends Trader {
                     let atr = this.getATR(candles);
                     this.currentStopLoss = this.currentTrade.enterPrice * (1 - this.risk - atr + taxes);
                     this.currentTakeProfit = this.currentTrade.enterPrice * (1 + this.risk + atr + taxes);
-                    console.log(`Setting ATR=${atr} SL=${this.currentStopLoss} TP=${this.currentTakeProfit}`);
+                    // console.log(`Setting ATR=${atr} SL=${this.currentStopLoss} TP=${this.currentTakeProfit}`);
                 }
 
                 if (price.marketSell >= this.getObjective()) {

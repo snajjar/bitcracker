@@ -300,7 +300,7 @@ function setOptions(argv) {
     }
 
     if (argv.spread) {
-        config.setSpread(parseFloat(argv.spread));
+        config.setSpread(parseFloat(argv.spread) / 100);
     }
 
     if (argv.verbose) {

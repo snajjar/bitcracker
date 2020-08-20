@@ -55,7 +55,7 @@ const priceYellow = function(p) {
 };
 
 const amount = function(p) {
-    return (p.toFixed(3)).cyan
+    return (p.toFixed(4)).cyan
 }
 
 class KrakenWebSocket extends EventEmitter {
@@ -1151,13 +1151,16 @@ class KrakenREST {
     displayLastPrices(asset) {
         let candles = this.getPriceCandles(asset);
         let estimation = "";
+        let lastCandle = _.last(candles);
         if (this.wallet.getMaxAsset() == asset) {
             let marketSellPrice = this.estimateSellPrice(asset);
-            estimation = `market_sell=${priceYellow(marketSellPrice)}`
+            let spread = (marketSellPrice - lastCandle.close) / lastCandle.close;
+            estimation = `market_sell=${priceYellow(marketSellPrice)} spread=${amount(spread)}`
         } else {
             if (this.wallet.getMaxAsset() == this.wallet.getMainCurrency()) {
                 let marketBuyPrice = this.estimateBuyPrice(asset);
-                estimation = `market_buy=${priceYellow(marketBuyPrice)}`;
+                let spread = (lastCandle.close - marketBuyPrice) / lastCandle.close;
+                estimation = `market_buy=${priceYellow(marketBuyPrice)} spread=${amount(spread)}`;
             } else {
                 estimation = ""; // we don't need an estimation for this asset
             }

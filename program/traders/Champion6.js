@@ -32,6 +32,8 @@ class ChampionTrader extends Trader {
         this.minZoneVolatility = 1.025;
         this.zoneTreshold = 0.04;
         this.zoneMinTrendCoeff = -0.7; // if price are doing worse than something like f(x) = -0.7x + b, don't buy
+
+        this.wait = {};
     }
 
     getScalpProfit() {
@@ -250,6 +252,12 @@ class ChampionTrader extends Trader {
             let lowest = this.getLowest(candles);
             let amplitude = highest - lowest;
 
+            if (this.wait[asset] && this.wait[asset] > 0) {
+                this.wait[asset]--;
+                this.log('waiting after recent stoploss');
+                return this.hold();
+            }
+
             if (!this.isInTrade()) {
                 let emadiff = (price.marketBuy / currEMA * 100) - 100;
                 let bidtaxdiff = (this.getBuyTax() - this.getBidTax());
@@ -323,6 +331,7 @@ class ChampionTrader extends Trader {
                 // 1:1 risk to reward ratio
                 if (price.lastTraded < this.getStopLoss()) {
                     this.log('SELL when Price hit stoploss');
+                    this.wait[asset] = 60;
                     return this.sell();
                 }
 

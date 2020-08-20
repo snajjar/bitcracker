@@ -159,7 +159,7 @@ const trade = async function(name, fake) {
         let price = {
             marketBuy: !isNaN(estimatedBuyPrice) ? estimatedBuyPrice : lastTradedPrice,
             lastTraded: lastTradedPrice,
-            marketSell: !isNaN(estimatedSellPrice) ? estimatedSellPrice : lastTradedPrice,
+            marketSell: !isNaN(estimatedSellPrice) ? estimatedSellPrice : lastTradedPrice
         }
 
         // important: update price on the trader wallet
