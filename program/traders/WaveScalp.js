@@ -11,16 +11,16 @@ class WaveTrader extends Trader {
         this.candleSize = 5;
         this.smaPeriods = 3;
 
-        this.risk = 0.012; // 1.2% risk per trade
+        // If we lower this value we are loosing more trades than we win.
+        this.risk = 0.012; // 2% risk per trade
 
         // We buy if:
         this.zoneTreshold = 0.04; // - we are on the lowest 4% of price amplitude of history
         this.minZoneVolatility = 1.035; // - we observe at least 3.5% volatility on the period history (150 candles)
-        this.zoneMinTrend = -0.7; // - if price are not doing worse than something like f(x) = -0.7x + b (on a 5 min candle), don't buy
     }
 
     analysisIntervalLength() {
-        return 30 * this.candleSize;
+        return 40 * this.candleSize; // last 2h
     }
 
     hash() {
@@ -57,6 +57,17 @@ class WaveTrader extends Trader {
         });
     }
 
+    // average true range indicator
+    getATR(candles) {
+        candles = candles.slice(candles.length - (14 * 5));
+        let merged = dt.mergeCandlesBy(candles, 5);
+        let s = 0;
+        for (let candle of merged) {
+            s += (candle.high - candle.low) / candle.low;
+        }
+        return s / candles.length;
+    }
+
     hasBigDown(candles, currentPrice) {
         let relevantCandles = candles.slice(candles.length - 700);
         let highest = _.maxBy(relevantCandles, c => c.high).high;
@@ -81,20 +92,18 @@ class WaveTrader extends Trader {
     }
 
     getObjective() {
-        let taxes = this.getBuyTax() + this.getSellTax();
-        return this.currentTrade.enterPrice * (1 + this.risk + taxes);
+        return this.currentTakeProfit;
     }
 
     getStopLoss() {
-        let taxes = this.getBuyTax() + this.getSellTax();
-        return this.currentTrade.enterPrice * (1 - this.risk + taxes);
+        return this.currentStopLoss;
     }
 
     // decide for an action
-    async action(asset, candles, currentPrice) {
+    async action(asset, candles, price) {
 
         // BUY when at the lowest of the wave
-        // SELL when at the highest
+        // SELL with stoploss/takeprofit
         try {
             if (!this.isInTrade()) {
                 let highest = this.getHighest(candles);
@@ -102,26 +111,31 @@ class WaveTrader extends Trader {
                 let amplitude = highest - lowest;
 
                 let assetVolatility = this.getVolatility(candles);
-                let inBuyZone = assetVolatility > this.minZoneVolatility && currentPrice < lowest + amplitude * this.zoneTreshold;
+                let inBuyZone = assetVolatility > this.minZoneVolatility && price.marketBuy < lowest + amplitude * this.zoneTreshold;
                 if (inBuyZone) {
-                    let trendDirections = await this.getTrendDirections(candles);
-                    let minDirection = _.min(trendDirections);
-                    if (minDirection > this.zoneMinTrend) {
-                        return this.buy();
-                    } else {
-                        return this.hold();
-                    }
+                    return this.buy();
                 } else {
                     return this.hold();
                 }
                 // return this.hold();
             } else {
-                let taxes = this.getBuyTax() + this.getSellTax();
-                if (this.stopLoss(this.risk - taxes)) {
-                    this.log('Position hit stoploss');
-                    return this.sell();
-                } else if (this.takeProfit(this.risk + taxes)) {
+                if (!this.currentStopLoss || !this.currentTakeProfit) {
+                    let taxes = this.getBuyTax() + this.getSellTax();
+                    let atr = this.getATR(candles);
+                    this.currentStopLoss = this.currentTrade.enterPrice * (1 - this.risk - atr + taxes);
+                    this.currentTakeProfit = this.currentTrade.enterPrice * (1 + this.risk + atr + taxes);
+                    console.log(`Setting ATR=${atr} SL=${this.currentStopLoss} TP=${this.currentTakeProfit}`);
+                }
+
+                if (price.marketSell >= this.getObjective()) {
                     this.log('Position hit take profit');
+                    this.currentStopLoss = null;
+                    this.currentTakeProfit = null;
+                    return this.sell();
+                } else if (price.lastTraded <= this.getStopLoss()) {
+                    this.log('Position hit stoploss');
+                    this.currentStopLoss = null;
+                    this.currentTakeProfit = null;
                     return this.sell();
                 } else {
                     return this.hold();

@@ -57,6 +57,10 @@ var argv = yargs
         describe: 'Taker tax (in %)',
         type: 'string',
     })
+    .option('spread', {
+        describe: 'spread factor',
+        type: 'string',
+    })
     .option('verbose', {
         alias: 'v',
         describe: 'verbose mode',
@@ -293,6 +297,10 @@ function setOptions(argv) {
         config.setInterval(interval);
     } else {
         config.setInterval(1);
+    }
+
+    if (argv.spread) {
+        config.setSpread(parseFloat(argv.spread));
     }
 
     if (argv.verbose) {

@@ -8,6 +8,9 @@ const config = {
     currency: "EUR",
     assets: ["BTC"],
 
+    // spread (default 0.5%)
+    spreadFactor: 0.005,
+
     // trade parameters
     stopLossRatio: 0.05,
     takeProfitRatio: 0.05,
@@ -180,6 +183,13 @@ const getVerbose = function() {
     return config.verbose;
 }
 
+const getSpread = function() {
+    return config.spreadFactor;
+}
+
+const setSpread = function(s) {
+    config.spreadFactor = s;
+}
 
 module.exports = {
     getConfig,
@@ -209,4 +219,6 @@ module.exports = {
     setRealTradeSimulation,
     setVerbose,
     getVerbose,
+    getSpread,
+    setSpread
 }

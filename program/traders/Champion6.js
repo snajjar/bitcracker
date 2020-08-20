@@ -206,22 +206,28 @@ class ChampionTrader extends Trader {
         return frameTrendDirections;
     }
 
-    async sellProcedure(asset, candles, currentPrice) {
+    async sellProcedure(asset, candles, price) {
         // use ADX indicator to determine if the current upward trend is strong
         // if yes, hold our position a little bit longer
         // if no, sell now
         let strongTrend = await this.isTrendStrong(candles);
         if (strongTrend) {
-            // console.log(`should sell at ${currentPrice} but hold`);
+            // console.log(`should sell at ${price.lastTraded} but hold`);
             return this.hold();
         } else {
-            // console.log(`finally sell at ${currentPrice}`);
+            // console.log(`finally sell at ${price.lastTraded}`);
             return this.sell();
         }
     }
 
     getObjective() {
         return this.getSellWinningPrice() * (1 + this.adaptativeScalp());
+    }
+
+    getStopLoss() {
+        let riskRatio = (this.currentTrade.enterPrice / this.getObjective());
+        let stopLossRatio = riskRatio - this.getBidTax() - this.getSellTax();
+        return this.currentTrade.enterPrice * stopLossRatio;
     }
 
     getCurrentTimestamp(candles) {
@@ -234,22 +240,23 @@ class ChampionTrader extends Trader {
     }
 
     // decide for an action
-    async action(asset, candles, currentPrice) {
+    async action(asset, candles, price) {
         // calculate sma indicator
         try {
             let ema = await this.getEMA(candles);
             let currEMA = _.last(ema);
-            let emadiff = (currentPrice / currEMA * 100) - 100;
-            let bidtaxdiff = (this.getBuyTax() - this.getBidTax());
-            let emabiddiff = (currentPrice * (1 - bidtaxdiff) / currEMA * 100) - 100;
 
             let highest = this.getHighest(candles);
             let lowest = this.getLowest(candles);
             let amplitude = highest - lowest;
 
             if (!this.isInTrade()) {
+                let emadiff = (price.marketBuy / currEMA * 100) - 100;
+                let bidtaxdiff = (this.getBuyTax() - this.getBidTax());
+                let emabiddiff = (price.marketBuy * (1 - bidtaxdiff) / currEMA * 100) - 100;
+
                 let priceTreshold = lowest + amplitude * this.volatilityRange;
-                if (currentPrice > priceTreshold) {
+                if (price.marketBuy > priceTreshold) {
                     // console.log('close to all time high, hold');
                     return this.hold();
                 }
@@ -259,20 +266,20 @@ class ChampionTrader extends Trader {
                     this.timeInTrade = 0;
                     this.log('BUY after price drop');
                     return this.buy();
-                    //return this.bid(currentPrice);
+                    //return this.bid(price.lastTraded);
                 } else if (emabiddiff < -this.adaptativeEMADownTrigger(candles)) {
                     this.log('BID after small price drop');
-                    return this.bid(currentPrice);
+                    return this.bid(price.marketBuy);
                 } else {
                     let assetVolatility = this.getAssetVolatility(candles);
                     // console.log(`${asset} volatility: ${assetVolatility}`);
-                    let inBuyZone = assetVolatility > this.minZoneVolatility && currentPrice < lowest + amplitude * this.zoneTreshold;
+                    let inBuyZone = assetVolatility > this.minZoneVolatility && price.marketBuy < lowest + amplitude * this.zoneTreshold;
                     if (inBuyZone) {
                         // let trendDirections = await this.getTrendDirections(candles);
                         // let minDirection = _.min(trendDirections);
                         // if (minDirection > this.zoneMinTrendCoeff) {
                         //     this.log('BID when price range in buy zone, trend direction: ' + trendDirections);
-                        //     return this.bid(currentPrice);
+                        //     return this.bid(price.lastTraded);
                         // } else {
                         //     // console.log('Trend directions not good enough: ', trendDirections);
                         //     return this.hold();
@@ -283,13 +290,13 @@ class ChampionTrader extends Trader {
                         // if (lastADX > 30) {
                         //     return this.hold();
                         // } else {
-                        //     return this.bid(currentPrice);
+                        //     return this.bid(price.lastTraded);
                         // }
 
                         let trendDirections = await this.getTrendDirections(candles);
                         let minDirection = _.min(trendDirections);
                         if (minDirection > -0.7) {
-                            return this.bid(currentPrice);
+                            return this.bid(price.marketBuy);
                         } else {
                             return this.hold();
                         }
@@ -299,6 +306,9 @@ class ChampionTrader extends Trader {
                     // return this.hold();
                 }
             } else {
+                let emadiff = (price.marketSell / currEMA * 100) - 100;
+                let bidtaxdiff = (this.getBuyTax() - this.getBidTax());
+                let emabiddiff = (price.marketSell * (1 - bidtaxdiff) / currEMA * 100) - 100;
                 // stopped = this.takeProfit(this.takeProfitRatio);
                 // if (stopped) return;
 
@@ -311,26 +321,23 @@ class ChampionTrader extends Trader {
                 // let stopLossRatio = this.getStopLossRatio(scalpProfit);
 
                 // 1:1 risk to reward ratio
-                let stopLossRatio = (this.getObjective() / this.currentTrade.enterPrice) - 1;
-                let stopped = this.stopLoss(stopLossRatio);
-                if (stopped) {
+                if (price.lastTraded < this.getStopLoss()) {
                     this.log('SELL when Price hit stoploss');
                     return this.sell();
                 }
 
                 this.timeInTrade++;
-                let winningTrade = currentPrice > this.getSellWinningPrice();
-
-                let winningScalpTrade = currentPrice > this.getSellWinningPrice() * (1 + scalpProfit);
-                let winningBidScalpTrade = currentPrice > this.getAskWinningPrice() * (1 + scalpProfit);;
+                let winningTrade = price.marketSell > this.getSellWinningPrice();
+                let winningScalpTrade = price.marketSell > this.getSellWinningPrice() * (1 + scalpProfit);
+                let winningBidScalpTrade = price.marketSell > this.getAskWinningPrice() * (1 + scalpProfit);;
 
                 if (winningScalpTrade) {
                     this.log('SELL Procedure on winning scalp');
-                    return await this.sellProcedure(asset, candles, currentPrice);
-                    //return this.ask(currentPrice);
+                    return await this.sellProcedure(asset, candles, price.marketSell);
+                    //return this.ask(price.lastTraded);
                 } else if (winningBidScalpTrade) {
                     this.log('ASK on winning scalp');
-                    return this.ask(currentPrice);
+                    return this.ask(price.marketSell);
                 }
 
                 // if EMA tells us to sell, sell if it's winning
@@ -338,22 +345,22 @@ class ChampionTrader extends Trader {
                 if (emaBigUp && winningTrade) {
                     this.log('SELL on winning trade (after a big up)');
                     return this.sell();
-                    //return this.ask(currentPrice);
+                    //return this.ask(price.lastTraded);
                 }
 
                 let winningAsk = emabiddiff > this.adaptativeEMAUpTrigger(candles);
                 if (winningAsk) {
                     this.log('ASK on winning trade (after a big up)');
-                    return this.ask(currentPrice);
+                    return this.ask(price.marketSell);
                 }
 
-                let inSellZone = currentPrice > lowest + amplitude * (1 - this.zoneTreshold);
+                let inSellZone = price.marketSell > lowest + amplitude * (1 - this.zoneTreshold);
                 if (winningTrade && inSellZone) {
                     this.log('SELL Procedure when price in sell zone');
-                    return await this.sellProcedure(asset, candles, currentPrice);
+                    return await this.sellProcedure(asset, candles, price.marketSell);
                 } else if (winningAsk && inSellZone) {
                     this.log('ASK when price in sell zone');
-                    return this.ask(currentPrice);
+                    return this.ask(price.marketSell);
                 }
 
                 // if both tells us to sell (and it's not winning), sell if we didnt buy less than this.winTradePeriod min ago
@@ -364,7 +371,7 @@ class ChampionTrader extends Trader {
                         return this.hold();
                     } else {
                         this.log('Loosing sell after EMA big up');
-                        return this.ask(currentPrice);
+                        return this.ask(price.marketSell);
                         //return this.sell();
                     }
                 }
