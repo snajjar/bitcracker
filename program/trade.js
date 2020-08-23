@@ -156,10 +156,11 @@ const trade = async function(name, fake) {
         let lastTradedPrice = k.getLastTradedPrice(asset)
         let estimatedSellPrice = k.estimateSellPrice(asset);
         let estimatedBuyPrice = k.estimateBuyPrice(asset);
+        let isValid = (p) => p !== null && p !== undefined && !isNaN(p) && p;
         let currentPrice = {
-            marketBuy: !isNaN(estimatedBuyPrice) ? estimatedBuyPrice : lastTradedPrice,
+            marketBuy: isValid(estimatedBuyPrice) ? estimatedBuyPrice : lastTradedPrice,
             lastTraded: lastTradedPrice,
-            marketSell: !isNaN(estimatedSellPrice) ? estimatedSellPrice : lastTradedPrice
+            marketSell: isValid(estimatedSellPrice) ? estimatedSellPrice : lastTradedPrice
         }
 
         // important: update price on the trader wallet
@@ -171,7 +172,7 @@ const trade = async function(name, fake) {
         if (candles.length >= analysisIntervalLength) {
             let candlesToAnalyse = candles.slice(candles.length - analysisIntervalLength);
             //dt.connectCandles(candlesToAnalyse);
-            let action = await trader.decideAction(asset, candlesToAnalyse, price);
+            let action = await trader.decideAction(asset, candlesToAnalyse, currentPrice);
             displayTraderStatus(action, asset);
 
             let expectedAmount, expectedPrice;
