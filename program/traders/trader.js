@@ -532,6 +532,13 @@ class Trader {
         });
     }
 
+    deleteOrders() {
+        delete this.currentBid;
+        delete this.currentBuy;
+        delete this.currentAsk;
+        delete this.currentSell;
+    }
+
     bid(bidPrice) {
         if (this.currentBid) {
             this.log('Holding current bid, since we can not bid 2 assets at the same time');

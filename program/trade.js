@@ -186,6 +186,7 @@ const trade = async function(name, fake) {
                     await sleep(3);
                     await refreshTrader();
                     k.displayAccount();
+                    trader.deleteOrders();
                     break;
                 case "SELL":
                     expectedPrice = currentPrice.marketSell * k.wallet.getAmount(asset) * (1 - trader.getSellTax());
@@ -194,6 +195,7 @@ const trade = async function(name, fake) {
                     await sleep(3);
                     await refreshTrader();
                     k.displayAccount();
+                    trader.deleteOrders();
                     break;
                 case "BID":
                     expectedAmount = k.wallet.getCurrencyAmount() / currentPrice.lastTraded * (1 - trader.getBidTax());
@@ -201,6 +203,7 @@ const trade = async function(name, fake) {
                     await k.bidAll(asset, currentPrice.lastTraded);
                     await waitForOrderCompletion();
                     k.displayAccount();
+                    trader.deleteOrders();
                     break;
                 case "ASK":
                     expectedPrice = currentPrice.lastTraded * k.wallet.getAmount(asset) * (1 - trader.getAskTax());
@@ -208,6 +211,7 @@ const trade = async function(name, fake) {
                     await k.askAll(asset, currentPrice.lastTraded);
                     await waitForOrderCompletion();
                     k.displayAccount();
+                    trader.deleteOrders();
                     break;
                 default:
                     console.error('Trader returned no action !'.red);
