@@ -77,6 +77,16 @@ var addIchimokuIndicator = function(data) {
     return ichimokuValues;
 }
 
+/**
+ *   Finding support and resistance price areas
+ */
+const getSupportsAndResistances = function(candles) {
+    let areas = []; // array of results areas, with estimated break probability
+
+    // identify min and max turning points for candles highest and lowest values
+    let turningPoints = [];
+}
+
 module.exports = {
     addIchimokuIndicator,
     addLocalMinMaxIndicator

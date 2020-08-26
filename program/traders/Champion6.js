@@ -10,8 +10,8 @@ class ChampionTrader extends Trader {
 
         // EMA triggers we react to
         this.emaPeriods = 2;
-        this.emaDownTrigger = { 'min': 0.23, 'max': 0.4 };
-        this.emaUpTrigger = { 'min': 0.15, 'max': 0.33 };
+        this.emaDownTrigger = { 'min': 0.33, 'max': 0.4 };
+        this.emaUpTrigger = { 'min': 0.33, 'max': 0.38 };
 
         // SMA
         this.smaPeriods = 3;
@@ -22,7 +22,7 @@ class ChampionTrader extends Trader {
 
         // scalp profit for short time trades and long times
         // ie: if we can sell quickly, use shortWindowScalpProfit, else use longWindowScalpProfit
-        this.longWindowScalpProfit = { 'min': 0.003, 'max': 0.006 };
+        this.longWindowScalpProfit = { 'min': 0.015, 'max': 0.02 };
 
         // how close we are to the highest value of the analysis interval
         this.volatilityRange = 0.5;
@@ -379,9 +379,10 @@ class ChampionTrader extends Trader {
                     if (!winningTrade && this.timeInTrade <= winTradePeriod) {
                         return this.hold();
                     } else {
-                        this.log('Loosing sell after EMA big up');
-                        return this.ask(price.marketSell);
+                        // this.log('Loosing sell after EMA big up');
+                        // return this.ask(price.marketSell);
                         //return this.sell();
+                        return this.hold();
                     }
                 }
 
