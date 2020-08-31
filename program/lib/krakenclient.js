@@ -146,9 +146,11 @@ class KrakenWebSocket extends EventEmitter {
 
     async initClockTimer() {
         if (this.clockTimer) {
+            console.log('[*] Clearing previous clock timer');
             this.stopClockTimer();
         }
         await this.waitNextMinute();
+        console.log('[*] Launching clock timer');
         this.clockTimer = setInterval(() => {
             this.onClockTick();
         }, 60000);
@@ -1541,7 +1543,7 @@ class KrakenREST {
             type: 'buy',
             ordertype: 'limit',
             volume: this._getMaxAssetVolume(asset, price),
-            expiretm: "+50", // expire in 50s,
+            expiretm: "+55", // expire in 50s,
             oflags: "post",
             price: price.toFixed(this.getPricePrecision(asset)),
             userref: userref, // reference for order, to be used internally
@@ -1587,7 +1589,7 @@ class KrakenREST {
             type: 'sell',
             ordertype: 'limit',
             volume: this.wallet.getAmount(asset),
-            expiretm: "+50", // expire in 50s,
+            expiretm: "+55", // expire in 50s,
             oflags: "post",
             price: price.toFixed(this.getPricePrecision(asset)),
             userref: userref, // reference for order, to be used internally
