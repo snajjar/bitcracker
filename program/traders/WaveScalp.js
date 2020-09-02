@@ -12,11 +12,11 @@ class WaveTrader extends Trader {
         this.smaPeriods = 3;
 
         // If we lower this value we are loosing more trades than we win.
-        this.risk = 0.04; // 4% risk per trade
+        this.risk = 0.035; // 4% risk per trade
 
         // We buy if:
         this.zoneTreshold = 0.04; // - we are on the lowest 4% of price amplitude of history
-        this.minZoneVolatility = 1.05; // - we observe at least 5% volatility on the period history (150 candles)
+        this.minZoneVolatility = 1.05; // - we observe at least 4% volatility on the period history (150 candles)
 
         this.wait = {};
     }
