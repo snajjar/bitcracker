@@ -160,7 +160,8 @@ const trade = async function(name, fake) {
         let currentPrice = {
             marketBuy: isValid(estimatedBuyPrice) ? estimatedBuyPrice : lastTradedPrice,
             lastTraded: lastTradedPrice,
-            marketSell: isValid(estimatedSellPrice) ? estimatedSellPrice : lastTradedPrice
+            marketSell: isValid(estimatedSellPrice) ? estimatedSellPrice : lastTradedPrice,
+            spread: estimatedBuyPrice - estimatedSellPrice,
         }
 
         // important: update price on the trader wallet

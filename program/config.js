@@ -8,7 +8,7 @@ const config = {
     currency: "EUR",
     assets: ["BTC"],
 
-    // spread (default 0.5%)
+    // spread (default 1%)
     spreadFactor: 0.005,
 
     // trade parameters

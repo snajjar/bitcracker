@@ -12,15 +12,17 @@ class WaveTrader extends Trader {
         this.smaPeriods = 3;
 
         // If we lower this value we are loosing more trades than we win.
-        this.risk = 0.035; // 4% risk per trade
+        this.risk = 0.04; // 4% risk per trade
 
         // We buy if:
         this.zoneTreshold = 0.04; // - we are on the lowest 4% of price amplitude of history
-        this.minZoneVolatility = 1.05; // - we observe at least 3.5% volatility on the period history (150 candles)
+        this.minZoneVolatility = 1.05; // - we observe at least 5% volatility on the period history (150 candles)
+
+        this.wait = {};
     }
 
     analysisIntervalLength() {
-        return 40 * this.candleSize; // last 2h
+        return 140 * this.candleSize; // last 2h
     }
 
     hash() {
@@ -101,10 +103,15 @@ class WaveTrader extends Trader {
 
     // decide for an action
     async action(asset, candles, price) {
-
         // BUY when at the lowest of the wave
         // SELL with stoploss/takeprofit
         try {
+            if (this.wait[asset] && this.wait[asset] > 0) {
+                this.wait[asset]--;
+                this.log('waiting after recent stoploss');
+                return this.hold();
+            }
+
             if (!this.isInTrade()) {
                 let highest = this.getHighest(candles);
                 let lowest = this.getLowest(candles);
@@ -113,7 +120,12 @@ class WaveTrader extends Trader {
                 let assetVolatility = this.getVolatility(candles);
                 let inBuyZone = assetVolatility > this.minZoneVolatility && price.marketBuy < lowest + amplitude * this.zoneTreshold;
                 if (inBuyZone) {
-                    return this.buy();
+                    if (price.spread > 0.01) {
+                        console.log('Not buying because spread is too high');
+                        return this.hold();
+                    } else {
+                        return this.buy();
+                    }
                 } else {
                     return this.hold();
                 }
@@ -134,6 +146,7 @@ class WaveTrader extends Trader {
                     return this.sell();
                 } else if (price.lastTraded <= this.getStopLoss()) {
                     this.log('Position hit stoploss');
+                    this.wait[asset] = 300; // wait 5h
                     this.currentStopLoss = null;
                     this.currentTakeProfit = null;
                     return this.sell();

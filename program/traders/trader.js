@@ -271,7 +271,7 @@ class Trader {
     checkBidValidation(asset, lastCandle) {
         if (this.currentBid !== null && this.currentBid.asset == asset) {
             let randomCondition = Math.random() < this.bidCompletionProba;
-            let spread = config.getSpread();
+            let spread = config.getSpread(asset);
 
             if (lastCandle.low * (1 + spread) <= this.currentBid.price && randomCondition) {
                 this._fullfillBid();
@@ -284,7 +284,7 @@ class Trader {
     checkAskValidation(asset, lastCandle) {
         if (this.currentAsk !== null && this.currentAsk.asset == asset) {
             let randomCondition = Math.random() < this.askCompletionProba;
-            let spread = config.getSpread();
+            let spread = config.getSpread(asset);
 
             if (lastCandle.high * (1 - spread) >= this.currentAsk.price && randomCondition) {
                 this._fullfillAsk();
@@ -299,7 +299,7 @@ class Trader {
             let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
             let assetPrice = this.wallet.getPrice(this.currentAsset);
             let assetAmount = this.wallet.getAmount(this.currentAsset);
-            let spread = config.getSpread(); // real buy price is affected by the spread
+            let spread = config.getSpread(asset); // real buy price is affected by the spread
 
             this._clearBuy();
 
@@ -332,7 +332,7 @@ class Trader {
             let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
             let assetPrice = this.wallet.getPrice(this.currentAsset);
             let assetAmount = this.wallet.getAmount(this.currentAsset);
-            let spread = config.getSpread(); // real sell price is affected by the spread
+            let spread = config.getSpread(asset); // real sell price is affected by the spread
 
             this._clearSell();
 
@@ -366,9 +366,10 @@ class Trader {
 
             if (!currentPrice) {
                 currentPrice = {
-                    marketBuy: last.close,
+                    marketBuy: last.close + config.getSpread(asset),
                     lastTraded: last.close,
-                    marketSell: last.close,
+                    marketSell: last.close - config.getSpread(asset),
+                    spread: config.getSpread(asset)
                 }
             }
 
@@ -475,11 +476,12 @@ class Trader {
                     }
 
                     // averaging 0.5% spread factor
-                    let spread = config.getSpread();
+                    let spread = config.getSpread(asset);
                     let currentPrice = {
                         marketBuy: lastPrice * (1 + spread),
                         lastTraded: lastPrice,
                         marketSell: lastPrice * (1 - spread),
+                        spread: spread
                     }
                     await this.decideAction(asset, candles[asset], currentPrice);
 
