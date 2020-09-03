@@ -1,5 +1,5 @@
 const Trader = require('./trader');
-const tulind = require('tulind');
+const indicators = require('../lib/indicators');
 const _ = require('lodash');
 const dt = require('../lib/datatools');
 
@@ -10,44 +10,29 @@ class MACDTrader extends Trader {
         // parameters
         this.emaPeriods = 200;
         this.candlePeriod = 5;
+
+        // If we lower this value we are loosing more trades than we win.
+        this.risk = 0.01; // 3% risk per trade
     }
 
     analysisIntervalLength() {
-        return 27 * this.candlePeriod;
+        return 30 * this.candlePeriod;
     }
 
     hash() {
         return "Algo_MACD";
     }
 
-    getEMA(candles) {
-        let closePrices = _.map(candles, p => p.close);
-        return new Promise((resolve, reject) => {
-            tulind.indicators.ema.indicator([closePrices], [this.emaPeriods], function(err, results) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(results[0]);
-                }
-            });
-        });
+    getObjective() {
+        return this.currentTakeProfit;
     }
 
-    getMACD(candles) {
-        let closePrices = _.map(candles, p => p.close);
-        return new Promise((resolve, reject) => {
-            tulind.indicators.macd.indicator([closePrices], [10, 26, 9], function(err, results) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(results);
-                }
-            });
-        });
+    getStopLoss() {
+        return this.currentStopLoss;
     }
 
     // decide for an action
-    async action(asset, candles, currentPrice) {
+    async action(asset, candles, price) {
         // let stopped = this.stopLoss(this.stopLossRatio);
         // if (stopped) return;
 
@@ -58,11 +43,11 @@ class MACDTrader extends Trader {
         try {
             // Use MACD to determine buy and sell signals
             let mergedCandles = dt.mergeCandlesBy(candles, this.candlePeriod);
-            let [macd, signal, histo] = await this.getMACD(mergedCandles);
-            let lastMACD = macd[macd.length - 2];
-            let prevMACD = macd[macd.length - 3];
-            let lastSignal = signal[signal.length - 2];
-            let prevSignal = signal[signal.length - 3];
+            let [macd, signal, histo] = await indicators.getMACD(mergedCandles);
+            let lastMACD = macd[macd.length - 1];
+            let prevMACD = macd[macd.length - 2];
+            let lastSignal = signal[signal.length - 1];
+            let prevSignal = signal[signal.length - 2];
             let lastHisto = _.last(histo);
 
             // console.log(lastMACD);
@@ -77,25 +62,24 @@ class MACDTrader extends Trader {
             // but we only take that signal when crossing happens way below the histo line
 
             let treshold = 0.01;
-            let macdBuySignal = prevMACD < prevSignal && lastMACD >= lastSignal;
+            let macdBuySignal = prevMACD < prevSignal && lastMACD >= lastSignal && lastMACD < -5;
             let macdSellSignal = prevMACD > prevSignal && lastMACD <= lastSignal;
 
-            console.log(`MACD: ${prevMACD} -> ${lastMACD}`);
-            console.log(`Sig : ${prevSignal} -> ${lastSignal}`);
-            // if (macdBuySignal) {
-            //     console.log('BUY SIGNAL');
-            // }
-            // if (macdSellSignal) {
-            //     console.log('SELL SIGNAL');
-            // }
 
             // We want to trade in the direction of the market. Filter trades with 200 ema
             // check if we are currently in uptrend or downtrend
-            let ema = await this.getEMA(candles);
+            let ema = await indicators.getEMA(candles, this.emaPeriods);
             let lastEMA = _.last(ema);
-            let trendUp = currentPrice > lastEMA;
+            let trendUp = price.marketBuy > lastEMA;
 
             if (!this.isInTrade()) {
+                // if (macdBuySignal) {
+                //     console.log('BUY SIGNAL at ' + price.marketBuy);
+                //     console.log(`MACD: ${prevMACD} -> ${lastMACD}`);
+                //     console.log(`Sig : ${prevSignal} -> ${lastSignal}`);
+                //     console.log(`Histo: ${lastHisto}`);
+                // }
+
                 if (macdBuySignal && trendUp) {
                     // BUY condition
                     return this.buy();
@@ -103,12 +87,43 @@ class MACDTrader extends Trader {
                     return this.hold();
                 }
             } else {
+                // if (macdSellSignal) {
+                //     // console.log(`MACD: ${prevMACD} -> ${lastMACD}`);
+                //     // console.log(`Sig : ${prevSignal} -> ${lastSignal}`);
+                //     console.log('SELL SIGNAL at ' + price.marketBuy);
+                //     console.log(`MACD: ${prevMACD} -> ${lastMACD}`);
+                //     console.log(`Sig : ${prevSignal} -> ${lastSignal}`);
+                //     console.log(`Histo: ${lastHisto}`);
+                // }
+
+                if (!this.currentStopLoss || !this.currentTakeProfit) {
+                    let taxes = this.getBuyTax() + this.getSellTax();
+                    let atr = indicators.getATR(candles);
+                    this.currentStopLoss = this.currentTrade.enterPrice * (1 - this.risk - atr + taxes);
+                    this.currentTakeProfit = this.currentTrade.enterPrice * (1 + this.risk + atr + taxes);
+                    // console.log(`Setting ATR=${atr} SL=${this.currentStopLoss} TP=${this.currentTakeProfit}`);
+                }
+
                 if (macdSellSignal) {
                     return this.sell();
                 } else {
                     // SELL conditions are take profit and stop loss
                     return this.hold();
                 }
+
+                // if (price.marketSell >= this.getObjective()) {
+                //     this.log('Position hit take profit');
+                //     this.currentStopLoss = null;
+                //     this.currentTakeProfit = null;
+                //     return this.sell();
+                // } else if (price.lastTraded <= this.getStopLoss()) {
+                //     this.log('Position hit stoploss');
+                //     this.currentStopLoss = null;
+                //     this.currentTakeProfit = null;
+                //     return this.sell();
+                // } else {
+                //     return this.hold();
+                // }
             }
         } catch (e) {
             console.error("Err: " + e.stack);

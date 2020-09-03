@@ -2,6 +2,7 @@ const Trader = require('./trader');
 const tulind = require('tulind');
 const _ = require('lodash');
 const dt = require('../lib/datatools');
+const indicators = require('../lib/indicators');
 
 class WaveTrader extends Trader {
     constructor() {
@@ -12,10 +13,10 @@ class WaveTrader extends Trader {
         this.smaPeriods = 3;
 
         // If we lower this value we are loosing more trades than we win.
-        this.risk = 0.035; // 4% risk per trade
+        this.risk = 0.04; // 4% risk per trade
 
         // We buy if:
-        this.zoneTreshold = 0.04; // - we are on the lowest 4% of price amplitude of history
+        this.zoneTreshold = 0.05; // - we are on the lowest 4% of price amplitude of history
         this.minZoneVolatility = 1.05; // - we observe at least 4% volatility on the period history (150 candles)
 
         this.wait = {};
@@ -113,17 +114,26 @@ class WaveTrader extends Trader {
             }
 
             if (!this.isInTrade()) {
+                // first, check if price has dropped significantly
                 let highest = this.getHighest(candles);
                 let lowest = this.getLowest(candles);
                 let amplitude = highest - lowest;
-
                 let assetVolatility = this.getVolatility(candles);
-                let inBuyZone = assetVolatility > this.minZoneVolatility && price.marketBuy < lowest + amplitude * this.zoneTreshold;
-                if (inBuyZone) {
+                let priceDropped = assetVolatility > this.minZoneVolatility && price.marketBuy < lowest + amplitude * this.zoneTreshold;
+                if (priceDropped) {
                     if (price.spread > 0.01) {
-                        console.log('Not buying because spread is too high');
+                        this.log('Not buying because spread is too high');
                         return this.hold();
                     } else {
+                        // if we have a RSI buy signal on the 1h candles, go buy
+                        //let mergedCandles = dt.mergeCandlesBy(candles.slice(candles.length % 5), 5)
+                        // let rsi = await indicators.getRSI(candles);
+                        // let lastRSI = _.last(rsi);
+                        // if (lastRSI > 0 && lastRSI < 20) {
+                        //     return this.buy();
+                        // } else {
+                        //     return this.hold();
+                        // }
                         return this.buy();
                     }
                 } else {
