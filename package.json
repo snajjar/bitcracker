@@ -21,6 +21,7 @@
         "crc-32": "^1.2.0",
         "csv-parser": "^2.3.2",
         "csv-writer": "^1.6.0",
+        "currency-pattern-detector": "^0.1.3",
         "dotenv": "^8.2.0",
         "fs-extra": "^9.0.0",
         "human-readable-numbers": "^0.9.5",

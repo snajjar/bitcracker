@@ -5,6 +5,7 @@ const Ichimoku = require('ichimoku');
 const _ = require('lodash');
 const tulind = require('tulind');
 const dt = require('./datatools');
+const patternDetector = require('currency-pattern-detector/build').default;
 
 // Add a min and max indicator on the data
 // if the current candle has the max high value for the [-nbPeriod/2, +nbPeriod/2] interval, add the candle.max = true indicator
@@ -89,7 +90,7 @@ const getSupportsAndResistances = function(candles) {
     let turningPoints = [];
 }
 
-// average true range indicator
+// (fake) average true range indicator
 const getATR = function(candles) {
     candles = candles.slice(candles.length - (14 * 5));
     let merged = dt.mergeCandlesBy(candles, 5);
@@ -98,6 +99,23 @@ const getATR = function(candles) {
         s += (candle.high - candle.low) / candle.low;
     }
     return s / candles.length;
+}
+
+// hourly range indicator
+const getHourlyRange = function(candles) {
+    candles = candles.slice(candles.length % 60);
+    let merged = dt.mergeCandlesBy(candles, 60);
+    let s = 0;
+    for (let candle of merged) {
+        s += (candle.high - candle.low) / candle.low;
+    }
+    return s / candles.length;
+}
+
+const getRange = function(candles) {
+    let high = getHighest(candles);
+    let low = getLowest(candles);
+    return high / low - 1;
 }
 
 // return a percentage of how much the action moved compared to it's price
@@ -168,6 +186,19 @@ const getRSI = function(candles) {
     });
 }
 
+const isGreenCandle = function(candle) {
+    return candle.open < candle.close;
+}
+
+const isRedCandle = function(candle) {
+    return candle.open > candle.close;
+}
+
+const patternDetection = function(candles) {
+    return patternDetector(candles);
+}
+
+
 module.exports = {
     addIchimokuIndicator,
     addLocalMinMaxIndicator,
@@ -179,4 +210,9 @@ module.exports = {
     getHighest,
     getLowest,
     getRSI,
+    isGreenCandle,
+    isRedCandle,
+    patternDetection,
+    getHourlyRange,
+    getRange
 }
