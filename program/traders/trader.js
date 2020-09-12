@@ -38,19 +38,15 @@ class Trader {
         }
 
         // trade utils
-        this.currentAsset = null;
-        this.currentTrade = null;
-        this.currentBuy = null;
-        this.currentSell = null;
-        // currentTrade has the following definition
-        // this.currentTrade = {
+        // trades have the following definition
+        // this.currentTrades[asset] = {
         //     asset: null,
         //     enterPrice: null,
         //     enterTimestamp: null,
         // }
-
-        this.currentBid = null;
-        this.currentAsk = null;
+        this.currentTrades = {};
+        this.currentAsset = null;
+        this.currentOrders = [];
 
         // actions record (compute 30 days trading volume, and stuff)
         this.actions = [];
@@ -133,16 +129,16 @@ class Trader {
         return "this trader has no description";
     }
 
-    isInTrade() {
-        return this.currentTrade !== null;
+    isInTrade(asset) {
+        if (asset === undefined) {
+            console.trace();
+            throw "isInTrade() method now takes an asset";
+        }
+        return this.currentTrades[asset] !== undefined && this.currentTrades[asset] !== null;
     }
 
-    getCurrentTradeAsset() {
-        return this.currentTrade.asset;
-    }
-
-    getCurrentTradeEnterPrice() {
-        return _.get(this.currentTrade, ["enterPrice"]) || +Infinity;
+    getCurrentTradeEnterPrice(asset) {
+        return _.get(this.currentTrades[asset], ["enterPrice"]) || null;
     }
 
     setTradeVolume(v) {
@@ -231,28 +227,31 @@ class Trader {
     resetTrading() {
         this.wallet = new Wallet();
         this.wallet.setAmount("EUR", config.getStartFund);
-        this.currentTrade = null;
+        this.currentTrades = {};
         this.bidPrice = null;
         this.askPrice = null;
         this.actions = [];
     }
 
-    setBalance(wallet, lastEnterTrade) {
+    // enterTradePrices: dictionnary of price at which we entered the trades
+    setBalance(wallet, enterTradePrices) {
         this.wallet = Wallet.clone(wallet);
 
         // check if we are currently in trade
-        let maxAsset = this.wallet.getMaxAsset();
+        this.currentTrades = {};
+        _.each(this.wallet.getAssets(), asset => {
+            let value = this.wallet.value(asset);
 
-        if (maxAsset == this.wallet.getMainCurrency()) {
-            console.log(`Trader is not trading`);
-            this.currentTrade = null;
-        } else {
-            console.log(`Trader is trading ${maxAsset}, entered at ${lastEnterTrade}`);
-            this.currentTrade = {
-                asset: maxAsset,
-                enterPrice: lastEnterTrade,
+            // everything with value > 10€ is tradable
+            if (value > 10) {
+                let enterPrice = enterTradePrices[asset];
+                console.log(`Trader is trading ${maxAsset}, entered at ${enterPrice}`);
+                this.currentTrades.push({
+                    asset: asset,
+                    enterPrice: enterPrice
+                });
             }
-        }
+        });
     }
 
     recomputeTaxes() {
@@ -268,96 +267,9 @@ class Trader {
         }
     }
 
-    checkBidValidation(asset, lastCandle) {
-        if (this.currentBid !== null && this.currentBid.asset == asset) {
-            let randomCondition = Math.random() < this.bidCompletionProba;
-            let spread = config.getSpread(asset);
-
-            if (lastCandle.low * (1 + spread) <= this.currentBid.price && randomCondition) {
-                this._fullfillBid();
-            } else {
-                this._clearBid();
-            }
-        }
-    }
-
-    checkAskValidation(asset, lastCandle) {
-        if (this.currentAsk !== null && this.currentAsk.asset == asset) {
-            let randomCondition = Math.random() < this.askCompletionProba;
-            let spread = config.getSpread(asset);
-
-            if (lastCandle.high * (1 - spread) >= this.currentAsk.price && randomCondition) {
-                this._fullfillAsk();
-            } else {
-                this._clearAsk();
-            }
-        }
-    }
-
-    checkBuyValidation(asset) {
-        if (this.currentBuy !== null && this.currentBuy.asset == asset) {
-            let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
-            let assetPrice = this.wallet.getPrice(this.currentAsset);
-            let assetAmount = this.wallet.getAmount(this.currentAsset);
-            let spread = config.getSpread(asset); // real buy price is affected by the spread
-
-            this._clearBuy();
-
-            if (currencyAmount > 0) {
-                this.addAction("BUY"); // do this before changing the wallet
-
-                let buyTax = this.getBuyTax();
-                let newassetAmount = assetAmount + currencyAmount * (1 - buyTax) * (1 - spread) / assetPrice;
-                this.wallet.setAmount(this.currentAsset, newassetAmount);
-                this.wallet.setAmount(this.wallet.getMainCurrency(), 0);
-
-                this.currentTrade = {
-                    asset: this.currentAsset,
-                    enterPrice: assetPrice,
-                    timestamp: this.lastTimestamp
-                }
-
-                this.log(`- BUY for ${_price(currencyAmount)} of ${this.currentAsset.cyan} at ${_price(assetPrice)}`);
-
-                return "BUY";
-            } else {
-                return "ERROR (BUY)"
-            }
-        }
-    }
-
-
-    checkSellValidation(asset) {
-        if (this.currentSell !== null && this.currentSell.asset == asset) {
-            let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
-            let assetPrice = this.wallet.getPrice(this.currentAsset);
-            let assetAmount = this.wallet.getAmount(this.currentAsset);
-            let spread = config.getSpread(asset); // real sell price is affected by the spread
-
-            this._clearSell();
-
-            if (assetAmount > 0) {
-                this.addAction("SELL"); // record the action before we change the wallet
-
-                let sellTax = this.getSellTax();
-                let newCurrencyAmount = currencyAmount + assetAmount * (1 - sellTax) * (1 - spread) * assetPrice;
-                this.wallet.setAmount(this.wallet.getMainCurrency(), newCurrencyAmount);
-                this.wallet.setAmount(this.currentAsset, 0);
-
-                this.currentTrade = null;
-                this.log(`- SELL ${_amount(assetAmount)} of ${this.currentAsset.cyan} at ${_price(assetPrice)}: ${_price(newCurrencyAmount)}`);
-
-                return "SELL";
-            } else {
-                console.log('[*] Error: selling but asset amount is 0');
-                return "SELL";
-            }
-        }
-    }
-
     // called on each new period, will call the action() method
-    async decideAction(assetName, candles, currentPrice) {
-        this.currentAsset = assetName;
+    async decideAction(asset, candles, currentPrice) {
+        this.currentAsset = asset;
         this.volumeExpire();
 
         if (candles.length == this.analysisIntervalLength()) {
@@ -376,18 +288,13 @@ class Trader {
             if (last) {
                 this.lastTimestamp = last.timestamp;
 
-                if (this.isInTrade()) {
+                if (this.isInTrade(asset)) {
                     // if we're in a trade, only make SELL/ASK decisions on that asset
-                    if (this.currentTrade.asset == assetName) {
-                        let action = await this.action(assetName, candles, currentPrice);
-                        this.logAction(action);
-                        return action;
-                    } else {
-                        //console.log(`Skip ${assetName}: currently trading ${this.getCurrentTradeAsset()}`);
-                        return "HOLD";
-                    }
+                    let action = await this.action(asset, candles, currentPrice);
+                    this.logAction(action);
+                    return action;
                 } else {
-                    let action = await this.action(assetName, candles, currentPrice);
+                    let action = await this.action(asset, candles, currentPrice);
                     this.logAction(action);
                     return action;
                 }
@@ -405,26 +312,146 @@ class Trader {
         throw "analysisIntervalLength must be redefined by the Trader subclass. It shall return the optimal number of periods needed for the action() method";
     }
 
-    // process SELLs, BUYs, ASKs and BIDs
-    processOrders(priceData, currentIndex) {
-        let assets = config.getAssets();
-        for (var j = 0; j < assets.length; j++) {
-            let assetName = assets[j];
-            this.currentAsset = assetName;
-            let last = priceData[currentIndex][assetName];
-            if (!last || _.isEmpty(last)) {
-                let prevValue = priceData[currentIndex - 1][assetName];
-                if (prevValue && !_.isEmpty(prevValue)) {
-                    console.log(`asset ${assetName} price is undefined, may not have processed orders`);
-                    console.log(`last seen value at ${moment.unix(prevValue.timestamp).format('DD/MM/YYYY hh:mm')}`);
+    processBuy(order, lastCandle) {
+        let asset = order.asset;
+        let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
+        let assetPrice = this.wallet.getPrice(asset);
+        let assetAmount = this.wallet.getAmount(asset);
+        let spread = config.getSpread(asset); // real buy price is affected by the spread
+
+        if (currencyAmount > 0) {
+            this.addAction("BUY"); // do this before changing the wallet
+
+            let buyTax = this.getBuyTax();
+            let newAssetAmount = assetAmount + currencyAmount * (1 - buyTax) * (1 - spread) / assetPrice;
+            this.wallet.setAmount(asset, newAssetAmount);
+            this.wallet.setAmount(this.wallet.getMainCurrency(), 0);
+
+            this.currentTrades[asset] = {
+                asset: asset,
+                enterPrice: assetPrice,
+                timestamp: this.lastTimestamp
+            }
+
+            this.log(`- BUY for ${_price(currencyAmount)} of ${asset.cyan} at ${_price(assetPrice)}`);
+            return "BUY";
+        } else {
+            return "ERROR (BUY)"
+        }
+    }
+
+    processSell(order, lastCandle) {
+        let asset = order.asset;
+        let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
+        let assetPrice = this.wallet.getPrice(asset);
+        let assetAmount = this.wallet.getAmount(asset);
+        let spread = config.getSpread(asset); // real sell price is affected by the spread
+
+        if (assetAmount > 0) {
+            this.addAction("SELL"); // record the action before we change the wallet
+
+            let sellTax = this.getSellTax();
+            let newCurrencyAmount = currencyAmount + assetAmount * (1 - sellTax) * (1 - spread) * assetPrice;
+            this.wallet.setAmount(this.wallet.getMainCurrency(), newCurrencyAmount);
+            this.wallet.setAmount(asset, 0);
+
+            this.currentTrades[asset] = null;
+            this.log(`- SELL ${_amount(assetAmount)} of ${asset.cyan} at ${_price(assetPrice)}: ${_price(newCurrencyAmount)}`);
+
+            return "SELL";
+        } else {
+            return "SELL";
+        }
+    }
+
+    processAsk(order, lastCandle) {
+        let randomCondition = Math.random() < this.askCompletionProba;
+        let spread = config.getSpread(asset);
+
+        if (lastCandle.high * (1 - spread) >= order.price && randomCondition) {
+            // fullfill ask
+            let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
+            let assetPrice = order.price;
+            let asset = order.asset;
+            let assetAmount = this.wallet.getAmount(asset);
+
+            if (assetAmount > 0) {
+                this.addAction("ASK"); // record the action before we change the wallet
+
+                let askTax = this.getAskTax(); // do this before recording action
+                let newCurrencyAmount = currencyAmount + assetAmount * (1 - askTax) * assetPrice;
+                this.wallet.setAmount(this.wallet.getMainCurrency(), newCurrencyAmount);
+                this.wallet.setAmount(asset, 0);
+
+                this.currentTrades[asset] = null;
+                this.log(`- ASK ${_amount(assetAmount)} of ${asset.cyan} at ${_price(assetPrice)}:  ${_price(newCurrencyAmount)}`);
+            }
+        }
+    }
+
+    processBid(order, lastCandle) {
+        let randomCondition = Math.random() < this.bidCompletionProba;
+        let spread = config.getSpread(asset);
+        if (lastCandle.low * (1 + spread) <= order.price && randomCondition) {
+            // fullfill bid
+            let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
+            let assetPrice = order.price;
+            let asset = order.asset;
+            let assetAmount = this.wallet.getAmount(asset);
+
+            if (currencyAmount > 0) {
+                this.addAction("BID"); // do this before recording action
+
+                let bidTax = this.getBidTax();
+                let newAssetAmount = assetAmount + currencyAmount * (1 - bidTax) / assetPrice;
+                this.wallet.setAmount(asset, newAssetAmount);
+                this.wallet.setAmount(this.wallet.getMainCurrency(), 0);
+
+                this.currentTrades[asset] = {
+                    asset: asset,
+                    enterPrice: assetPrice,
+                    timestamp: this.lastTimestamp,
+                    amount: newAssetAmount
                 }
-            } else {
-                //console.log(`processing ${assetName} validation with candle ${JSON.stringify(last)}`);
-                this.checkBidValidation(assetName, last);
-                this.checkAskValidation(assetName, last);
-                this.wallet.setPrice(assetName, last.open);
-                this.checkBuyValidation(assetName);
-                this.checkSellValidation(assetName);
+                this.log(`- BID for ${_price(currencyAmount)} of ${asset.cyan} at ${_price(assetPrice)}`);
+            }
+        }
+    }
+
+    // process SELLs, BUYs, ASKs and BIDs
+    processOrder(order, lastCandle) {
+        switch (order.type) {
+            case "BUY":
+                return this.processBuy(order, lastCandle);
+            case "SELL":
+                return this.processSell(order, lastCandle);
+            case "BID":
+                return this.processBid(order, lastCandle);
+            case "ASK":
+                return this.processAsk(order, lastCandle);
+            default:
+                console.error("Order: " + JSON.stringify(order, null, 2));
+                throw "Unknown order type: " + order.type;
+        }
+    }
+
+    processOrders(priceData) {
+        _.each(this.currentOrders, order => {
+            let asset = order.asset;
+            let lastCandle = priceData[asset];
+            if (lastCandle && !_.isEmpty(lastCandle)) {
+                this.processOrder(order, lastCandle);
+            }
+        });
+
+        this.currentOrders = [];
+    }
+
+    updatePrices(priceData) {
+        for (let asset of config.getAssets()) {
+            let lastCandle = priceData[asset];
+            if (lastCandle && !_.isEmpty(lastCandle)) {
+                this.wallet.setPrice(asset, lastCandle.open);
             }
         }
     }
@@ -455,7 +482,9 @@ class Trader {
         }
 
         for (var i = analysisIntervalLength; i < priceData.length; i++) {
-            this.processOrders(priceData, i);
+            let lastPrices = priceData[i];
+            this.updatePrices(lastPrices);
+            this.processOrders(lastPrices);
 
             for (var j = 0; j < assets.length; j++) {
                 let asset = assets[j];
@@ -468,7 +497,7 @@ class Trader {
                         // alterate the buy/sell price a little bit to adjust to market simulation
                         // add a 1% random spread
                         let randomSpread = Math.random() * lastPrice * this.randomSpreadFactor;
-                        if (this.isInTrade()) {
+                        if (this.isInTrade(asset)) {
                             lastPrice -= randomSpread;
                         } else {
                             lastPrice += randomSpread;
@@ -504,23 +533,44 @@ class Trader {
         //return this.gain();
     }
 
-    buy() {
-        if (this.currentBuy) {
-            this.log('Holding current buy, since we can not buy 2 assets at the same time');
-            return "HOLD";
-        } else {
-            this.currentBuy = {
-                asset: this.currentAsset
-            }
-            return "BUY";
-        }
+    buy(params) {
+        this.currentOrders.push({
+            type: "BUY",
+            asset: this.currentAsset,
+            price: this.wallet.getPrice(this.currentAsset),
+            params: params || null,
+        });
+        return "BUY";
     }
 
-    sell() {
-        this.currentSell = {
-            asset: this.currentAsset
-        }
+    sell(params) {
+        this.currentOrders.push({
+            type: "SELL",
+            asset: this.currentAsset,
+            price: this.wallet.getPrice(this.currentAsset),
+            params: params || null,
+        });
         return "SELL";
+    }
+
+    bid(bidPrice, params) {
+        this.currentOrders.push({
+            type: "BID",
+            asset: this.currentAsset,
+            price: bidPrice,
+            params: params || null,
+        });
+        return "BID";
+    }
+
+    ask(askPrice, params) {
+        this.currentOrders.push({
+            type: "ASK",
+            asset: this.currentAsset,
+            price: askPrice,
+            params: params || null,
+        });
+        return "ASK";
     }
 
     closePositions() {
@@ -535,94 +585,7 @@ class Trader {
     }
 
     deleteOrders() {
-        delete this.currentBid;
-        delete this.currentBuy;
-        delete this.currentAsk;
-        delete this.currentSell;
-    }
-
-    bid(bidPrice) {
-        if (this.currentBid) {
-            this.log('Holding current bid, since we can not bid 2 assets at the same time');
-            return "HOLD";
-        } else {
-            this.currentBid = {
-                asset: this.currentAsset,
-                price: bidPrice,
-            }
-            return "BID";
-        }
-    }
-
-    ask(askPrice) {
-        this.currentAsk = {
-            asset: this.currentAsset,
-            price: askPrice,
-        }
-        return "ASK";
-    }
-
-    _fullfillBid() {
-        let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
-        let assetPrice = this.currentBid.price;
-        let asset = this.currentBid.asset;
-        let assetAmount = this.wallet.getAmount(asset);
-
-        if (currencyAmount > 0) {
-            this.addAction("BID"); // do this before recording action
-
-            let bidTax = this.getBidTax();
-            let newassetAmount = assetAmount + currencyAmount * (1 - bidTax) / assetPrice;
-            this.wallet.setAmount(asset, newassetAmount);
-            this.wallet.setAmount(this.wallet.getMainCurrency(), 0);
-
-            this.currentTrade = {
-                asset: asset,
-                enterPrice: assetPrice,
-                timestamp: this.lastTimestamp
-            }
-            this.currentBid = null;
-            this.log(`- BID for ${_price(currencyAmount)} of ${asset.cyan} at ${_price(assetPrice)}`);
-        }
-
-        this._clearBid();
-    }
-
-    _fullfillAsk() {
-        let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
-        let assetPrice = this.currentAsk.price;
-        let asset = this.currentAsk.asset;
-        let assetAmount = this.wallet.getAmount(asset);
-
-        if (assetAmount > 0) {
-            this.addAction("ASK"); // record the action before we change the wallet
-
-            let askTax = this.getAskTax(); // do this before recording action
-            let newCurrencyAmount = currencyAmount + assetAmount * (1 - askTax) * assetPrice;
-            this.wallet.setAmount(this.wallet.getMainCurrency(), newCurrencyAmount);
-            this.wallet.setAmount(asset, 0);
-
-            this.currentTrade = null;
-            this.log(`- ASK ${_amount(assetAmount)} of ${asset.cyan} at ${_price(assetPrice)}:  ${_price(newCurrencyAmount)}`);
-        }
-
-        this._clearAsk();
-    }
-
-    _clearBid() {
-        this.currentBid = null;
-    }
-
-    _clearAsk() {
-        this.currentAsk = null;
-    }
-
-    _clearBuy() {
-        this.currentBuy = null;
-    }
-
-    _clearSell() {
-        this.currentSell = null;
+        this.currentOrders = [];
     }
 
     getTransaction(actionStr) {
@@ -683,24 +646,6 @@ class Trader {
     hold() {
         // doing nothing is what i do best
         return "HOLD";
-    }
-
-    stopLoss(ratio) {
-        if (this.currentTrade) {
-            if (this.wallet.getPrice(this.currentTrade.asset) < this.currentTrade.enterPrice * (1 - ratio)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    takeProfit(ratio) {
-        if (this.currentTrade) {
-            if (this.wallet.getPrice(this.currentTrade.asset) > this.currentTrade.enterPrice * (1 + ratio)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     checkNotNaN() {

@@ -66,6 +66,10 @@ var argv = yargs
         describe: 'verbose mode',
         type: 'boolean',
     })
+    .option('maxexposure', {
+        describe: 'max exposure per trade',
+        type: 'string',
+    })
     .middleware([setOptions])
     .command('fetch [asset] [currency] [source]', 'Fetch asset history', (yargs) => {
         yargs.positional('asset', {

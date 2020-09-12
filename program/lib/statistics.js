@@ -65,7 +65,7 @@ class Statistics {
                     break;
                 case "HOLD":
                     this.statistics.nbHold++;
-                    if (this.trader.isInTrade()) {
+                    if (this.trader.isInTrade(this.trader.currentAsset)) {
                         this.statistics.nbHoldIn++;
                     } else {
                         this.statistics.nbHoldOut++;

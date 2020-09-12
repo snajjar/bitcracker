@@ -113,7 +113,9 @@ class WaveTrader extends Trader {
                 return this.hold();
             }
 
-            if (!this.isInTrade()) {
+            if (!this.isInTrade(asset)) {
+                let enterPrice = price.marketBuy;
+
                 // first, check if price has dropped significantly
                 let highest = this.getHighest(candles);
                 let lowest = this.getLowest(candles);
@@ -125,27 +127,30 @@ class WaveTrader extends Trader {
                         this.log('Not buying because spread is too high');
                         return this.hold();
                     } else {
-                        // if we have a RSI buy signal on the 1h candles, go buy
-                        //let mergedCandles = dt.mergeCandlesBy(candles.slice(candles.length % 5), 5)
-                        // let rsi = await indicators.getRSI(candles);
-                        // let lastRSI = _.last(rsi);
-                        // if (lastRSI > 0 && lastRSI < 20) {
-                        //     return this.buy();
-                        // } else {
-                        //     return this.hold();
-                        // }
-                        return this.buy();
+                        // compute stoploss and takeprofit
+                        let atr = this.getATR(candles);
+                        let taxes = this.getBuyTax() + this.getSellTax();
+                        let params = {
+                            stopLoss: enterPrice * (1 - this.risk - atr + taxes),
+                            takeProfit: enterPrice * (1 + this.risk + atr + taxes)
+                        };
+                        return this.buy(params);
                     }
                 } else {
                     return this.hold();
                 }
                 // return this.hold();
             } else {
+                let enterPrice = this.getCurrentTradeEnterPrice(asset);
+                if (enterPrice === null) {
+                    throw "enterPrice should not be undefined";
+                }
+
                 if (!this.currentStopLoss || !this.currentTakeProfit) {
                     let taxes = this.getBuyTax() + this.getSellTax();
                     let atr = this.getATR(candles);
-                    this.currentStopLoss = this.currentTrade.enterPrice * (1 - this.risk - atr + taxes);
-                    this.currentTakeProfit = this.currentTrade.enterPrice * (1 + this.risk + atr + taxes);
+                    this.currentStopLoss = enterPrice * (1 - this.risk - atr + taxes);
+                    this.currentTakeProfit = enterPrice * (1 + this.risk + atr + taxes);
                     // console.log(`Setting ATR=${atr} SL=${this.currentStopLoss} TP=${this.currentTakeProfit}`);
                 }
 

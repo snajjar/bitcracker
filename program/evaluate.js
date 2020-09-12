@@ -98,9 +98,7 @@ const evaluateTrader = async function(name, duration, plot) {
         await trader.trade(data);
 
         // sell if trader still has assets
-        if (trader.isInTrade()) {
-            trader.closePositions();
-        }
+        trader.closePositions();
     }
 
     await trader.stats.display();
