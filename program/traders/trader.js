@@ -325,13 +325,12 @@ class Trader {
         let amountLeft = currencyAmount - volume > 0 ? currencyAmount - volume : 0;
         let assetPrice = this.wallet.getPrice(asset);
         let assetAmount = this.wallet.getAmount(asset);
-        let spread = config.getSpread(asset); // real buy price is affected by the spread
 
         if (currencyAmount > 0) {
             this.addAction(order); // do this before changing the wallet
 
             let buyTax = this.getBuyTax();
-            let newAssetAmount = assetAmount + volume * (1 - buyTax) * (1 - spread) / assetPrice;
+            let newAssetAmount = assetAmount + volume * (1 - buyTax) / assetPrice;
             this.wallet.setAmount(asset, newAssetAmount);
             this.wallet.setAmount(this.wallet.getMainCurrency(), amountLeft);
 
@@ -342,7 +341,6 @@ class Trader {
             }
 
             this.log(`- BUY for ${_price(volume)} of ${asset.cyan} at ${_price(assetPrice)}: ${_amount(newAssetAmount)} ${asset.cyan}`);
-            this.log(`- Currently have ${_amount(newAssetAmount)} ${asset.cyan}`);
         }
     }
 
@@ -351,13 +349,12 @@ class Trader {
         let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
         let assetPrice = this.wallet.getPrice(asset);
         let assetAmount = this.wallet.getAmount(asset);
-        let spread = config.getSpread(asset); // real sell price is affected by the spread
 
         if (assetAmount > 0) {
             this.addAction(order); // record the action before we change the wallet
 
             let sellTax = this.getSellTax();
-            let gain = assetAmount * (1 - sellTax) * (1 - spread) * assetPrice;
+            let gain = assetAmount * (1 - sellTax) * assetPrice;
             let newCurrencyAmount = currencyAmount + gain;
             this.wallet.setAmount(this.wallet.getMainCurrency(), newCurrencyAmount);
             this.wallet.setAmount(asset, 0);
@@ -579,12 +576,13 @@ class Trader {
 
     buy(params) {
         let volume = this.getVolumeFromParams(params);
+        let spread = config.getSpread();
 
         if (volume) {
             this.currentOrders.push({
                 type: "BUY",
                 asset: this.currentAsset,
-                price: this.wallet.getPrice(this.currentAsset),
+                price: this.wallet.getPrice(this.currentAsset) * (1 + spread),
                 volume: volume,
                 params: params || null,
             });
@@ -593,10 +591,11 @@ class Trader {
     }
 
     sell(params) {
+        let spread = config.getSpread();
         this.currentOrders.push({
             type: "SELL",
             asset: this.currentAsset,
-            price: this.wallet.getPrice(this.currentAsset),
+            price: this.wallet.getPrice(this.currentAsset) * (1 - spread),
             volume: this.wallet.getAmount(this.currentAsset),
             params: params || null,
         });
@@ -673,6 +672,7 @@ class Trader {
 
         let totalTax = volumeEUR * actionTax;
         let volumeTF = totalVolume * (1 - actionTax);
+        let volumeAssetTF = volumeAsset * (1 - actionTax);
 
         let action = {
             type: order.type,
@@ -681,6 +681,7 @@ class Trader {
             assetPrice: assetPrice,
             volume: totalVolume,
             volumeAsset: volumeAsset,
+            volumeAssetTF: volumeAssetTF,
             volumeTF: volumeTF,
             volumeEUR: volumeEUR,
             volumeDollar: volumeEUR * 1.08,

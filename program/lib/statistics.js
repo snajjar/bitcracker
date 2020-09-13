@@ -109,9 +109,9 @@ class Statistics {
                         timestamp: action.timestamp
                     };
 
-                    console.log(buyAction);
-                    console.log(action);
-                    console.log(trade);
+                    // console.log(buyAction);
+                    // console.log(action);
+                    // console.log(trade);
 
                     // console.log('beforeTrader:', beforeTrade, 'afterTrade:', afterTrade);
                     // console.log(JSON.stringify(trade, null, 2));
@@ -136,7 +136,7 @@ class Statistics {
 
         return {
             assets: assets,
-            cumulatedGain: _.sumBy(trades, t => t.gain) - config.getStartFund(),
+            cumulatedGain: _.sumBy(trades, t => t.gain),
             avgROI: _.meanBy(trades, t => t.roi) || 0,
             totalROI: totalROI,
             winLossRatio: (nbPositiveTrades / trades.length) || 0,
