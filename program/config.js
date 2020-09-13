@@ -3,7 +3,7 @@ const moment = require('moment');
 const config = {
     // initial funding
     startFund: 1000,
-    maxExposition: 0.01, // max risk to 1 trade: 1%
+    maxExposure: 0.01, // max risk to 1 trade: 1%
 
     // pair to trade
     currency: "EUR",
@@ -193,11 +193,11 @@ const setSpread = function(s) {
 }
 
 const setMaxExposure = function(risk) {
-    config.maxExposition = risk;
+    config.maxExposure = risk;
 }
 
 const getMaxExposure = function() {
-    return config.maxExposition;
+    return config.maxExposure;
 }
 
 module.exports = {

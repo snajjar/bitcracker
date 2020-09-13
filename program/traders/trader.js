@@ -291,6 +291,9 @@ class Trader {
                 if (this.isInTrade(asset)) {
                     // if we're in a trade, only make SELL/ASK decisions on that asset
                     let action = await this.action(asset, candles, currentPrice);
+                    if (action == "BUY" || action == "BID") {
+                        throw "Could not buy or bid on an asset we already have";
+                    }
                     this.logAction(action);
                     return action;
                 } else {
@@ -313,19 +316,24 @@ class Trader {
     }
 
     processBuy(order, lastCandle) {
-        let asset = order.asset;
+        let asset = this.currentAsset = order.asset;
         let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
+        let volume = order.volume < currencyAmount ? order.volume : currencyAmount;
+        if (volume !== order.volume) {
+            order.volume = volume;
+        }
+        let amountLeft = currencyAmount - volume > 0 ? currencyAmount - volume : 0;
         let assetPrice = this.wallet.getPrice(asset);
         let assetAmount = this.wallet.getAmount(asset);
         let spread = config.getSpread(asset); // real buy price is affected by the spread
 
         if (currencyAmount > 0) {
-            this.addAction("BUY"); // do this before changing the wallet
+            this.addAction(order); // do this before changing the wallet
 
             let buyTax = this.getBuyTax();
-            let newAssetAmount = assetAmount + currencyAmount * (1 - buyTax) * (1 - spread) / assetPrice;
+            let newAssetAmount = assetAmount + volume * (1 - buyTax) * (1 - spread) / assetPrice;
             this.wallet.setAmount(asset, newAssetAmount);
-            this.wallet.setAmount(this.wallet.getMainCurrency(), 0);
+            this.wallet.setAmount(this.wallet.getMainCurrency(), amountLeft);
 
             this.currentTrades[asset] = {
                 asset: asset,
@@ -333,34 +341,31 @@ class Trader {
                 timestamp: this.lastTimestamp
             }
 
-            this.log(`- BUY for ${_price(currencyAmount)} of ${asset.cyan} at ${_price(assetPrice)}`);
-            return "BUY";
-        } else {
-            return "ERROR (BUY)"
+            this.log(`- BUY for ${_price(volume)} of ${asset.cyan} at ${_price(assetPrice)}: ${_amount(newAssetAmount)} ${asset.cyan}`);
+            this.log(`- Currently have ${_amount(newAssetAmount)} ${asset.cyan}`);
         }
     }
 
     processSell(order, lastCandle) {
-        let asset = order.asset;
+        let asset = this.currentAsset = order.asset;
         let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
         let assetPrice = this.wallet.getPrice(asset);
         let assetAmount = this.wallet.getAmount(asset);
         let spread = config.getSpread(asset); // real sell price is affected by the spread
 
         if (assetAmount > 0) {
-            this.addAction("SELL"); // record the action before we change the wallet
+            this.addAction(order); // record the action before we change the wallet
 
             let sellTax = this.getSellTax();
-            let newCurrencyAmount = currencyAmount + assetAmount * (1 - sellTax) * (1 - spread) * assetPrice;
+            let gain = assetAmount * (1 - sellTax) * (1 - spread) * assetPrice;
+            let newCurrencyAmount = currencyAmount + gain;
             this.wallet.setAmount(this.wallet.getMainCurrency(), newCurrencyAmount);
             this.wallet.setAmount(asset, 0);
 
             this.currentTrades[asset] = null;
-            this.log(`- SELL ${_amount(assetAmount)} of ${asset.cyan} at ${_price(assetPrice)}: ${_price(newCurrencyAmount)}`);
+            this.log(`- SELL ${_amount(assetAmount)} of ${asset.cyan} at ${_price(assetPrice)}:  ${_price(gain)} (${_price(this.wallet.value())})`);
 
-            return "SELL";
-        } else {
-            return "SELL";
+            this.wallet.display();
         }
     }
 
@@ -372,11 +377,11 @@ class Trader {
             // fullfill ask
             let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
             let assetPrice = order.price;
-            let asset = order.asset;
+            let asset = this.currentAsset = order.asset;
             let assetAmount = this.wallet.getAmount(asset);
 
             if (assetAmount > 0) {
-                this.addAction("ASK"); // record the action before we change the wallet
+                this.addAction(order); // record the action before we change the wallet
 
                 let askTax = this.getAskTax(); // do this before recording action
                 let newCurrencyAmount = currencyAmount + assetAmount * (1 - askTax) * assetPrice;
@@ -396,16 +401,18 @@ class Trader {
             // fullfill bid
             let currencyAmount = this.wallet.getAmount(this.wallet.getMainCurrency());
             let assetPrice = order.price;
-            let asset = order.asset;
+            let asset = this.currentAsset = order.asset;
             let assetAmount = this.wallet.getAmount(asset);
+            let volume = order.volume < currencyAmount ? order.volume : currencyAmount;
+            let amountLeft = currencyAmount - volume > 0 ? currencyAmount - volume : 0;
 
             if (currencyAmount > 0) {
-                this.addAction("BID"); // do this before recording action
+                this.addAction(order); // do this before recording action
 
                 let bidTax = this.getBidTax();
-                let newAssetAmount = assetAmount + currencyAmount * (1 - bidTax) / assetPrice;
+                let newAssetAmount = assetAmount + volume * (1 - bidTax) / assetPrice;
                 this.wallet.setAmount(asset, newAssetAmount);
-                this.wallet.setAmount(this.wallet.getMainCurrency(), 0);
+                this.wallet.setAmount(this.wallet.getMainCurrency(), amountLeft);
 
                 this.currentTrades[asset] = {
                     asset: asset,
@@ -413,7 +420,7 @@ class Trader {
                     timestamp: this.lastTimestamp,
                     amount: newAssetAmount
                 }
-                this.log(`- BID for ${_price(currencyAmount)} of ${asset.cyan} at ${_price(assetPrice)}`);
+                this.log(`- BID for ${_price(volume)} of ${asset.cyan} at ${_price(assetPrice)}`);
             }
         }
     }
@@ -533,13 +540,55 @@ class Trader {
         //return this.gain();
     }
 
+    getVolumeFromMaxExposure(assetPrice, stopLossPrice) {
+        // we have the price, the stoploss and the max exposure. We can compute the volume we want on this trade
+        let currentCapital = this.wallet.value();
+        let maxExposure = config.getMaxExposure();
+
+        // price reaching stoploss, we should loose maxExposure * currentCapital
+        // so v * (stopLossPrice / assetPrice) = v - maxExposure * currentCapital
+        // so v = maxExposure * currentCapital / (1 - (stopLossPrice / assetPrice));
+        let v = maxExposure * currentCapital / (1 - (stopLossPrice / assetPrice));
+        // console.log('maxExposure:', maxExposure);
+        // console.log('currentCapital:', currentCapital);
+        // console.log('assetPrice: ', assetPrice);
+        // console.log('stopLossPrice:', stopLossPrice);
+        // console.log('v=', v);
+        return v;
+    }
+
+    getVolumeFromParams(params) {
+        // first, check params.volume
+        let volume = params.volume;
+        let assetPrice = this.wallet.getPrice(this.currentAsset)
+
+        // then, check if we have a stoploss, compute from maxExposure
+        if (!volume) {
+            if (params && params.stopLoss && config.getMaxExposure()) {
+                volume = this.getVolumeFromMaxExposure(assetPrice, params.stopLoss);
+            }
+        }
+
+        // finally, get the whole wallet
+        if (!volume) {
+            volume = this.wallet.getAmount(this.wallet.getMainCurrency());
+        }
+
+        return volume;
+    }
+
     buy(params) {
-        this.currentOrders.push({
-            type: "BUY",
-            asset: this.currentAsset,
-            price: this.wallet.getPrice(this.currentAsset),
-            params: params || null,
-        });
+        let volume = this.getVolumeFromParams(params);
+
+        if (volume) {
+            this.currentOrders.push({
+                type: "BUY",
+                asset: this.currentAsset,
+                price: this.wallet.getPrice(this.currentAsset),
+                volume: volume,
+                params: params || null,
+            });
+        }
         return "BUY";
     }
 
@@ -548,18 +597,23 @@ class Trader {
             type: "SELL",
             asset: this.currentAsset,
             price: this.wallet.getPrice(this.currentAsset),
+            volume: this.wallet.getAmount(this.currentAsset),
             params: params || null,
         });
         return "SELL";
     }
 
     bid(bidPrice, params) {
-        this.currentOrders.push({
-            type: "BID",
-            asset: this.currentAsset,
-            price: bidPrice,
-            params: params || null,
-        });
+        let volume = this.getVolumeFromParams(params);
+        if (volume) {
+            this.currentOrders.push({
+                type: "BID",
+                asset: this.currentAsset,
+                price: bidPrice,
+                volume: volume,
+                params: params || null,
+            });
+        }
         return "BID";
     }
 
@@ -568,6 +622,7 @@ class Trader {
             type: "ASK",
             asset: this.currentAsset,
             price: askPrice,
+            volume: this.wallet.getAmount(this.currentAsset),
             params: params || null,
         });
         return "ASK";
@@ -588,38 +643,44 @@ class Trader {
         this.currentOrders = [];
     }
 
-    getTransaction(actionStr) {
-        let assetPrice, totalVolume, actionTax, volumeEUR;
-        if (actionStr == "BUY") {
-            assetPrice = this.wallet.getPrice(this.currentAsset);
-            totalVolume = this.wallet.getAmount(this.wallet.getMainCurrency());
+    getTransaction(order) {
+        let assetPrice, totalVolume, actionTax, volumeAsset, volumeEUR;
+        if (order.type == "BUY") {
+            assetPrice = this.wallet.getPrice(order.asset);
+            totalVolume = order.volume;
             actionTax = this.getBuyTax();
             volumeEUR = totalVolume;
-        } else if (actionStr == "BID") {
-            assetPrice = this.currentBid.price;
-            totalVolume = this.wallet.getAmount(this.wallet.getMainCurrency());
+            volumeAsset = volumeEUR / assetPrice;
+        } else if (order.type == "BID") {
+            assetPrice = order.price;
+            totalVolume = order.volume;
             actionTax = this.getBidTax();
             volumeEUR = totalVolume;
-        } else if (actionStr == "SELL") {
-            assetPrice = this.wallet.getPrice(this.currentAsset);
-            totalVolume = this.wallet.getAmount(this.currentAsset);
+            volumeAsset = volumeEUR / assetPrice;
+        } else if (order.type == "SELL") {
+            assetPrice = this.wallet.getPrice(order.asset);
+            totalVolume = order.volume;
             actionTax = this.getSellTax();
             volumeEUR = totalVolume * assetPrice;
-        } else if (actionStr == "ASK") {
-            assetPrice = this.currentAsk.price;
-            totalVolume = this.wallet.getAmount(this.currentAsset);
+            volumeAsset = totalVolume;
+        } else if (order.type == "ASK") {
+            assetPrice = order.price;
+            totalVolume = order.volume;
             actionTax = this.getAskTax();
             volumeEUR = totalVolume * assetPrice;
+            volumeAsset = totalVolume;
         }
 
         let totalTax = volumeEUR * actionTax;
         let volumeTF = totalVolume * (1 - actionTax);
 
         let action = {
-            type: actionStr,
+            type: order.type,
+            asset: order.asset,
             timestamp: this.lastTimestamp,
             assetPrice: assetPrice,
             volume: totalVolume,
+            volumeAsset: volumeAsset,
             volumeTF: volumeTF,
             volumeEUR: volumeEUR,
             volumeDollar: volumeEUR * 1.08,
@@ -630,8 +691,8 @@ class Trader {
         return action;
     }
 
-    addAction(actionStr) {
-        let transaction = this.getTransaction(actionStr);
+    addAction(order) {
+        let transaction = this.getTransaction(order);
         this.actions.push(transaction);
         this.last30DaysActions.push(transaction);
         this.logTransaction(transaction);

@@ -20,6 +20,9 @@ class WaveTrader extends Trader {
         this.minZoneVolatility = 1.05; // - we observe at least 4% volatility on the period history (150 candles)
 
         this.wait = {};
+
+        this.currentStopLoss = {};
+        this.currentTakeProfit = {};
     }
 
     analysisIntervalLength() {
@@ -94,12 +97,12 @@ class WaveTrader extends Trader {
         return frameTrendDirections;
     }
 
-    getObjective() {
-        return this.currentTakeProfit;
+    getObjective(asset) {
+        return this.currentTakeProfit[asset];
     }
 
-    getStopLoss() {
-        return this.currentStopLoss;
+    getStopLoss(asset) {
+        return this.currentStopLoss[asset];
     }
 
     // decide for an action
@@ -107,13 +110,13 @@ class WaveTrader extends Trader {
         // BUY when at the lowest of the wave
         // SELL with stoploss/takeprofit
         try {
-            if (this.wait[asset] && this.wait[asset] > 0) {
-                this.wait[asset]--;
-                this.log('waiting after recent stoploss');
-                return this.hold();
-            }
-
             if (!this.isInTrade(asset)) {
+                if (this.wait[asset] && this.wait[asset] > 0) {
+                    this.wait[asset]--;
+                    // this.log('waiting after recent stoploss');
+                    return this.hold();
+                }
+
                 let enterPrice = price.marketBuy;
 
                 // first, check if price has dropped significantly
@@ -146,24 +149,24 @@ class WaveTrader extends Trader {
                     throw "enterPrice should not be undefined";
                 }
 
-                if (!this.currentStopLoss || !this.currentTakeProfit) {
+                if (!this.currentStopLoss[asset] || !this.currentTakeProfit[asset]) {
                     let taxes = this.getBuyTax() + this.getSellTax();
                     let atr = this.getATR(candles);
-                    this.currentStopLoss = enterPrice * (1 - this.risk - atr + taxes);
-                    this.currentTakeProfit = enterPrice * (1 + this.risk + atr + taxes);
+                    this.currentStopLoss[asset] = enterPrice * (1 - this.risk - atr + taxes);
+                    this.currentTakeProfit[asset] = enterPrice * (1 + this.risk + atr + taxes);
                     // console.log(`Setting ATR=${atr} SL=${this.currentStopLoss} TP=${this.currentTakeProfit}`);
                 }
 
-                if (price.marketSell >= this.getObjective()) {
-                    this.log('Position hit take profit');
-                    this.currentStopLoss = null;
-                    this.currentTakeProfit = null;
+                if (price.marketSell >= this.getObjective(asset)) {
+                    this.log(`${asset} position hit take profit`);
+                    this.currentStopLoss[asset] = null;
+                    this.currentTakeProfit[asset] = null;
                     return this.sell();
-                } else if (price.lastTraded <= this.getStopLoss()) {
-                    this.log('Position hit stoploss');
+                } else if (price.lastTraded <= this.getStopLoss(asset)) {
+                    this.log(`${asset} position hit stoploss`);
                     this.wait[asset] = 300; // wait 5h
-                    this.currentStopLoss = null;
-                    this.currentTakeProfit = null;
+                    this.currentStopLoss[asset] = null;
+                    this.currentTakeProfit[asset] = null;
                     return this.sell();
                 } else {
                     return this.hold();

@@ -77,45 +77,51 @@ class Statistics {
         }
     }
 
-    logTransaction() {
+    logTransaction(transaction) {
         if (this.conditionVerified()) {
-            let lastAction = this.trader.getLastAction();
-            this.transactions.push(_.clone(lastAction));
+            this.transactions.push(_.clone(transaction));
         }
     }
 
     getTrades() {
         let trades = [];
 
-        let lastAction = null;
+        let lastAction = {};
         let actions = _.sortBy(this.transactions, a => a.timestamp);
         _.each(actions, action => {
             if (action.type == "BUY" || action.type == "BID") {
-                lastAction = action;
+                lastAction[action.asset] = action;
             } else if (action.type == "SELL" || action.type == "ASK") {
-                if (lastAction) {
-                    let totalTax = lastAction.totalTax + action.totalTax;
-                    let beforeTrade = lastAction.volumeEUR;
+                let buyAction = lastAction[action.asset];
+                if (buyAction) {
+                    let totalTax = buyAction.totalTax + action.totalTax;
+                    let beforeTrade = buyAction.volumeEUR;
                     let afterTrade = action.volumeEUR - action.totalTax;
                     let roi = afterTrade / beforeTrade;
                     let trade = {
-                        enterPrice: lastAction.assetPrice,
+                        enterPrice: buyAction.assetPrice,
                         exitPrice: action.assetPrice,
-                        volume: lastAction.volumeEUR + action.volumeEUR,
-                        taxRatio: lastAction.tax + action.tax,
+                        volume: buyAction.volumeEUR + action.volumeEUR,
+                        taxRatio: buyAction.tax + action.tax,
                         totalTax: totalTax,
                         gain: afterTrade - beforeTrade,
                         roi: roi,
                         timestamp: action.timestamp
                     };
 
+                    console.log(buyAction);
+                    console.log(action);
+                    console.log(trade);
+
                     // console.log('beforeTrader:', beforeTrade, 'afterTrade:', afterTrade);
                     // console.log(JSON.stringify(trade, null, 2));
                     trades.push(trade);
-                    lastAction = null;
+                    lastAction[action.asset] = null;
                 }
             }
         });
+
+        //console.log(trades);
 
         return trades;
     }
@@ -130,7 +136,7 @@ class Statistics {
 
         return {
             assets: assets,
-            cumulatedGain: _.sumBy(trades, t => t.gain),
+            cumulatedGain: _.sumBy(trades, t => t.gain) - config.getStartFund(),
             avgROI: _.meanBy(trades, t => t.roi) || 0,
             totalROI: totalROI,
             winLossRatio: (nbPositiveTrades / trades.length) || 0,
@@ -206,7 +212,7 @@ class Statistics {
         console.log(`      ${label}`);
         console.log(`      gain: ${s.cumulatedGain} win/loss: ${s.winLossRatio} avg ROI: ${s.avgROI}`);
         console.log(`      ${trades.nbTrades} trades, ${trades.nbPositiveTrades} won, ${trades.nbNegativeTrades} lost, avg tax: ${trades.avgTax.toFixed(2)}€`);
-        console.log(`      ${trades.nbBuy} buy, ${trades.nbSell} sell, ${trades.nbBid} bid, ${trades.nbAsk} ask, ${trades.nbHold} hold (${trades.nbHoldIn} in, ${trades.nbHoldOut} out)`);
+        console.log(`      ${trades.nbBuy} buy signal, ${trades.nbSell} sell signal, ${trades.nbBid} bid signal, ${trades.nbAsk} ask signal, ${trades.nbHold} hold (${trades.nbHoldIn} in, ${trades.nbHoldOut} out)`);
     }
 }
 
