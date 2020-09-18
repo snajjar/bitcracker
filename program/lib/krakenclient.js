@@ -1665,6 +1665,28 @@ class KrakenREST {
         return parseFloat(lastBuy.price);
     }
 
+    getCurrentTradesInfos() {
+        let infos = {};
+        let buys = _.filter(this.closedOrders, o => o.descr.type == "buy");
+        let sortedBuys = _.sortBy(buys, o => o.closetm);
+        sortedBuys = _.reverse(sortedBuys);
+
+        _.each(_.keys(this.wallet.assets), asset => {
+            if (this.wallet.value(asset) > 10 && asset !== this.wallet.getMainCurrency()) {
+                // retrieve the buy price from the last orders
+                let buy = _.find(sortedBuys, b => b.descr.pair == `${asset}EUR`);
+                let buyPrice = parseFloat(buy.price);
+                infos[asset] = {
+                    "enterPrice": buyPrice,
+                    "enterTimestamp": parseInt(buy.closetm),
+                }
+            }
+        });
+
+        //return parseFloat(lastBuy.price);
+        return infos;
+    }
+
     lastSellPrice() {
         let buys = _.filter(this.closedOrders, o => o.descr.type == "sell");
         let sortedBuys = _.sortBy(buys, o => o.closetm);
@@ -1695,6 +1717,7 @@ var main = async function() {
     k.wallet.setAmount('EUR', 1000);
     await k.synchronize(); // get server time delay
     k.setHistorySize(10);
+
     k.onNewCandle((asset, candle) => {
         let lastTraded = candle.close;
         let marketBuy = k.estimateBuyPrice(asset, 1000);

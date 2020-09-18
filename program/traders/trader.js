@@ -234,7 +234,7 @@ class Trader {
     }
 
     // enterTradePrices: dictionnary of price at which we entered the trades
-    setBalance(wallet, enterTradePrices) {
+    setBalance(wallet, tradesInfos) {
         this.wallet = Wallet.clone(wallet);
 
         // check if we are currently in trade
@@ -243,15 +243,23 @@ class Trader {
             let value = this.wallet.value(asset);
 
             // everything with value > 10€ is tradable
-            if (value > 10) {
-                let enterPrice = enterTradePrices[asset];
-                console.log(`Trader is trading ${maxAsset}, entered at ${enterPrice}`);
-                this.currentTrades.push({
+            if (value > 10 && asset !== this.wallet.getMainCurrency()) {
+                let infos = tradesInfos[asset];
+                if (!infos) {
+                    throw "Could not retrieve trade infos for asset " + asset;
+                }
+
+                let enterPrice = tradesInfos[asset].enterPrice;
+                console.log(`Trader is trading ${asset}, entered at ${enterPrice}`);
+                this.currentTrades[asset] = {
                     asset: asset,
-                    enterPrice: enterPrice
-                });
+                    enterPrice: infos.enterPrice,
+                    timestamp: infos.enterTimestamp,
+                };
             }
         });
+
+        console.log(this.currentTrades);
     }
 
     recomputeTaxes() {
@@ -361,8 +369,6 @@ class Trader {
 
             this.currentTrades[asset] = null;
             this.log(`- SELL ${_amount(assetAmount)} of ${asset.cyan} at ${_price(assetPrice)}:  ${_price(gain)} (${_price(this.wallet.value())})`);
-
-            this.wallet.display();
         }
     }
 

@@ -97,6 +97,21 @@ class WaveTrader extends Trader {
         return frameTrendDirections;
     }
 
+    defineSLTP(asset, candles) {
+        if (!this.currentStopLoss[asset] || !this.currentTakeProfit[asset]) {
+            let enterPrice = this.getCurrentTradeEnterPrice(asset);
+            if (enterPrice === null) {
+                throw "enterPrice should not be undefined";
+            }
+
+            let taxes = this.getBuyTax() + this.getSellTax();
+            let atr = this.getATR(candles);
+            this.currentStopLoss[asset] = enterPrice * (1 - this.risk - atr + taxes);
+            this.currentTakeProfit[asset] = enterPrice * (1 + this.risk + atr + taxes);
+            // console.log(`Setting ATR=${atr} SL=${this.currentStopLoss} TP=${this.currentTakeProfit}`);
+        }
+    }
+
     getObjective(asset) {
         return this.currentTakeProfit[asset];
     }
@@ -144,17 +159,8 @@ class WaveTrader extends Trader {
                 }
                 // return this.hold();
             } else {
-                let enterPrice = this.getCurrentTradeEnterPrice(asset);
-                if (enterPrice === null) {
-                    throw "enterPrice should not be undefined";
-                }
-
                 if (!this.currentStopLoss[asset] || !this.currentTakeProfit[asset]) {
-                    let taxes = this.getBuyTax() + this.getSellTax();
-                    let atr = this.getATR(candles);
-                    this.currentStopLoss[asset] = enterPrice * (1 - this.risk - atr + taxes);
-                    this.currentTakeProfit[asset] = enterPrice * (1 + this.risk + atr + taxes);
-                    // console.log(`Setting ATR=${atr} SL=${this.currentStopLoss} TP=${this.currentTakeProfit}`);
+                    this.defineSLTP(asset, candles);
                 }
 
                 if (price.marketSell >= this.getObjective(asset)) {

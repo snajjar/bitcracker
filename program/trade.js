@@ -84,7 +84,7 @@ const trade = async function(name, fake) {
         console.log('[*] Refreshing trader data');
         await k.refreshAccount();
         // console.log('[*] Last buy price=', k.lastBuyPrice());
-        trader.setBalance(k.wallet, k.lastBuyPrice());
+        trader.setBalance(k.wallet, k.getCurrentTradesInfos());
         trader.setTradeVolume(k.tradeVolume);
     }
 
@@ -92,12 +92,12 @@ const trade = async function(name, fake) {
         let lastTradeStr = "",
             objectiveStr = "",
             stopLossStr = "";
-        if (trader.isInTrade() && trader.getCurrentTradeAsset() == asset) {
+        if (trader.isInTrade(asset)) {
             lastTradeStr = ` lastBuy=${price(k.lastBuyPrice() || 0)}`;
-            objectiveStr = trader.getObjective && trader.getObjective() !== null ? ` objective=${price(trader.getObjective())}` : "";
-            stopLossStr = trader.getStopLoss && trader.getStopLoss() !== null ? ` sl=${price(trader.getStopLoss())}` : "";
+            objectiveStr = trader.getObjective && trader.getObjective() ? ` objective=${price(trader.getObjective())}` : "";
+            stopLossStr = trader.getStopLoss && trader.getStopLoss() ? ` sl=${price(trader.getStopLoss())}` : "";
         }
-        console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} asset=${trader.currentAsset} inTrade=${trader.isInTrade().toString().cyan}${lastTradeStr}${objectiveStr}${stopLossStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
+        console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} asset=${trader.currentAsset} inTrade=${trader.isInTrade(asset).toString().cyan}${lastTradeStr}${objectiveStr}${stopLossStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
     }
 
     let waitForOrderCompletion = async function() {
