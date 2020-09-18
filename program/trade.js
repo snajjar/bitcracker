@@ -94,8 +94,8 @@ const trade = async function(name, fake) {
             stopLossStr = "";
         if (trader.isInTrade(asset)) {
             lastTradeStr = ` lastBuy=${price(k.lastBuyPrice() || 0)}`;
-            objectiveStr = trader.getObjective && trader.getObjective() ? ` objective=${price(trader.getObjective())}` : "";
-            stopLossStr = trader.getStopLoss && trader.getStopLoss() ? ` sl=${price(trader.getStopLoss())}` : "";
+            objectiveStr = trader.getObjective && trader.getObjective(asset) ? ` objective=${price(trader.getObjective(asset))}` : "";
+            stopLossStr = trader.getStopLoss && trader.getStopLoss(asset) ? ` sl=${price(trader.getStopLoss(asset))}` : "";
         }
         console.log(`[*] ${k.fake ? "(FAKE) " : ""}Trader (${trader.hash()}): ${action.yellow} asset=${trader.currentAsset} inTrade=${trader.isInTrade(asset).toString().cyan}${lastTradeStr}${objectiveStr}${stopLossStr} tv=${HRNumbers.toHumanString(trader.get30DaysTradingVolume())}, ${traderStatusStr(trader)}`);
     }
