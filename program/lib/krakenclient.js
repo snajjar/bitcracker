@@ -1158,18 +1158,14 @@ class KrakenREST {
         let candles = this.getPriceCandles(asset);
         let estimation = "";
         let lastCandle = _.last(candles);
-        if (this.wallet.getMaxAsset() == asset) {
+        if (this.wallet.value(asset) > 10) {
             let marketSellPrice = this.estimateSellPrice(asset);
             let spread = (marketSellPrice - lastCandle.close) / lastCandle.close;
             estimation = `market_sell=${priceYellow(marketSellPrice)} spread=${percentage(spread)}`
         } else {
-            if (this.wallet.getMaxAsset() == this.wallet.getMainCurrency()) {
-                let marketBuyPrice = this.estimateBuyPrice(asset);
-                let spread = (lastCandle.close - marketBuyPrice) / lastCandle.close;
-                estimation = `market_buy=${priceYellow(marketBuyPrice)} spread=${percentage(spread)}`;
-            } else {
-                estimation = ""; // we don't need an estimation for this asset
-            }
+            let marketBuyPrice = this.estimateBuyPrice(asset);
+            let spread = (lastCandle.close - marketBuyPrice) / lastCandle.close;
+            estimation = `market_buy=${priceYellow(marketBuyPrice)} spread=${percentage(spread)}`;
         }
 
         console.log(`[*] ${moment().format('DD/MM/YY hh:mm:ss')} ${asset}: ${price(candles[candles.length-4].close)} -> ` +
