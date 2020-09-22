@@ -44,7 +44,7 @@ const priceStr = function(p) {
     } else if (p > 0) {
         return (p.toFixed(4) + '€')
     } else {
-        return p;
+        return new String(p);
     }
 };
 

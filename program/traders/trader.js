@@ -258,8 +258,6 @@ class Trader {
                 };
             }
         });
-
-        console.log(this.currentTrades);
     }
 
     recomputeTaxes() {
