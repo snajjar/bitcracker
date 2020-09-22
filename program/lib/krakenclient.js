@@ -41,8 +41,10 @@ const priceStr = function(p) {
         return (p.toFixed(2) + '€')
     } else if (p > 10) {
         return (p.toFixed(3) + '€')
-    } else {
+    } else if (p > 0) {
         return (p.toFixed(4) + '€')
+    } else {
+        return p;
     }
 };
 
