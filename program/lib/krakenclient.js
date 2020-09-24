@@ -602,17 +602,21 @@ class KrakenWebSocket extends EventEmitter {
                 }
             }
 
-            // now compute our avg buy price
-            let sum = 0;
-            let volume = 0;
-            _.each(sellers, seller => {
-                sum += seller.price * seller.volume;
-                volume += seller.volume;
-            });
+            if (sellers.length == 1) {
+                return sellers[0].price;
+            } else {
+                // now compute our avg buy price
+                let sum = 0;
+                let volume = 0;
+                _.each(sellers, seller => {
+                    sum += seller.price * seller.volume;
+                    volume += seller.volume;
+                });
 
-            // console.log(JSON.stringify(sellers, null, 2));
-            let estimatedBuyPrice = sum / volume || null;
-            return estimatedBuyPrice;
+                // console.log(JSON.stringify(sellers, null, 2));
+                let estimatedBuyPrice = sum / volume || null;
+                return estimatedBuyPrice;
+            }
         } else {
             return null;
         }
