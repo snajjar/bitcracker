@@ -488,7 +488,7 @@ class KrakenWebSocket extends EventEmitter {
         if (checksum && checksum !== bookChecksum) {
             //this.displayOrderBook(asset);
             if (this.isSubscribed(asset, "book")) {
-                console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
+                // console.error(`[*] Checksum mismatch on book ${asset}: expected ${checksum} but got ${bookChecksum}, reset subscription`);
                 await this.resetBook(asset);
             } else {
                 // re-subscription must be currently ongoing, do nothing
@@ -769,7 +769,7 @@ class KrakenWebSocket extends EventEmitter {
                         this._onFirstBookUpdate[asset] = (bookAsset) => {
                             if (bookAsset == asset) {
                                 this._onFirstBookUpdate[asset] = null; // free the cb
-                                console.log(`[*] subscribed to ${asset} book`);
+                                // console.log(`[*] subscribed to ${asset} book`);
                                 resolve();
                             }
                         };
@@ -837,7 +837,7 @@ class KrakenWebSocket extends EventEmitter {
                         //console.log(`subscribed to ${asset} book`);
                         _.set(this.subscriptions, [asset, "ohlc"], payload.channelID);
                         this._onOHLCSubscriptionChanged[asset] = null; // free the cb
-                        console.log(`[*] subscribed to ${asset} OHLC`);
+                        // console.log(`[*] subscribed to ${asset} OHLC`);
                         resolve();
                     }
                 };
@@ -868,7 +868,6 @@ class KrakenWebSocket extends EventEmitter {
                 }));
 
                 this._onOHLCSubscriptionChanged[asset] = (payload) => {
-                    console.log(payload);
                     let isRightPair = _.get(payload, ["pair"]) == `${asset}/EUR` || _.get(payload, ["pair"]) == `${asset}EUR`;
                     let isOHLC = _.get(payload, ["subscription", "name"]) == "ohlc";
                     let status = _.get(payload, ["status"]);
@@ -899,7 +898,7 @@ class KrakenWebSocket extends EventEmitter {
         try {
             await this._subscribeOHLC(asset);
         } catch (e) {
-            console.log(`[*] retrying book subscription for ${asset}`);
+            // console.log(`[*] retrying book subscription for ${asset}`);
             await this._unsubscribeOHLC(asset);
             await this.subscribeOHLC(asset);
         }
@@ -910,7 +909,7 @@ class KrakenWebSocket extends EventEmitter {
         try {
             await this._unsubscribeOHLC(asset);
         } catch (e) {
-            console.log(`[*] retrying book unsubscription for ${asset}`);
+            // console.log(`[*] retrying book unsubscription for ${asset}`);
             await this.unsubscribeOHLC(asset);
         }
     }
